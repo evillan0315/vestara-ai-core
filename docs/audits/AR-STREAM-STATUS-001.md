@@ -1,3 +1,12 @@
+---
+title: AR STREAM STATUS 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-STREAM-STATUS-001 — Activity Stream Connectivity Semantics Audit
 
 Audit mode: read-only. No production code, database, API process, browser

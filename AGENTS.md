@@ -63,13 +63,13 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 - **Boundaries** (`scripts/workspace-architecture.mjs`): packages must not depend on `apps/*`; packages must not depend on `@vestara/workspace` (except `@vestara/evaluation`); no deep internal imports; no undeclared internal deps; no dependency cycles.
 - **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `src/` or `__tests__/` in `apps/` or `packages/` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
-- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant|browser`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
+- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant|browser`. Rendered to all 4 runtimes via `scripts/agents-sync.mjs` — `.opencode/agents/*.md` (OpenCode) + `.codex/agents/*.md` + root `AGENTS.md` (Codex) + `.claude/agents/*.md` + root `CLAUDE.md` (Claude Code) + `.gemini/agents/*.md` + root `GEMINI.md` (Gemini CLI) — from one provider-agnostic core prompt plus optional per-target adapter addenda (`AgentTarget = 'opencode' | 'codex' | 'claude' | 'gemini'`). Root `CLAUDE.md` / `GEMINI.md` mirror `opencode.json` instructions (never hand-maintained duplicates); `AGENTS.md` carries only a synced managed block. Never hand-edit any generated file or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
 - **OpenCode contracts**: `packages/opencode-runtime/src/generated/opencode-contracts.ts` is generated (gitignored) — never hand-edit. Refresh with `pnpm --filter @vestara/opencode-runtime opencode:spec:update` (fetch + generate + check); CI validates against the pinned schema.
 - **Docs governance**: `pnpm docs:validate` / `pnpm docs:govern` (strict), `pnpm documentation:check` (CI baseline drift gate). Don't add instruction files better stored via `opencode.json` `instructions`.
 
 ## CI (`/.github/workflows/ci.yml`)
 
-`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
+`install --frozen-lockfile` → `dependencies:check` → `agents:check` (all 4 runtimes: OpenCode + Codex + Claude + Gemini) → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
 
 ## Runtime Env
 
@@ -182,3 +182,25 @@ Observed runtime state (2026-09-11):
 - `/api/providers` remains backward-compatible with 213 providers / 7,602 models.
 - Configured providers: 3, configured models: 145 (observed counts, not architectural constants).
 - **Do not claim selected provider/model execution provenance is established unless evidence actually proves the selected identifiers reached execution.**
+
+<!-- AGENTS-SYNC:MANAGED-START — do not hand-edit this block. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->
+
+## Agent Runtimes (managed by `pnpm agents:sync`)
+
+Single source of truth: `packages/workspace/src/agents.registry.ts` (7 canonical agents).
+
+Rendered targets (identical core prompts, per-target adapter addenda only):
+
+- `opencode` → `.opencode/agents/<agent>.md`
+- `codex` → `.codex/agents/<agent>.md`
+- `claude` → `.claude/agents/<agent>.md`
+- `gemini` → `.gemini/agents/<agent>.md`
+
+Root instruction files mirror `opencode.json` instructions (never hand-maintained duplicates):
+
+- `AGENTS.md`
+- `docs/governance/UI-UX-GOVERNANCE.md`
+
+Never hand-edit generated agent files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
+
+<!-- AGENTS-SYNC:MANAGED-END -->

@@ -33,6 +33,13 @@ export interface FileEntry {
   readonly children?: readonly FileEntry[];
 }
 
+/** Browser type facet (All / Files / Folders / Code / Docs). */
+export type FilesFacet = 'all' | 'file' | 'dir' | 'code' | 'docs';
+/** Directory sort order. */
+export type FilesSort = 'name' | 'modified' | 'size';
+/** Directory density. */
+export type FilesDensity = 'list' | 'grid';
+
 export interface FilesDirSize {
   readonly dir: string;
   readonly size: number;

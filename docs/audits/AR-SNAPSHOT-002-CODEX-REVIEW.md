@@ -1,3 +1,12 @@
+---
+title: AR SNAPSHOT 002 CODEX REVIEW
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-SNAPSHOT-002 — Independent Acceptance Review
 
 Status: independent review only. No production source, tests, database,

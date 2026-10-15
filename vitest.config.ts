@@ -55,13 +55,22 @@ export default defineConfig({
     // The Vitest runner will start from a clean baseline (zero tests).
     // A new test suite will populate these patterns when ready.
     passWithNoTests: true,
-    pool: 'forks',
-    maxWorkers: 2,
+    // Threads pool is faster than forks for unit tests (lighter weight,
+    // no process spawn overhead). Forks may be needed if tests require
+    // process isolation (e.g., native addons, process.exit).
+    pool: 'threads',
+    maxWorkers: 4,
+    minWorkers: 1,
     testTimeout: 15000,
     // Ownership boundary (TEST-PERF-001A): Playwright owns
-    // apps/workspace/tests/visual/**/*.spec.ts (mirrors the app-local
+    // apps/workspace/tests/visual/**/*.spec.ts and
+    // apps/workspace/tests/e2e/**/*.spec.ts (mirrors the app-local
     // vite.config.ts exclude). Without this, @playwright/test specs are
     // collected by Vitest and can hang/fail on constrained runners.
-    exclude: [...configDefaults.exclude, 'apps/workspace/tests/visual/**/*.spec.ts'],
+    exclude: [
+      ...configDefaults.exclude,
+      'apps/workspace/tests/visual/**/*.spec.ts',
+      'apps/workspace/tests/e2e/**/*.spec.ts',
+    ],
   },
 });

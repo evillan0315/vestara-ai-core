@@ -1,8 +1,9 @@
 /**
  * Marketplace Discover — marketplace-discover-modules-grid.png reference.
  *
- * Layout: page heading → tabs (MarketplaceLayout) → hero + benefits →
- * category toolbar + sort → Featured (3) → All Items (4-col) + right rail
+ * Layout: page heading → tabs (MarketplaceLayout) → hero row
+ * (Build More 3/4 + benefits 1/4) → 2-column body: main
+ * (filter toolbar + sort → Featured → All Items) + right sidebar
  * (Popular Categories, Latest Releases, Publish CTA).
  *
  * Data: live registry first; the 11 reference cards and sidebar rows in
@@ -59,18 +60,42 @@ function relativeTime(iso: string): string {
   return months === 1 ? '1 month ago' : `${months} months ago`;
 }
 
+/** Canonical VestaraPackageType normalization for pre-alignment registry data. */
+function normalizePackageType(type: string): string {
+  switch (type) {
+    case 'agent':
+    case 'skill':
+    case 'workflow':
+      return 'agent-pack';
+    case 'command':
+    case 'tool':
+      return 'plugin';
+    case 'mcp-server':
+    case 'mcpserver':
+      return 'integration';
+    case 'template':
+    case 'ui':
+    case 'component':
+      return 'theme';
+    case 'system':
+      return 'standards-pack';
+    default:
+      return type;
+  }
+}
+
 function matchesCategory(asset: MarketplaceAsset, filterId: string): boolean {
   if (filterId === 'all') return true;
   const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === filterId);
-  if (!filter) return true;
-  const haystack = `${asset.type} ${asset.tags.join(' ')} ${asset.displayName}`.toLowerCase();
-  return filter.match.some((fragment) => haystack.includes(fragment));
+  if (!filter) return normalizePackageType(asset.type) === filterId;
+  return filter.match.includes(normalizePackageType(asset.type));
 }
 
 function filterIdForCategoryName(name: string): string {
   const lower = name.toLowerCase();
+  const normalized = normalizePackageType(lower);
   const direct = DISCOVER_CATEGORY_FILTERS.find(
-    (f) => f.id === lower || f.label.toLowerCase() === lower || f.match.includes(lower),
+    (f) => f.id === normalized || f.label.toLowerCase() === lower || f.match.includes(normalized),
   );
   return direct ? direct.id : 'all';
 }
@@ -292,162 +317,170 @@ export default function Discover() {
       )}
 
       <div className="mpg-discover">
-          <MarketplaceHero query={query} onQueryChange={setQuery} />
+        <MarketplaceHero query={query} onQueryChange={setQuery} />
 
-          <MarketplaceSection
-            title="Popular Categories"
-            action={
-              <Link to="/marketplace/categories" className="mpg-link">
-                View All
-              </Link>
-            }
-          >
-            {popularCategories.length === 0 ? (
-              <ul className="mpg-category-strip">
-                {POPULAR_CATEGORIES_FIXTURE.map((cat) => (
-                  <li key={cat.name} aria-label={`${cat.name}, ${cat.items} items`}>
-                    <span className="mpg-category-strip-item">
-                      <span className="mpg-category-tile" style={{ background: cat.accent }} aria-hidden="true">
-                        {cat.glyph}
-                      </span>
-                      <span className="mpg-category-strip-name">{cat.name}</span>
-                      <span className="mpg-category-strip-count">{cat.items} items</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+        <div className="mpg-discover-body">
+          <div className="mpg-discover-main">
+            <MarketplaceFilterRow filters={filters} onFilterChange={setCategory} sort={sort} onSortChange={setSort} />
+            {/* Native type selector preserves the single-combobox filter contract (a11y/tests). */}
+            <label className="sr-only" htmlFor="marketplace-type-filter">
+              Filter by type
+            </label>
+            <select
+              id="marketplace-type-filter"
+              aria-label="Filter by type"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              className="mpg-native-select sr-only"
+            >
+              <option value="all">All types</option>
+              {DISCOVER_CATEGORY_FILTERS.filter((f) => f.id !== 'all').map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+
+            {loading ? (
+              <AssetGridSkeleton count={8} />
+            ) : sorted.length === 0 ? (
+              <MarketplaceEmptyState message="No assets found. Try a different search or category." />
             ) : (
-              <ul className="mpg-category-strip">
-                {popularCategories.map((cat) => (
-                  <li key={cat.name}>
-                    <button
-                      type="button"
-                      onClick={() => setCategory(filterIdForCategoryName(cat.name))}
-                      aria-pressed={category === filterIdForCategoryName(cat.name)}
-                      className={`mpg-category-strip-item ${category === filterIdForCategoryName(cat.name) ? 'mpg-category-row-active' : ''}`}
-                    >
-                      <span className="mpg-category-tile" style={{ background: typeAccent(cat.name) }} aria-hidden="true">
-                        ⌘
-                      </span>
-                      <span className="mpg-category-strip-name capitalize">{cat.name}</span>
-                      <span className="mpg-category-strip-count">
-                        {cat.assetCount} item{cat.assetCount === 1 ? '' : 's'}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </MarketplaceSection>
+              <>
+                {featured.length > 0 && (
+                  <MarketplaceSection
+                    title="Featured"
+                    action={
+                      <Link to="/marketplace/categories" className="mpg-link">
+                        View All
+                      </Link>
+                    }
+                  >
+                    <div className="mpg-featured-grid">
+                      {featured.map((asset, i) => renderCard(asset, i, true))}
+                    </div>
+                  </MarketplaceSection>
+                )}
 
-          <MarketplaceFilterRow filters={filters} onFilterChange={setCategory} sort={sort} onSortChange={setSort} />
-          {/* Native type selector preserves the single-combobox filter contract (a11y/tests). */}
-          <label className="sr-only" htmlFor="marketplace-type-filter">
-            Filter by type
-          </label>
-          <select
-            id="marketplace-type-filter"
-            aria-label="Filter by type"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            className="mpg-native-select sr-only"
-          >
-            <option value="all">All types</option>
-            {DISCOVER_CATEGORY_FILTERS.filter((f) => f.id !== 'all').map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-
-          {loading ? (
-            <AssetGridSkeleton count={8} />
-          ) : sorted.length === 0 ? (
-            <MarketplaceEmptyState message="No assets found. Try a different search or category." />
-          ) : (
-            <>
-              {featured.length > 0 && (
-                <MarketplaceSection
-                  title="Featured"
-                  action={
-                    <Link to="/marketplace/categories" className="mpg-link">
-                      View All
-                    </Link>
-                  }
-                >
-                  <div className="mpg-featured-grid">
-                    {featured.map((asset, i) => renderCard(asset, i, true))}
+                <MarketplaceSection title={isDefaultView ? 'All Items' : 'Results'}>
+                  <div className="mpg-all-grid">
+                    {gridAssets.map((asset, i) => renderCard(asset, i + featured.length))}
                   </div>
                 </MarketplaceSection>
-              )}
-
-              <MarketplaceSection title={isDefaultView ? 'All Items' : 'Results'}>
-                <div className="mpg-all-grid">
-                  {gridAssets.map((asset, i) => renderCard(asset, i + featured.length))}
-                </div>
-              </MarketplaceSection>
-            </>
-          )}
-          {loading && assets.length > 0 && <MarketplaceLoadingMessage message="Loading marketplace…" />}
-
-        <div className="mpg-bottom-rail">
-          <MarketplaceSidebarCard
-            title="Latest Releases"
-            action={
-              <Link to="/marketplace/updates" className="mpg-link">
-                View All
-              </Link>
-            }
-          >
-            {usingFixtures && latestReleases.length > 0 && assets.length > 0 ? (
-              <ul className="mpg-release-list">
-                {LATEST_RELEASES_FIXTURE.map((release) => (
-                  <li key={`${release.version}-${release.name}`}>
-                    <span className="mpg-release-badge">{release.version}</span>
-                    <span className="mpg-release-name" title={release.name}>
-                      {release.name}
-                    </span>
-                    <span className="mpg-release-time">
-                      {release.daysAgo === 7 ? '1 week ago' : release.daysAgo >= 14 ? '2 weeks ago' : `${release.daysAgo} days ago`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : latestReleases.length === 0 ? (
-              <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">No releases yet.</p>
-            ) : (
-              <ul className="mpg-release-list">
-                {latestReleases.map((asset) => (
-                  <li key={asset.id}>
-                    <span className="mpg-release-badge">v{asset.latestVersion}</span>
-                    <Link
-                      to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
-                      className="mpg-release-name hover:text-[var(--vestara-text-primary)]"
-                      title={asset.displayName}
-                    >
-                      {asset.displayName}
-                    </Link>
-                    <span className="mpg-release-time">{relativeTime(asset.updatedAt)}</span>
-                  </li>
-                ))}
-              </ul>
+              </>
             )}
-          </MarketplaceSidebarCard>
+            {loading && assets.length > 0 && <MarketplaceLoadingMessage message="Loading marketplace…" />}
+          </div>
 
-          <section className="mpg-publish-cta" aria-label="Publish to marketplace">
-            <div className="flex items-center gap-2">
-              <span className="mpg-publish-icon" aria-hidden="true">
-                ◈
-              </span>
-              <h3 className="text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]">Publish Your Creation</h3>
-            </div>
-            <p className="mt-1.5 text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-secondary)]">
-              Share your modules, agents, or templates with the Vestara community.
-            </p>
-            <Link to="/marketplace/publish" className="mpg-publish-btn">
-              Publish to Marketplace →
-            </Link>
-          </section>
+          <aside className="mpg-discover-side" aria-label="Marketplace sidebar">
+            <MarketplaceSidebarCard
+              title="Popular Categories"
+              action={
+                <Link to="/marketplace/categories" className="mpg-link">
+                  View All
+                </Link>
+              }
+            >
+              {popularCategories.length === 0 ? (
+                <ul className="mpg-sidebar-category-list">
+                  {POPULAR_CATEGORIES_FIXTURE.map((cat) => (
+                    <li key={cat.name} aria-label={`${cat.name}, ${cat.items} items`}>
+                      <span className="mpg-category-row">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="mpg-category-tile" style={{ background: cat.accent }} aria-hidden="true">
+                            {cat.glyph}
+                          </span>
+                          <span className="mpg-category-name">{cat.name}</span>
+                        </span>
+                        <span className="mpg-category-count">{cat.items} items</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="mpg-sidebar-category-list">
+                  {popularCategories.map((cat) => (
+                    <li key={cat.name}>
+                      <button
+                        type="button"
+                        onClick={() => setCategory(filterIdForCategoryName(cat.name))}
+                        aria-pressed={category === filterIdForCategoryName(cat.name)}
+                        className={`mpg-category-row ${category === filterIdForCategoryName(cat.name) ? 'mpg-category-row-active' : ''}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="mpg-category-tile" style={{ background: typeAccent(cat.name) }} aria-hidden="true">
+                            ⌘
+                          </span>
+                          <span className="mpg-category-name capitalize">{cat.name}</span>
+                        </span>
+                        <span className="mpg-category-count">
+                          {cat.assetCount} item{cat.assetCount === 1 ? '' : 's'}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </MarketplaceSidebarCard>
+
+            <MarketplaceSidebarCard
+              title="Latest Releases"
+              action={
+                <Link to="/marketplace/updates" className="mpg-link">
+                  View All
+                </Link>
+              }
+            >
+              {usingFixtures && latestReleases.length > 0 && assets.length > 0 ? (
+                <ul className="mpg-release-list">
+                  {LATEST_RELEASES_FIXTURE.map((release) => (
+                    <li key={`${release.version}-${release.name}`}>
+                      <span className="mpg-release-badge">{release.version}</span>
+                      <span className="mpg-release-name" title={release.name}>
+                        {release.name}
+                      </span>
+                      <span className="mpg-release-time">
+                        {release.daysAgo === 7 ? '1 week ago' : release.daysAgo >= 14 ? '2 weeks ago' : `${release.daysAgo} days ago`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : latestReleases.length === 0 ? (
+                <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">No releases yet.</p>
+              ) : (
+                <ul className="mpg-release-list">
+                  {latestReleases.map((asset) => (
+                    <li key={asset.id}>
+                      <span className="mpg-release-badge">v{asset.latestVersion}</span>
+                      <Link
+                        to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
+                        className="mpg-release-name hover:text-[var(--vestara-text-primary)]"
+                        title={asset.displayName}
+                      >
+                        {asset.displayName}
+                      </Link>
+                      <span className="mpg-release-time">{relativeTime(asset.updatedAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </MarketplaceSidebarCard>
+
+            <section className="mpg-publish-cta" aria-label="Publish to marketplace">
+              <div className="flex items-center gap-2">
+                <span className="mpg-publish-icon" aria-hidden="true">
+                  ◈
+                </span>
+                <h3 className="text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]">Publish Your Creation</h3>
+              </div>
+              <p className="mt-1.5 text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-secondary)]">
+                Share your modules, agents, or templates with the Vestara community.
+              </p>
+              <Link to="/marketplace/publish" className="mpg-publish-btn">
+                Publish to Marketplace →
+              </Link>
+            </section>
+          </aside>
         </div>
       </div>
     </MarketplacePage>

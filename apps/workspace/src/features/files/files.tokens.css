@@ -128,6 +128,24 @@
   background: var(--files-editor-textarea-bg);
 }
 
+/* Monaco (vscode-editor) background backstop: the JS-defined theme can go
+   stale or be rejected while palettes change — pin the editor DOM to the
+   deep accent mix so it always renders the selected accent bg dark.
+   Matches the editorBg mix computed in monaco-theme.ts (14% dark / 8%
+   light over the canvas). Scoped !important wins over Monaco's injected
+   theme stylesheet without touching widgets or overlays. */
+.code-editor .monaco-editor,
+.code-editor .monaco-editor-background,
+.code-editor .monaco-editor .margin {
+  background-color: color-mix(in srgb, var(--vestara-accent) 14%, var(--vestara-surface-canvas)) !important;
+}
+
+[data-theme='light'] .code-editor .monaco-editor,
+[data-theme='light'] .code-editor .monaco-editor-background,
+[data-theme='light'] .code-editor .monaco-editor .margin {
+  background-color: color-mix(in srgb, var(--vestara-accent) 8%, var(--vestara-surface-canvas)) !important;
+}
+
 .code-editor-edit textarea,
 .code-viewer-body pre {
   margin: 0;

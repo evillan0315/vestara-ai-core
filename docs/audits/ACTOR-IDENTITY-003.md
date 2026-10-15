@@ -1,3 +1,12 @@
+---
+title: ACTOR IDENTITY 003
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # ACTOR-IDENTITY-003 — Canonical Human ActorContext Propagation Audit
 
 Status: audit-only, completed 2026-09-25

@@ -574,10 +574,10 @@ export function MarketplaceSection({ title, action, children }: MarketplaceSecti
 }
 
 // ─── v2 Hero ──────────────────────────────────────────────────────
-// Reference (marketplace-discover-modules-grid.png): "Build More with
-// Vestara" hero panel with inline search + futuristic blue geometric
-// artwork (floating translucent cubes, central Vestara-branded cube),
-// and a separate narrow workspace-benefits card immediately to its right.
+// Discover hero row: "Build More with Vestara" panel (3/4) with inline
+// search + futuristic blue geometric artwork (floating translucent
+// cubes, central Vestara-branded cube), and the workspace-benefits
+// card (Extend your workspace…) at 1/4 on its right (stacked on mobile).
 //
 // Artwork note: no matching hero asset exists in the repo (searched
 // assets/, apps/workspace/public/, apps/workspace/src — only the gold

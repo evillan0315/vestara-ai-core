@@ -62,17 +62,24 @@ export const COLOR = {
   },
 
   // Surface colors (VES-DESIGN-002 §P)
+  // Accent-aligned: every surface carries a cast of the user-selected
+  // accent palette via var(--vestara-accent) (set at runtime by
+  // apps/workspace theme.tsx), mixed over the neutral zinc base.
+  // Percentages stay small so surfaces read neutral with an accent
+  // atmosphere — raise them to push the theme harder. The composer
+  // gradient binds the surface vars so it follows automatically.
   surface: {
-    canvas: '#09090b',
-    shell: '#18181b',
-    panel: '#1e1e22',
-    panelRaised: '#27272a',
-    composer: 'linear-gradient(to top, #09090b, #09090b 55%, #1e1e22)',
+    canvas: 'color-mix(in srgb, var(--vestara-accent) 4%, #09090b)',
+    shell: 'color-mix(in srgb, var(--vestara-accent) 5%, #18181b)',
+    panel: 'color-mix(in srgb, var(--vestara-accent-bg) 70%, transparent)',
+    panelRaised: 'color-mix(in srgb, var(--vestara-accent) 8%, #27272a)',
+    composer:
+      'linear-gradient(to top, var(--vestara-surface-canvas), var(--vestara-surface-canvas) 55%, var(--vestara-surface-panel))',
     assistant:
       'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
-    overlay: 'rgba(0, 0, 0, 0.8)',
-    interactive: '#27272a',
-    interactiveHover: '#3f3f46',
+    overlay: 'color-mix(in srgb, var(--vestara-accent) 6%, rgba(0, 0, 0, 0.8))',
+    interactive: 'color-mix(in srgb, var(--vestara-accent) 8%, #27272a)',
+    interactiveHover: 'color-mix(in srgb, var(--vestara-accent) 12%, #3f3f46)',
   },
 
   // Text colors (VES-DESIGN-002 §I)
@@ -84,8 +91,11 @@ export const COLOR = {
   },
 
   // Border colors (VES-DESIGN-002 §I)
+  // Subtle hairlines follow the selected accent palette via
+  // var(--vestara-accent-border) (set at runtime by theme.tsx),
+  // so dividers and card edges carry the theme cast.
   border: {
-    subtle: '#27272a',
+    subtle: 'var(--vestara-accent-border)',
     default: '#3f3f46',
     strong: '#52525b',
     focus: '#f59e0b',

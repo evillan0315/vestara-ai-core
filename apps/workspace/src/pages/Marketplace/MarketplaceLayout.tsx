@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import '../../styles/marketplace.css';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import AssetDetail from './AssetDetail.js';
@@ -7,37 +7,119 @@ import Capabilities from './Capabilities.js';
 import Categories from './Categories.js';
 import Collections from './Collections.js';
 import Discover from './Discover.js';
+import ExtractorPage from './Extractor/ExtractorPage.js';
 import Installed from './Installed.js';
 import OperationCenter from './OperationCenter.js';
 import Publish from './Publish.js';
 import Registries from './Registries.js';
 import Updates from './Updates.js';
 
-/** Primary tabs mirror the Discover reference (Discover-first gallery). */
-const PRIMARY_TABS = [
-  { to: '/marketplace', label: 'Discover', end: true },
-  { to: '/marketplace/installed', label: 'Installed', end: false },
-  { to: '/marketplace/updates', label: 'Updates', end: false },
-  { to: '/marketplace/collections', label: 'My Collections', end: false },
+interface MarketplaceTab {
+  to: string;
+  label: string;
+  end?: boolean;
+  description: string;
+}
+
+/** Single underline tab row — every destination is a first-class tab. */
+const TABS: MarketplaceTab[] = [
+  {
+    to: '/marketplace',
+    label: 'Discover',
+    end: true,
+    description: 'Discover and install modules, agents, templates, and tools to extend your Vestara workspace.',
+  },
+  {
+    to: '/marketplace/categories',
+    label: 'Categories',
+    description: 'Browse assets by category to discover what’s available.',
+  },
+  {
+    to: '/marketplace/capabilities',
+    label: 'Capabilities',
+    description: 'Inspect Vestara’s capability inventory — what’s active, parked, and available.',
+  },
+  {
+    to: '/marketplace/installed',
+    label: 'Installed',
+    description: 'Manage installed packages — verify, update, enable, or remove.',
+  },
+  {
+    to: '/marketplace/updates',
+    label: 'Updates',
+    description: 'Review and apply available package updates.',
+  },
+  {
+    to: '/marketplace/collections',
+    label: 'My Collections',
+    description: 'Curate installed modules, agents, templates, and tools into your own collections.',
+  },
+  {
+    to: '/marketplace/publish',
+    label: 'Publish',
+    description: 'Publish a package directory into the marketplace — validated, content-addressed, and indexed.',
+  },
+  {
+    to: '/marketplace/registries',
+    label: 'Registries',
+    description: 'Monitor registry health and manage package sources.',
+  },
+  {
+    to: '/marketplace/extractor',
+    label: 'Extractor',
+    description: 'Drop a single-file React artifact and inspect it as an editable component library.',
+  },
 ];
 
-/** Advanced destinations stay reachable; they are not primary Discover tabs. */
-const SECONDARY_LINKS = [
-  { to: '/marketplace/capabilities', label: 'Capabilities' },
-  { to: '/marketplace/categories', label: 'Categories' },
-  { to: '/marketplace/publish', label: 'Publish' },
-  { to: '/marketplace/registries', label: 'Registries' },
-];
+const ASSET_DETAIL_DESCRIPTION = 'Inspect asset details, versions, and install options.';
+
+function renderTab(
+  tab: MarketplaceTab,
+  badge: { installedCount: number | null; updateCount: number },
+) {
+  return (
+    <NavLink
+      key={tab.to}
+      to={tab.to}
+      end={tab.end}
+      className={({ isActive }) => `mpg-market-tab ${isActive ? 'mpg-market-tab-active' : ''}`}
+    >
+      {tab.label}
+      {tab.label === 'Installed' && badge.installedCount !== null && badge.installedCount > 0 && (
+        <span className="mpg-tab-count" aria-label={`${badge.installedCount} installed`}>
+          {badge.installedCount}
+        </span>
+      )}
+      {tab.label === 'Updates' && badge.updateCount > 0 && (
+        <span className="mpg-tab-count" aria-label={`${badge.updateCount} updates available`}>
+          {badge.updateCount}
+        </span>
+      )}
+    </NavLink>
+  );
+}
 
 export default function MarketplaceLayout() {
+  const { pathname } = useLocation();
   const [updateCount, setUpdateCount] = useState(0);
+  const [installedCount, setInstalledCount] = useState<number | null>(null);
 
   useEffect(() => {
     marketplaceClient
       .updates()
       .then((updates) => setUpdateCount(updates.length))
       .catch(() => {});
+    marketplaceClient
+      .installed()
+      .then((installed) => setInstalledCount(installed.length))
+      .catch(() => {});
   }, []);
+
+  const activeTab = TABS.find((tab) =>
+    tab.end ? pathname === tab.to : pathname === tab.to || pathname.startsWith(`${tab.to}/`),
+  );
+  const description = activeTab?.description ?? ASSET_DETAIL_DESCRIPTION;
+  const badge = { installedCount, updateCount };
 
   return (
     <div className="mpg-page w-full min-w-0 space-y-3 p-[var(--vestara-spacing-page)]">
@@ -47,34 +129,11 @@ export default function MarketplaceLayout() {
           Discover hides its own duplicate via MarketplacePage hideHeader. */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--vestara-text-primary)]">Marketplace</h1>
-        <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">
-          Discover and install modules, agents, templates, and tools to extend your Vestara workspace.
-        </p>
+        <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">{description}</p>
       </div>
       <header className="mpg-market-header relative z-[2]">
         <nav className="mpg-market-tabs" aria-label="Marketplace sections">
-          {PRIMARY_TABS.map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              end={tab.end}
-              className={({ isActive }) => `mpg-market-tab ${isActive ? 'mpg-market-tab-active' : ''}`}
-            >
-              {tab.label}
-              {tab.label === 'Updates' && updateCount > 0 && (
-                <span className="mpg-tab-badge" aria-label={`${updateCount} updates available`}>
-                  {updateCount}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <nav className="mpg-market-advanced" aria-label="Advanced marketplace sections">
-          {SECONDARY_LINKS.map((link) => (
-            <NavLink key={link.to} to={link.to} className="mpg-market-advanced-link">
-              {link.label}
-            </NavLink>
-          ))}
+          {TABS.map((tab) => renderTab(tab, badge))}
         </nav>
       </header>
       <div className="relative z-[2] min-w-0">
@@ -87,6 +146,7 @@ export default function MarketplaceLayout() {
           <Route path="installed" element={<Installed />} />
           <Route path="updates" element={<Updates />} />
           <Route path="registries" element={<Registries />} />
+          <Route path="extractor" element={<ExtractorPage />} />
           <Route path="assets/:publisher/:name" element={<AssetDetail />} />
         </Routes>
       </div>

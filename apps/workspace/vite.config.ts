@@ -41,9 +41,16 @@ export default defineConfig({
     // not import '@testing-library/jest-dom/vitest' directly fail with
     // "Invalid Chai property".
     setupFiles: ['./vitest.setup.ts'],
-    // Playwright owns tests/visual/*.spec.*; exclude both the sources and the
-    // stale compiled artifacts so vitest never executes them.
-    exclude: [...configDefaults.exclude, 'tests/visual/**/*.spec.ts', 'tests/visual/**/*.spec.js'],
+    // Playwright owns tests/visual/*.spec.* and tests/e2e/*.spec.*; exclude
+    // both the sources and the stale compiled artifacts so vitest never
+    // executes them.
+    exclude: [
+      ...configDefaults.exclude,
+      'tests/visual/**/*.spec.ts',
+      'tests/visual/**/*.spec.js',
+      'tests/e2e/**/*.spec.ts',
+      'tests/e2e/**/*.spec.js',
+    ],
     // Deterministic resource bounds matching the root Vitest config
     // (TEST-PERF-001A): 4-core / 8 GB-class machine, forks pool preserved.
     pool: 'forks',

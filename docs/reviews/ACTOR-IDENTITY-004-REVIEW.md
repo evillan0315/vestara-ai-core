@@ -1,3 +1,12 @@
+---
+title: ACTOR IDENTITY 004 REVIEW
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # Independent Review — ACTOR-IDENTITY-004A / 004B / 004C
 
 Status: REVIEW ONLY. No production code, tests, evidence, or audits were modified.

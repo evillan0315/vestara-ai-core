@@ -1,3 +1,12 @@
+---
+title: VESTARA RAG ROADMAP
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # Vestara RAG — First-Principles Roadmap
 
 **Owner:** Eddie Villanueva  

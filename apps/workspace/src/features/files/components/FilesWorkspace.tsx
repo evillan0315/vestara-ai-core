@@ -1,12 +1,14 @@
 /**
  * FILES-PAGE-001 FP-1: Production Files workspace composition.
  *
- * Three-pane shell (explorer | work area | inspector) + operations bar over
- * the governed browse projection. State ownership:
+ * Reference shell: compact header, resizable browser/editor/inspector
+ * rails, mode tabs, open-file tabs, path breadcrumb, and a ⌘K quick-open
+ * palette — over the governed browse projection. State ownership:
  * - tabs/drafts: useEditorTabs (local presentation state)
  * - content cache: per-path loader cache (projection)
  * - mutations: useFileOperations (single command layer, FP-8)
  * - tree: FILES-EDITOR-002 projection (never mutated locally)
+ * - tree expansion + focus root: local presentation state
  *
  * Architecture Traceability:
  *   FILES-PAGE-001 FP-1/FP-4/FP-5/FP-6/FP-7/FP-11/FP-12.
@@ -22,28 +24,28 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { EmptyState } from '@vestara/ui';
 import { useFileOperationsChannel } from '../../../contexts/FileOperationsContext';
-import OperationalWorkspaceLayout from '../../../layouts/OperationalWorkspaceLayout';
 import {
   classifyFile,
   type FileClassification,
 } from '../file-classification';
 import { findByPath, findDir } from '../file-tree-utils';
-import type { FileEntry } from '../files.types';
+import type {
+  FileEntry,
+  FilesDensity,
+  FilesFacet,
+  FilesSort,
+} from '../files.types';
 import { useEditorTabs } from '../hooks/useEditorTabs';
 import { useFileOperations } from '../hooks/useFileOperations';
 import { DirectoryTable } from './DirectoryTable';
 import { EditorStatusFooter } from './EditorStatusFooter';
+import { FileBrowserPanel } from './FileBrowserPanel';
+import { FileOperationsBar } from './FileOperationsBar';
 import { FileInspector } from './FileInspector';
 import { FilePreview } from './FilePreview';
+import { FileQuickOpen } from './FileQuickOpen';
 import { FileSearch } from './FileSearch';
-import { FileTree } from './FileTree';
-import { FilesPageHero } from './FilesPageHero';
-import {
-  FilesToolbar,
-  type FilesDensity,
-  type FilesFacet,
-  type FilesSort,
-} from './FilesToolbar';
+import { FilesHeader } from './FilesHeader';
 import { MultiTabHeader } from './MultiTabHeader';
 
 type WorkMode = 'files' | 'editor' | 'preview' | 'search';
@@ -79,34 +81,18 @@ interface FilesWorkspaceProps {
 const MODES: ReadonlyArray<{
   id: WorkMode;
   label: string;
-  enabled: boolean;
   title: string;
 }> = [
-  {
-    id: 'files',
-    label: 'Files',
-    enabled: true,
-    title: 'Directory browser',
-  },
-  {
-    id: 'editor',
-    label: 'Editor',
-    enabled: true,
-    title: 'Multi-tab editor',
-  },
-  {
-    id: 'preview',
-    label: 'Preview',
-    enabled: true,
-    title: 'Read-only preview',
-  },
-  {
-    id: 'search',
-    label: 'Search',
-    enabled: true,
-    title: 'Runtime content search',
-  },
+  { id: 'files', label: 'Files', title: 'Directory browser' },
+  { id: 'editor', label: 'Editor', title: 'Multi-tab editor' },
+  { id: 'preview', label: 'Preview', title: 'Read-only preview' },
+  { id: 'search', label: 'Search', title: 'Runtime content search' },
 ];
+
+const BROWSER_WIDTH_MIN = 220;
+const BROWSER_WIDTH_MAX = 440;
+const INSPECTOR_WIDTH_MIN = 280;
+const INSPECTOR_WIDTH_MAX = 420;
 
 function classifyEntry(entry: FileEntry): FileClassification {
   return classifyFile(
@@ -147,6 +133,14 @@ export function FilesWorkspace({
     line: 1,
     column: 1,
   });
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [focusPath, setFocusPath] = useState<string | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [browserCollapsed, setBrowserCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(320);
+  const [rightWidth, setRightWidth] = useState(320);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewContent, setPreviewContent] = useState<
     (LoadedContent & {
       error: string | null;
@@ -154,6 +148,7 @@ export function FilesWorkspace({
     }) | null
   >(null);
 
+  const centerRef = useRef<HTMLElement>(null);
   const tabs = useEditorTabs();
   const tabsRef = useRef(tabs);
 
@@ -179,6 +174,55 @@ export function FilesWorkspace({
     };
   }, [mobilePanel]);
 
+  // ⌘K / Ctrl+K quick open. Capture-phase so the shell command palette
+  // (same keystroke, bubble listener) never stacks on top: on the Files
+  // route, ⌘K belongs to quick-open. Skipped inside text inputs and Monaco
+  // so editor chords keep working; Escape closes the palette anywhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setQuickOpen(false);
+        return;
+      }
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      if (quickOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        setQuickOpen(false);
+        return;
+      }
+      // event.target can be document/window (e.g. right after a native
+      // prompt closes and focus is unassigned) — only Element targets
+      // support closest(); anything else falls through to open.
+      const target = event.target instanceof Element ? event.target : null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          (target as HTMLElement).isContentEditable ||
+          target.closest('.monaco-editor'))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setQuickOpen(true);
+    };
+
+    window.addEventListener('keydown', onKey, true);
+
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [quickOpen]);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement != null);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   const selectedEntry = useMemo(
     () => (selectedPath ? findByPath(entries, selectedPath) : null),
     [entries, selectedPath],
@@ -195,6 +239,91 @@ export function FilesWorkspace({
     () => findDir(entries, segments),
     [entries, segments],
   );
+
+  // Focus-scoped tree root (focus mode narrows the browser to a subtree).
+  const visibleEntries = useMemo(() => {
+    if (!focusPath) return entries;
+    const scoped = findDir(
+      entries,
+      focusPath.split('/').filter((segment) => segment.length > 0),
+    );
+    return scoped.length > 0 ? scoped : entries;
+  }, [entries, focusPath]);
+
+  const recentEntries = useMemo(
+    () =>
+      recent
+        .map((item) => findByPath(entries, item.file))
+        .filter((entry): entry is FileEntry => !!entry)
+        .slice(0, 5),
+    [entries, recent],
+  );
+
+  const focusTarget = useMemo(() => {
+    if (!selectedEntry) return null;
+    if (selectedEntry.kind === 'dir') return selectedEntry.path;
+    const slash = selectedEntry.path.lastIndexOf('/');
+    return slash > 0 ? selectedEntry.path.slice(0, slash) : null;
+  }, [selectedEntry]);
+
+  const activeName = useMemo(() => {
+    if (activeTabPath) return activeTabPath.split('/').pop() ?? activeTabPath;
+    return selectedEntry?.name ?? null;
+  }, [activeTabPath, selectedEntry]);
+
+  const breadcrumbPath = activeTabPath ?? selectedPath ?? '';
+
+  const focusParentDir = useCallback(() => {
+    if (!breadcrumbPath) return;
+    const slash = breadcrumbPath.lastIndexOf('/');
+    const parent = slash > 0 ? breadcrumbPath.slice(0, slash) : null;
+    setFocusPath(parent);
+    setSelectedPath(parent);
+  }, [breadcrumbPath]);
+
+  const expandAll = useCallback(() => {
+    const dirs = new Set<string>();
+    const walk = (list: readonly FileEntry[]) => {
+      for (const entry of list) {
+        if (entry.kind === 'dir') {
+          dirs.add(entry.path);
+          if (entry.children) walk(entry.children);
+        }
+      }
+    };
+    walk(entries);
+    setExpanded(dirs);
+  }, [entries]);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+  }, []);
+
+  const startResize = useCallback((side: 'left' | 'right', clientX: number, base: number) => {
+    const onMove = (event: MouseEvent) => {
+      if (side === 'left') {
+        setLeftWidth(Math.max(BROWSER_WIDTH_MIN, Math.min(BROWSER_WIDTH_MAX, base + (event.clientX - clientX))));
+      } else {
+        setRightWidth(
+          Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, base - (event.clientX - clientX))),
+        );
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void centerRef.current?.requestFullscreen();
+    }
+  }, []);
 
   const ops = useFileOperations({
     onStructuralChange: useCallback(
@@ -247,6 +376,12 @@ export function FilesWorkspace({
     setSelectedPath(entry.path);
   }, []);
 
+  const openDir = useCallback((entry: FileEntry) => {
+    setSegments(entry.path.split('/').filter((segment) => segment.length > 0));
+    setSelectedPath(entry.path);
+    setMode('files');
+  }, []);
+
   const openSearchPath = useCallback(
     (path: string) => {
       const entry = findByPath(entries, path);
@@ -262,8 +397,8 @@ export function FilesWorkspace({
   );
 
   useEffect(() => {
-    const focusPath = searchParams.get('path');
-    if (focusPath) openSearchPath(focusPath);
+    const focusPathParam = searchParams.get('path');
+    if (focusPathParam) openSearchPath(focusPathParam);
   }, [openSearchPath, searchParams]);
 
   // Content loading for the active tab (cached across switches).
@@ -435,37 +570,387 @@ export function FilesWorkspace({
   );
 
   return (
-    <div className="files-workspace flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
-      <FilesPageHero
+    <div className="files-workspace flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      <FilesHeader
         workspaceName={workspaceName}
         live={live}
         fileCount={fileCount}
         dirCount={dirCount}
         storageBytes={storageBytes}
+        activeName={activeName}
+        onOpenSearch={() => setQuickOpen(true)}
         onNewFile={() => createInCurrentDir(false)}
         onNewFolder={() => createInCurrentDir(true)}
-        onRefresh={onRefresh}
       />
 
-      <FilesToolbar
-        query={query}
-        facet={facet}
-        sort={sort}
-        density={density}
-        showHidden={showHidden}
-        dirsFirst={dirsFirst}
-        onQueryChange={setQuery}
-        onFacetChange={setFacet}
-        onSortChange={setSort}
-        onDensityChange={setDensity}
-        onShowHiddenChange={setShowHidden}
-        onDirsFirstChange={setDirsFirst}
-      />
+      {ops.state.status !== 'idle' && (
+        <div className="shrink-0 px-3 pt-2">
+          <FileOperationsBar ops={ops} />
+        </div>
+      )}
 
-      
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {!browserCollapsed ? (
+          <aside
+            className="flex min-h-0 shrink-0 flex-col border-r border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]"
+            style={{ width: `${leftWidth}px` }}
+            aria-label="File browser panel"
+          >
+            <FileBrowserPanel
+              entries={visibleEntries}
+              fileCount={fileCount}
+              selectedPath={selectedPath}
+              activePath={activeTabPath}
+              recent={recent}
+              recentEntries={recentEntries}
+              isLoading={isLoading}
+              fromSnapshot={fromSnapshot}
+              truncated={truncated}
+              query={query}
+              facet={facet}
+              showHidden={showHidden}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              focusPath={focusPath}
+              onFocusPathChange={setFocusPath}
+              focusTarget={focusTarget}
+              sort={sort}
+              onSortChange={setSort}
+              density={density}
+              onDensityChange={setDensity}
+              dirsFirst={dirsFirst}
+              onDirsFirstChange={setDirsFirst}
+              onShowHiddenChange={setShowHidden}
+              onQueryChange={setQuery}
+              onFacetChange={setFacet}
+              onSelect={selectEntry}
+              onOpenFile={openFile}
+              onMenu={showMenu}
+              onMove={moveInto}
+              onCollapse={() => setBrowserCollapsed(true)}
+              onExpandAll={expandAll}
+              onCollapseAll={collapseAll}
+            />
+          </aside>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setBrowserCollapsed(false)}
+            aria-label="Expand file browser"
+            title="Expand file browser"
+            className="grid w-9 shrink-0 place-items-center border-r border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        )}
+
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize file browser"
+          onMouseDown={(event) => startResize('left', event.clientX, leftWidth)}
+          className="group flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center"
+        >
+          <div className="w-[1px] bg-[var(--vestara-border-subtle)] transition-all group-hover:w-[3px] group-hover:bg-[var(--vestara-marketplace-primary)]" aria-hidden="true" />
+        </div>
+
+        <section
+          ref={centerRef}
+          className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--vestara-surface-canvas)]"
+          aria-label="File work area"
+        >
+          <div className="flex h-[44px] shrink-0 items-center gap-0 overflow-x-auto border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]">
+            <div className="flex h-full items-center gap-0.5 pl-2" role="tablist" aria-label="Work area modes">
+              {MODES.map((item) => {
+                const active = mode === item.id;
+                const count = item.id === 'editor' && tabs.tabs.length > 0 ? tabs.tabs.length : null;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    title={item.title}
+                    onClick={() => setMode(item.id)}
+                    className={`flex h-[32px] items-center gap-1.5 rounded-[var(--vestara-radius)] border px-3 text-[length:var(--vestara-font-size-xs)] transition-colors ${
+                      active
+                        ? 'border-[var(--vestara-border-default)] bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-primary)]'
+                        : 'border-transparent text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-secondary)]'
+                    }`}
+                  >
+                    {item.label}
+                    {count !== null && (
+                      <span className="rounded bg-[var(--vestara-surface-canvas)] px-1 py-0 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-marketplace-primary)]">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-1 pr-2">
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
+                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
+                className="grid h-7 w-7 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+              >
+                <span aria-hidden="true">{isFullscreen ? '✕' : '⛶'}</span>
+              </button>
+            </div>
+          </div>
+
+          {breadcrumbPath && (
+            <div className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-4">
+              <p className="truncate font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-disabled)]" title={breadcrumbPath}>
+                /{breadcrumbPath}
+              </p>
+              <button
+                type="button"
+                onClick={focusParentDir}
+                title="Open containing folder in focus mode"
+                className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-disabled)] hover:text-[var(--vestara-marketplace-primary)]"
+              >
+                <span aria-hidden="true">◉</span> Focus folder
+              </button>
+            </div>
+          )}
+
+          <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden" aria-label="File work area content">
+            {mode === 'files' && (
+              <DirectoryTable
+                workspaceName={workspaceName}
+                segments={segments}
+                entries={dirEntries}
+                query={query}
+                facet={facet}
+                sort={sort}
+                density={density}
+                selectedPath={selectedPath}
+                showHidden={showHidden}
+                dirsFirst={dirsFirst}
+                onSegmentsChange={setSegments}
+                onSelect={selectEntry}
+                onOpenFile={openFile}
+                onMenu={showMenu}
+                onMove={moveInto}
+              />
+            )}
+
+            {mode === 'editor' && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                {activeTabPath ? (
+                  <>
+                    <EditorTabHeader
+                      tabs={tabs}
+                      selectTab={(path) => {
+                        tabs.setActive(path);
+                        setSelectedPath(path);
+                      }}
+                      confirmUnsaved={confirmUnsaved}
+                    />
+
+                    <FilePreview
+                      key={activeTabPath}
+                      filePath={activeTabPath}
+                      classification={
+                        previewContent?.classification ??
+                        (activeTabEntry
+                          ? classifyEntry(activeTabEntry)
+                          : classifyFile(
+                              'application/octet-stream',
+                              activeTabPath,
+                            ))
+                      }
+                      content={editorContent}
+                      contentBase64={
+                        previewContent?.contentBase64
+                      }
+                      size={
+                        previewContent?.size ??
+                        activeTabEntry?.size ??
+                        0
+                      }
+                      error={previewContent?.error}
+                      isLoading={
+                        previewContent?.isLoading ?? false
+                      }
+                      onSave={(newContent) => {
+                        const nextSize = new Blob([
+                          newContent,
+                        ]).size;
+                        const current =
+                          contentCache.current.get(
+                            activeTabPath,
+                          ) ??
+                          previewContent ?? {
+                            classification:
+                              activeTabEntry
+                                ? classifyEntry(
+                                    activeTabEntry,
+                                  )
+                                : classifyFile(
+                                    'application/octet-stream',
+                                    activeTabPath,
+                                  ),
+                            size: nextSize,
+                          };
+                        const loaded: LoadedContent = {
+                          classification:
+                            current.classification,
+                          content: newContent,
+                          contentBase64:
+                            current.contentBase64,
+                          size: nextSize,
+                        };
+
+                        contentCache.current.set(
+                          activeTabPath,
+                          loaded,
+                        );
+                        setPreviewContent({
+                          ...loaded,
+                          error: null,
+                          isLoading: false,
+                        });
+                        tabs.markSaved(activeTabPath);
+                        onChanged();
+                      }}
+                      onDraftChange={(draft) =>
+                        tabs.setDraft(
+                          activeTabPath,
+                          draft,
+                          draft !==
+                            (contentCache.current.get(
+                              activeTabPath,
+                            )?.content ??
+                              previewContent?.content ??
+                              ''),
+                        )
+                      }
+                      onCursorChange={(line, column) =>
+                        setCursor({
+                          line,
+                          column,
+                        })
+                      }
+                    />
+
+                    {previewContent &&
+                      !previewContent.isLoading &&
+                      !previewContent.error &&
+                      previewContent.classification
+                        .previewType === 'text' &&
+                      previewContent.content !==
+                        undefined && (
+                        <EditorStatusFooter
+                          filePath={activeTabPath}
+                          hasUnsavedChanges={tabs.isDirty(
+                            activeTabPath,
+                          )}
+                          line={cursor.line}
+                          column={cursor.column}
+                          language={
+                            previewContent
+                              .classification
+                              .languageHint
+                          }
+                          sizeBytes={
+                            previewContent.size
+                          }
+                        />
+                      )}
+                  </>
+                ) : (
+                  <EmptyState
+                    title="No open file"
+                    description="Open a file from the explorer or directory to edit it here."
+                  />
+                )}
+              </div>
+            )}
+
+            {mode === 'preview' && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                {previewEntry ? (
+                  <PreviewLoader
+                    path={previewEntry.path}
+                  />
+                ) : (
+                  <EmptyState
+                    title="Nothing to preview"
+                    description="Select a file to preview it read-only."
+                  />
+                )}
+              </div>
+            )}
+
+            {mode === 'search' && (
+              <FileSearch
+                onOpenPath={openSearchPath}
+              />
+            )}
+          </div>
+        </section>
+
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize inspector"
+          onMouseDown={(event) => startResize('right', event.clientX, rightWidth)}
+          className="group flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center"
+        >
+          <div className="w-[1px] bg-[var(--vestara-border-subtle)] transition-all group-hover:w-[3px] group-hover:bg-[var(--vestara-marketplace-primary)]" aria-hidden="true" />
+        </div>
+
+        {!inspectorCollapsed ? (
+          <aside
+            className="flex min-h-0 shrink-0 flex-col overflow-y-auto border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]"
+            style={{ width: `${rightWidth}px` }}
+            aria-label="File inspector panel"
+          >
+            <FileInspector
+              entry={selectedEntry}
+              ops={ops}
+              onOpenInEditor={(entry) =>
+                openFile(entry)
+              }
+              onOpenDir={(entry) => {
+                setSegments(
+                  entry.path
+                    .split('/')
+                    .filter(
+                      (segment) =>
+                        segment.length > 0,
+                    ),
+                );
+                setSelectedPath(
+                  entry.path || null,
+                );
+                setMode('files');
+              }}
+              onDeselect={() =>
+                setSelectedPath(null)
+              }
+              onCollapse={() => setInspectorCollapsed(true)}
+            />
+          </aside>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setInspectorCollapsed(false)}
+            aria-label="Expand inspector"
+            title="Expand inspector"
+            className="grid w-9 shrink-0 place-items-center border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
+        )}
+      </div>
 
       <div
-        className="ar-panel-launchers flex gap-2"
+        className="flex gap-2 xl:hidden"
         role="group"
         aria-label="Open panels"
       >
@@ -490,272 +975,6 @@ export function FilesWorkspace({
             : ''}
         </button>
       </div>
-
-      <OperationalWorkspaceLayout
-        rail={
-          <aside
-            className="ar-panel ar-panel--rail min-h-0 min-w-0 max-w-full"
-            aria-label="File explorer panel"
-          >
-            <FileTree
-              entries={entries}
-              selectedPath={selectedPath}
-              activePath={activeTabPath}
-              recent={recent}
-              isLoading={isLoading}
-              fromSnapshot={fromSnapshot}
-              truncated={truncated}
-              query={query}
-              facet={facet}
-              showHidden={showHidden}
-              onSelect={selectEntry}
-              onOpenFile={openFile}
-              onMenu={showMenu}
-              onMove={moveInto}
-            />
-          </aside>
-        }
-        context={
-        <aside
-          className="ar-panel ar-panel--context min-h-0 min-w-0 max-w-full overflow-auto"
-          aria-label="File inspector panel"
-        >
-          <FileInspector
-            entry={selectedEntry}
-            ops={ops}
-            onOpenInEditor={(entry) =>
-              openFile(entry)
-            }
-            onOpenDir={(entry) => {
-              setSegments(
-                entry.path
-                  .split('/')
-                  .filter(
-                    (segment) =>
-                      segment.length > 0,
-                  ),
-              );
-              setSelectedPath(
-                entry.path || null,
-              );
-              setMode('files');
-            }}
-            onDeselect={() =>
-              setSelectedPath(null)
-            }
-          />
-        </aside>
-        }
-      >
-        <main
-          className="ar-panel ar-panel--main flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden"
-          aria-label="File work area"
-        >
-          <div className="flex items-center gap-2 border-b border-[var(--vestara-border-subtle)] px-3 py-2">
-            <div
-              className="flex gap-1"
-              role="tablist"
-              aria-label="Work area modes"
-            >
-              {MODES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === item.id}
-                  title={item.title}
-                  onClick={() => setMode(item.id)}
-                  className={`rounded-[var(--vestara-radius)] px-2.5 py-1 text-xs font-semibold ${
-                    mode === item.id
-                      ? 'bg-[var(--files-selected-bg)] text-[var(--vestara-text-primary)]'
-                      : 'text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]'
-                  }`}
-                >
-                  {item.id === 'editor' && tabs.tabs.length > 0
-                    ? `Editor (${tabs.tabs.length})`
-                    : item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {mode === 'files' && (
-            <DirectoryTable
-              workspaceName={workspaceName}
-              segments={segments}
-              entries={dirEntries}
-              query={query}
-              facet={facet}
-              sort={sort}
-              density={density}
-              selectedPath={selectedPath}
-              showHidden={showHidden}
-              dirsFirst={dirsFirst}
-              onSegmentsChange={setSegments}
-              onSelect={selectEntry}
-              onOpenFile={openFile}
-              onMenu={showMenu}
-              onMove={moveInto}
-            />
-          )}
-
-          {mode === 'editor' && (
-            <div className="flex min-h-0 flex-1 flex-col">
-              {activeTabPath ? (
-                <>
-                  <EditorTabHeader
-                    tabs={tabs}
-                    selectTab={(path) => {
-                      tabs.setActive(path);
-                      setSelectedPath(path);
-                    }}
-                    confirmUnsaved={confirmUnsaved}
-                  />
-
-                  <FilePreview
-                    key={activeTabPath}
-                    filePath={activeTabPath}
-                    classification={
-                      previewContent?.classification ??
-                      (activeTabEntry
-                        ? classifyEntry(activeTabEntry)
-                        : classifyFile(
-                            'application/octet-stream',
-                            activeTabPath,
-                          ))
-                    }
-                    content={editorContent}
-                    contentBase64={
-                      previewContent?.contentBase64
-                    }
-                    size={
-                      previewContent?.size ??
-                      activeTabEntry?.size ??
-                      0
-                    }
-                    error={previewContent?.error}
-                    isLoading={
-                      previewContent?.isLoading ?? false
-                    }
-                    onSave={(newContent) => {
-                      const nextSize = new Blob([
-                        newContent,
-                      ]).size;
-                      const current =
-                        contentCache.current.get(
-                          activeTabPath,
-                        ) ??
-                        previewContent ?? {
-                          classification:
-                            activeTabEntry
-                              ? classifyEntry(
-                                  activeTabEntry,
-                                )
-                              : classifyFile(
-                                  'application/octet-stream',
-                                  activeTabPath,
-                                ),
-                          size: nextSize,
-                        };
-                      const loaded: LoadedContent = {
-                        classification:
-                          current.classification,
-                        content: newContent,
-                        contentBase64:
-                          current.contentBase64,
-                        size: nextSize,
-                      };
-
-                      contentCache.current.set(
-                        activeTabPath,
-                        loaded,
-                      );
-                      setPreviewContent({
-                        ...loaded,
-                        error: null,
-                        isLoading: false,
-                      });
-                      tabs.markSaved(activeTabPath);
-                      onChanged();
-                    }}
-                    onDraftChange={(draft) =>
-                      tabs.setDraft(
-                        activeTabPath,
-                        draft,
-                        draft !==
-                          (contentCache.current.get(
-                            activeTabPath,
-                          )?.content ??
-                            previewContent?.content ??
-                            ''),
-                      )
-                    }
-                    onCursorChange={(line, column) =>
-                      setCursor({
-                        line,
-                        column,
-                      })
-                    }
-                  />
-
-                  {previewContent &&
-                    !previewContent.isLoading &&
-                    !previewContent.error &&
-                    previewContent.classification
-                      .previewType === 'text' &&
-                    previewContent.content !==
-                      undefined && (
-                      <EditorStatusFooter
-                        filePath={activeTabPath}
-                        hasUnsavedChanges={tabs.isDirty(
-                          activeTabPath,
-                        )}
-                        line={cursor.line}
-                        column={cursor.column}
-                        language={
-                          previewContent
-                            .classification
-                            .languageHint
-                        }
-                        sizeBytes={
-                          previewContent.size
-                        }
-                      />
-                    )}
-                </>
-              ) : (
-                <EmptyState
-                  title="No open file"
-                  description="Open a file from the explorer or directory to edit it here."
-                />
-              )}
-            </div>
-          )}
-
-          {mode === 'preview' && (
-            <div className="flex min-h-0 flex-1 flex-col">
-              {previewEntry ? (
-                <PreviewLoader
-                  path={previewEntry.path}
-                />
-              ) : (
-                <EmptyState
-                  title="Nothing to preview"
-                  description="Select a file to preview it read-only."
-                />
-              )}
-            </div>
-          )}
-
-          {mode === 'search' && (
-            <FileSearch
-              onOpenPath={openSearchPath}
-            />
-          )}
-        </main>
-
-
-      </OperationalWorkspaceLayout>
 
       {mobilePanel && (
         <div
@@ -800,17 +1019,33 @@ export function FilesWorkspace({
             </div>
 
             {mobilePanel === 'explorer' ? (
-              <FileTree
-                entries={entries}
+              <FileBrowserPanel
+                entries={visibleEntries}
+                fileCount={fileCount}
                 selectedPath={selectedPath}
                 activePath={activeTabPath}
                 recent={recent}
+                recentEntries={recentEntries}
                 isLoading={isLoading}
-                fromSnapshot={false}
-                truncated={false}
+                fromSnapshot={fromSnapshot}
+                truncated={truncated}
                 query={query}
                 facet={facet}
                 showHidden={showHidden}
+                expanded={expanded}
+                onExpandedChange={setExpanded}
+                focusPath={focusPath}
+                onFocusPathChange={setFocusPath}
+                focusTarget={focusTarget}
+                sort={sort}
+                onSortChange={setSort}
+                density={density}
+                onDensityChange={setDensity}
+                dirsFirst={dirsFirst}
+                onDirsFirstChange={setDirsFirst}
+                onShowHiddenChange={setShowHidden}
+                onQueryChange={setQuery}
+                onFacetChange={setFacet}
                 onSelect={(entry) => {
                   selectEntry(entry);
                   setMobilePanel(null);
@@ -821,6 +1056,9 @@ export function FilesWorkspace({
                 }}
                 onMenu={showMenu}
                 onMove={moveInto}
+                onCollapse={() => setMobilePanel(null)}
+                onExpandAll={expandAll}
+                onCollapseAll={collapseAll}
               />
             ) : (
               <FileInspector
@@ -852,6 +1090,15 @@ export function FilesWorkspace({
             )}
           </div>
         </div>
+      )}
+
+      {quickOpen && (
+        <FileQuickOpen
+          entries={entries}
+          onOpenFile={openFile}
+          onOpenDir={openDir}
+          onClose={() => setQuickOpen(false)}
+        />
       )}
 
       {menu && (

@@ -19,8 +19,7 @@ import { useVestaraTheme } from '@vestara/ui-theme';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { getHighlightLanguage, type FileClassification } from '../file-classification';
-
-type Monaco = Parameters<OnMount>[1];
+import { defineVestaraEditorTheme, type MonacoInstance } from './monaco-theme';
 
 interface CodeEditorProps {
   /** File path (workspace-relative) */
@@ -39,8 +38,6 @@ interface CodeEditorProps {
   onCursorChange?: (line: number, column: number) => void;
   /** Maximum file size for editing (bytes) */
   maxEditSize?: number;
-  /** Explicit editor theme; defaults to 'light'. */
-  theme?: 'light' | 'dark';
 }
 
 const MAX_EDIT_SIZE_DEFAULT = 2 * 1024 * 1024; // 2 MB
@@ -64,10 +61,19 @@ export function CodeEditor({
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<MonacoInstance | null>(null);
   const originalContentRef = useRef(initialContent);
 
-  const { resolvedMode } = useVestaraTheme();
+  const { resolvedMode, accentTheme } = useVestaraTheme();
   const monacoTheme = `vestara-${resolvedMode}`;
+
+  // Monaco snapshots theme colors at defineTheme time — re-apply the
+  // Vestara palette whenever the mode or accent changes after mount.
+  useEffect(() => {
+    if (monacoRef.current && editorRef.current) {
+      defineVestaraEditorTheme(monacoRef.current, resolvedMode);
+    }
+  }, [resolvedMode, accentTheme]);
 
   // Update content when initialContent changes (e.g., file switched)
   useEffect(() => {
@@ -143,42 +149,16 @@ export function CodeEditor({
     setContent(value ?? '');
   }, []);
 
-  // Monaco mount: register Ctrl/Cmd+S and cursor listener
+  // Monaco mount: theme, Ctrl/Cmd+S, and cursor listener
   const handleEditorDidMount: OnMount = useCallback(
-    (editorInstance, monaco: Monaco) => {
+    (editorInstance, monaco: MonacoInstance) => {
       editorRef.current = editorInstance;
+      monacoRef.current = monaco;
 
       // Monaco does not inherit CSS variables. Build its palette from the
-      // active Vestara semantic tokens at mount time so the editor follows
-      // the selected light/dark theme and accent without a second palette.
-      const styles = getComputedStyle(document.documentElement);
-      const token = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
-      const editorTheme = `vestara-${resolvedMode}`;
-      monaco.editor.defineTheme(editorTheme, {
-        base: resolvedMode === 'dark' ? 'vs-dark' : 'vs',
-        inherit: false,
-        rules: [
-          { token: 'comment', foreground: token('--vestara-text-muted', '8b949e'), fontStyle: 'italic' },
-          { token: 'keyword', foreground: token('--vestara-accent-text', 'd29922') },
-          { token: 'string', foreground: token('--vestara-status-success', '3fb950') },
-          { token: 'number', foreground: token('--vestara-status-info', '58a6ff') },
-          { token: 'type', foreground: token('--vestara-accent-text', 'd29922') },
-          { token: 'delimiter', foreground: token('--vestara-text-secondary', 'c9d1d9') },
-        ],
-        colors: {
-          'editor.background': token('--vestara-surface-canvas', resolvedMode === 'dark' ? '#0d1117' : '#ffffff'),
-          'editor.foreground': token('--vestara-text-primary', resolvedMode === 'dark' ? '#e6edf3' : '#24292f'),
-          'editor.selectionBackground': token('--vestara-accent-bg', '#3d2f0f'),
-          'editor.inactiveSelectionBackground': token('--vestara-accent-bg', '#2b2415'),
-          'editorLineNumber.foreground': token('--vestara-text-muted', '#8b949e'),
-          'editorLineNumber.activeForeground': token('--vestara-accent-text', '#d29922'),
-          'editorGutter.background': token('--vestara-surface-canvas', resolvedMode === 'dark' ? '#0d1117' : '#ffffff'),
-          'editorCursor.foreground': token('--vestara-accent', '#f59e0b'),
-          'editorWidget.background': token('--vestara-surface-panel', resolvedMode === 'dark' ? '#161b22' : '#ffffff'),
-          'editorWidget.foreground': token('--vestara-text-primary', resolvedMode === 'dark' ? '#e6edf3' : '#24292f'),
-        },
-      });
-      monaco.editor.setTheme(editorTheme);
+      // active Vestara semantic tokens so the editor follows the selected
+      // light/dark theme and accent without a second palette.
+      defineVestaraEditorTheme(monaco, resolvedMode);
 
       // Ctrl/Cmd+S -> save (prevents browser save dialog)
       editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
@@ -207,8 +187,12 @@ export function CodeEditor({
   const language = getHighlightLanguage(classification.languageHint) || 'plaintext';
 
   return (
-    <div className="code-editor h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex h-full  min-h-0 flex-1 flex-col p-0">
+    <div
+      className="code-editor h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      role="region"
+      aria-label={`Code editor: ${filePath}`}
+    >
+      <div className="flex h-full min-h-0 flex-1 flex-col p-0">
         {/* Toolbar */}
         <div
           className="code-editor-toolbar flex items-center gap-2 border-b border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-text-primary)]"

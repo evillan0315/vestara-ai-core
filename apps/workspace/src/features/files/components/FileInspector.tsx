@@ -25,11 +25,40 @@ interface FileInspectorProps {
   onOpenInEditor: (entry: FileEntry) => void;
   onOpenDir: (entry: FileEntry) => void;
   onDeselect: () => void;
+  onCollapse?: () => void;
 }
 
-export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselect }: FileInspectorProps) {
+interface GitStatus {
+  readonly available: boolean;
+  readonly branch: string | null;
+  readonly modified: number;
+  readonly staged: number;
+  readonly untracked: number;
+  readonly ahead: number | null;
+  readonly behind: number | null;
+  readonly dirty: boolean;
+}
+
+export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselect, onCollapse }: FileInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>('details');
   const [activity, setActivity] = useState<readonly FsOperation[] | null>(null);
+  const [git, setGit] = useState<GitStatus | null>(null);
+
+  // Workspace-level git status (GET /api/diagnostics/git) — distinct from
+  // file-level correlation, which remains ungoverned (see HOLD tabs).
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/diagnostics/git')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as Partial<GitStatus>;
+        if (!cancelled && data.available) setGit(data as GitStatus);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setTab('details');
@@ -81,17 +110,32 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="ar-kicker">Inspector</p>
-        <button
-          type="button"
-          onClick={onDeselect}
-          aria-label="Clear selection"
-          title="Clear selection"
-          className="rounded-sm px-1 text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-        >
-          ✕
-        </button>
+      <div className="flex h-[44px] shrink-0 items-center justify-between border-b border-[var(--vestara-border-subtle)] px-3">
+        <p className="font-mono text-[length:var(--vestara-font-size-xs)] font-medium tracking-widest text-[var(--vestara-text-muted)]">
+          INSPECTOR
+        </p>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onDeselect}
+            aria-label="Clear selection"
+            title="Clear selection"
+            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+          >
+            ✕
+          </button>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Collapse inspector"
+              title="Collapse inspector"
+              className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+            >
+              ›
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <span
@@ -147,41 +191,52 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto py-3" role="tabpanel">
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3" role="tabpanel">
         {tab === 'details' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-2 text-sm text-[var(--vestara-text-secondary)]">
-              <span aria-hidden="true" className="font-mono text-[var(--vestara-text-muted)]">&lt;/&gt;</span>
-              {typeTitle}
-            </div>
-            <KeyValueList
-              className="space-y-1.5 text-sm"
-              items={[
-                ...(!isDir
-                  ? [{
-                    id: 'size',
-                    label: 'Size',
-                    value: `${formatBytes(entry.size ?? 0)} (${(entry.size ?? 0).toLocaleString()} bytes)`,
-                    truncate: true,
-                  } as const]
-                  : []),
-                { id: 'modified', label: 'Modified', value: entry.mtime ? formatTime(entry.mtime) : '—', truncate: true },
-                ...(entry.createdAt
-                  ? [{ id: 'created', label: 'Created', value: formatTime(entry.createdAt), truncate: true } as const]
-                  : []),
-                {
-                  id: 'path',
-                  label: 'Path',
-                  value: (
-                    <span title={entry.path} className="font-mono text-xs">
-                      {entry.path}
-                    </span>
-                  ),
-                  truncate: true,
-                },
-              ]}
-            />
-            <div className="grid grid-cols-2 gap-1.5 border-t border-[var(--vestara-border-subtle)] pt-3">
+          <>
+            <section aria-label="File details" className="overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]">
+              <p className="border-b border-[var(--vestara-border-subtle)] px-3 py-2 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-muted)]">
+                DETAILS
+              </p>
+              <div className="space-y-3 p-3">
+                <div className="flex items-center gap-2 text-sm text-[var(--vestara-text-secondary)]">
+                  <span aria-hidden="true" className="font-mono text-[var(--vestara-text-muted)]">&lt;/&gt;</span>
+                  {typeTitle}
+                </div>
+                <KeyValueList
+                  className="space-y-1.5 text-sm"
+                  items={[
+                    ...(!isDir
+                      ? [{
+                        id: 'size',
+                        label: 'Size',
+                        value: `${formatBytes(entry.size ?? 0)} (${(entry.size ?? 0).toLocaleString()} bytes)`,
+                        truncate: true,
+                      } as const]
+                      : []),
+                    { id: 'modified', label: 'Modified', value: entry.mtime ? formatTime(entry.mtime) : '—', truncate: true },
+                    ...(entry.createdAt
+                      ? [{ id: 'created', label: 'Created', value: formatTime(entry.createdAt), truncate: true } as const]
+                      : []),
+                    {
+                      id: 'path',
+                      label: 'Path',
+                      value: (
+                        <span title={entry.path} className="font-mono text-xs">
+                          {entry.path}
+                        </span>
+                      ),
+                      truncate: true,
+                    },
+                  ]}
+                />
+              </div>
+            </section>
+            <section aria-label="File actions" className="overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]">
+              <p className="border-b border-[var(--vestara-border-subtle)] px-3 py-2 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-muted)]">
+                ACTIONS
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 p-2">
               <button
                 type="button"
                 onClick={() => (isDir ? onOpenDir(entry) : onOpenInEditor(entry))}
@@ -241,9 +296,12 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                 Delete
               </button>
             </div>
-            <div className="border-t border-[var(--vestara-border-subtle)] pt-3">
-              <p className="ar-kicker mb-1.5">Quick Actions</p>
-              <div className="grid grid-cols-2 gap-1.5">
+            </section>
+            <section aria-label="Quick actions" className="overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]">
+              <p className="border-b border-[var(--vestara-border-subtle)] px-3 py-2 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-muted)]">
+                QUICK ACTIONS
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 p-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -280,8 +338,33 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                   Open Containing Folder
                 </button>
               </div>
-            </div>
-          </div>
+            </section>
+            {git && (
+              <section aria-label="Git status" className="overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]">
+                <p className="flex items-center justify-between border-b border-[var(--vestara-border-subtle)] px-3 py-2 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-muted)]">
+                  GIT STATUS
+                  <span
+                    className={`rounded border px-1.5 py-0.5 ${
+                      git.dirty
+                        ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]'
+                        : 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]'
+                    }`}
+                  >
+                    {git.dirty ? 'modified' : 'clean'}
+                  </span>
+                </p>
+                <div className="space-y-1.5 p-3">
+                  <p className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
+                    On branch <span className="text-[var(--vestara-text-primary)]">{git.branch ?? 'detached'}</span>
+                    {git.ahead !== null && git.behind !== null && ` · ${git.ahead} ahead, ${git.behind} behind`}
+                  </p>
+                  <p className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                    {git.modified} modified · {git.staged} staged · {git.untracked} untracked
+                  </p>
+                </div>
+              </section>
+            )}
+          </>
         )}
         {tab === 'activity' && (
           <div>

@@ -1,0 +1,132 @@
+{
+  "source": "../assets/templates/html/extractor-ui.html",
+  "extractedAt": "2026-10-15T07:06:07.082Z",
+  "components": [
+    {
+      "id": "fileicon",
+      "varName": "qe",
+      "name": "FileIcon",
+      "desc": "Maps category to icon with open state",
+      "file": "FileIcon.jsx",
+      "extracted": true,
+      "bytes": 688
+    },
+    {
+      "id": "treenode",
+      "varName": "Sc",
+      "name": "TreeNode",
+      "desc": "Recursive row with indent & badge",
+      "file": "TreeNode.jsx",
+      "extracted": true,
+      "bytes": 1761
+    },
+    {
+      "id": "filterchips",
+      "varName": "em",
+      "name": "FilterChips",
+      "desc": "Pill filter with active teal",
+      "file": "FilterChips.jsx",
+      "extracted": true,
+      "bytes": 556
+    },
+    {
+      "id": "searchinput",
+      "varName": "tm",
+      "name": "SearchInput",
+      "desc": "Icon input with mono placeholder",
+      "file": "SearchInput.jsx",
+      "extracted": true,
+      "bytes": 693
+    },
+    {
+      "id": "commandpalette",
+      "varName": "nm",
+      "name": "CommandPalette",
+      "desc": "Modal with backdrop blur",
+      "file": "CommandPalette.jsx",
+      "extracted": true,
+      "bytes": 2299
+    },
+    {
+      "id": "tabbar",
+      "varName": "rm",
+      "name": "TabBar",
+      "desc": "Scrollable tabs with dot",
+      "file": "TabBar.jsx",
+      "extracted": true,
+      "bytes": 1218
+    },
+    {
+      "id": "breadcrumb",
+      "varName": "lm",
+      "name": "Breadcrumb",
+      "desc": "Path with chevrons",
+      "file": "Breadcrumb.jsx",
+      "extracted": true,
+      "bytes": 1088
+    },
+    {
+      "id": "codeviewer",
+      "varName": "um",
+      "name": "CodeViewer",
+      "desc": "Gutter + minimap",
+      "file": "CodeViewer.jsx",
+      "extracted": true,
+      "bytes": 1486
+    },
+    {
+      "id": "detailcard",
+      "varName": "im",
+      "name": "DetailCard",
+      "desc": "File preview with copy",
+      "file": "DetailCard.jsx",
+      "extracted": true,
+      "bytes": 1852
+    },
+    {
+      "id": "actiongrid",
+      "varName": "om",
+      "name": "ActionGrid",
+      "desc": "2-col actions with danger",
+      "file": "ActionGrid.jsx",
+      "extracted": true,
+      "bytes": 1255
+    },
+    {
+      "id": "gitstatus",
+      "varName": "gc",
+      "name": "GitStatusCard",
+      "desc": "Branch badge + stats",
+      "file": "GitStatusCard.jsx",
+      "extracted": true,
+      "bytes": 1363
+    },
+    {
+      "id": "toast",
+      "varName": "am",
+      "name": "Toast",
+      "desc": "Bottom-center pulse",
+      "file": "Toast.jsx",
+      "extracted": true,
+      "bytes": 418
+    },
+    {
+      "id": "codeblock",
+      "varName": "Je",
+      "name": "CodeBlock",
+      "desc": "Copyable code snippet",
+      "file": "CodeBlock.jsx",
+      "extracted": true,
+      "bytes": 838
+    },
+    {
+      "id": "proptable",
+      "varName": "No",
+      "name": "PropTable",
+      "desc": "Props table",
+      "file": "PropTable.jsx",
+      "extracted": true,
+      "bytes": 1199
+    }
+  ]
+}

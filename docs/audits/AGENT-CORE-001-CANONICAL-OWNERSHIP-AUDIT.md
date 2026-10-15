@@ -1,3 +1,12 @@
+---
+title: AGENT CORE 001 CANONICAL OWNERSHIP AUDIT
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AGENT-CORE-001 — Canonical Agent Ownership Audit
 
 > Status: COMPLETE — Tasks 01–06 evidenced. AGENT-CORE-001 closed as audit/synthesis; successor design NOT started.

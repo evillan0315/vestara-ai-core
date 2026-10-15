@@ -101,16 +101,8 @@
   background: var(--vestara-gallery-card-bg,
     radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 12%, transparent) 0%, transparent 60%),
     linear-gradient(180deg, var(--vestara-surface-panel-raised) 0%, var(--vestara-surface-panel) 130%));
-  /* Floating treatment: on dark backgrounds separation comes from light,
-     not shadow — bright accent ring + halo + lit top edge lift the card
-     off the global background. */
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.6),
-    0 0 0 1px color-mix(in srgb, var(--vestara-accent) 35%, transparent),
-    0 0 28px color-mix(in srgb, var(--vestara-accent) 22%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--vestara-accent-light) 25%, transparent);
   transform: translateY(-1px);
-  transition: border-color var(--vestara-motion-normal) var(--vestara-motion-easing), box-shadow var(--vestara-motion-normal) var(--vestara-motion-easing), transform var(--vestara-motion-normal) var(--vestara-motion-easing);
+  transition: border-color var(--vestara-motion-normal) var(--vestara-motion-easing), transform var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
 
 /* Holographic overlay removed per design review — cards stay flat
@@ -118,29 +110,14 @@
 
 .mpg-card:hover {
   border-color: color-mix(in srgb, var(--vestara-marketplace-primary) 75%, var(--vestara-marketplace-primary-border));
-  box-shadow:
-    0 30px 60px rgba(0, 0, 0, 0.65),
-    0 0 0 1px color-mix(in srgb, var(--vestara-accent) 55%, transparent),
-    0 0 40px color-mix(in srgb, var(--vestara-accent) 30%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--vestara-accent-light) 35%, transparent);
   transform: translateY(-3px);
 }
 
 [data-theme='light'] .mpg-card {
-  box-shadow:
-    0 20px 44px rgba(15, 23, 42, 0.14),
-    0 0 0 1px var(--vestara-surface-glow-hover),
-    0 0 18px var(--vestara-surface-glow-hover),
-    inset 0 1px 0 var(--vestara-surface-sheen-hover);
   transform: translateY(-1px);
 }
 
 [data-theme='light'] .mpg-card:hover {
-  box-shadow:
-    0 28px 56px rgba(15, 23, 42, 0.18),
-    0 0 0 1px var(--vestara-surface-glow-hover),
-    0 0 30px var(--vestara-surface-glow-hover),
-    inset 0 1px 0 var(--vestara-surface-sheen-hover);
   transform: translateY(-3px);
 }
 
@@ -208,7 +185,8 @@
     animation: none;
   }
   .mpg-card,
-  .mpg-tab {
+  .mpg-tab,
+  .mpg-market-tab {
     transition: none;
   }
   .mpg-card:hover {
@@ -228,13 +206,53 @@
     radial-gradient(40% 18% at 8% 4%, color-mix(in srgb, var(--vestara-accent) 6%, transparent), transparent 70%);
 }
 
-/* Primary tabs: bright-blue underline, muted blue-gray inactive. */
+/* Underline tab row: label tabs with a 2px active indicator.
+   Single scrollable row on small screens. */
+.mpg-market-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.mpg-market-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element, 0.375rem);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--vestara-border-subtle);
+}
+.mpg-market-tabs::-webkit-scrollbar {
+  display: none;
+}
 .mpg-market-tab {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--vestara-spacing-element, 0.375rem);
+  white-space: nowrap;
+  padding: var(--vestara-spacing-element, 0.375rem) var(--vestara-spacing-section, 0.75rem) 0.625rem;
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-medium);
+  letter-spacing: 0.02em;
+  color: var(--vestara-text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--vestara-motion-normal) var(--vestara-motion-easing), border-color var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
-.mpg-tab-badge {
+.mpg-market-tab:hover {
+  color: var(--vestara-text-secondary);
+  border-bottom-color: var(--vestara-border-strong, var(--vestara-border-default));
+}
+.mpg-market-tab:focus-visible {
+  outline: 2px solid var(--vestara-marketplace-primary);
+  outline-offset: 1px;
+}
+.mpg-market-tab-active {
+  color: var(--vestara-text-primary);
+  border-bottom-color: var(--vestara-marketplace-primary);
+}
+/* Neutral count pill shared by tab badges (installed, updates). */
+.mpg-tab-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -244,35 +262,28 @@
   border-radius: 9999px;
   font-size: var(--vestara-font-size-xs);
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--vestara-on-accent);
-  background: var(--vestara-marketplace-primary);
-}
-/* Advanced destinations (not primary Discover tabs) — quiet utility row. */
-.mpg-market-advanced {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  padding-top: 0.5rem;
-}
-.mpg-market-advanced-link {
-  font-size: var(--vestara-font-size-sm);
-  color: var(--vestara-text-disabled);
-}
-.mpg-market-advanced-link:hover {
-  color: var(--vestara-text-secondary);
-  text-decoration: underline;
+  color: var(--vestara-text-muted);
+  background: color-mix(in srgb, var(--vestara-surface-interactive) 70%, transparent);
+  border: 1px solid var(--vestara-border-subtle);
 }
 
 /* Discover single-column stack lives with the v2 layout rules below
    (full-width hero → category strip → grids → bottom rail).
    Reference-only pieces follow. */
 
-/* Hero row: full-width hero panel with the benefits strip stacked below. */
+/* Hero row: Build More panel (3/4) + benefits card (1/4) side by side.
+   Stacked on small screens, 3fr/1fr at ≥900px. */
 .mpg-hero-row {
   display: grid;
   gap: var(--vestara-spacing-section, var(--vestara-marketplace-hero-gap, 0.875rem));
   grid-template-columns: minmax(0, 1fr);
   width: 100%;
+}
+@media (min-width: 900px) {
+  .mpg-hero-row {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
 }
 .mpg-hero-discover {
   position: relative;
@@ -381,12 +392,17 @@
     var(--vestara-surface-panel));
   padding: var(--vestara-marketplace-benefits-padding, 0.875rem 1rem);
 }
+.mpg-benefits {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
 .mpg-benefits ul {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.625rem;
 }
 .mpg-benefits li {
   display: flex;
@@ -429,13 +445,19 @@
 /* Pills use the v2 .mpg-pill rule (compact rounded, blue active);
    the toolbar only adds scrolling + sort alignment. */
 
-/* Featured (3-up) + All Items (4-up) grids with equal-height cards. */
+/* Featured (3-up) + All Items grids with equal-height cards.
+   Tuned for the narrower main column beside the right sidebar. */
 .mpg-featured-grid {
   display: grid;
   gap: var(--vestara-spacing-section, var(--vestara-marketplace-card-gap, 0.75rem));
   grid-template-columns: minmax(0, 1fr);
 }
-@media (min-width: 900px) {
+@media (min-width: 700px) {
+  .mpg-featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
   .mpg-featured-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -450,18 +472,18 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
   .mpg-all-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 .mpg-asset {
   height: 100%;
 }
-/* Dense 4-column cards (≥1200px viewport): stack the action footer so the
+/* Dense 3-column cards (≥1400px viewport): stack the action footer so the
    rating + install count stay fully visible above a right-aligned
    Install button. Wider grids keep the inline reference treatment. */
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
   .mpg-all-grid .mpg-asset-foot {
     flex-direction: column;
     align-items: stretch;
@@ -543,37 +565,53 @@
   border: 1px solid var(--vestara-marketplace-primary-border);
 }
 
-/* Page tabs: underline style from the v2 mock (Discover active). */
-.mpg-market-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  border-bottom: 1px solid var(--vestara-border-subtle);
-}
-.mpg-market-tab {
-  padding: 0.5rem 0.125rem;
-  font-size: var(--vestara-font-size-base);
-  color: var(--vestara-text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color var(--vestara-motion-normal) var(--vestara-motion-easing), border-color var(--vestara-motion-normal) var(--vestara-motion-easing);
-}
-.mpg-market-tab:hover {
-  color: var(--vestara-text-primary);
-}
-.mpg-market-tab-active {
-  color: var(--vestara-text-primary);
-  border-bottom-color: var(--vestara-marketplace-primary);
-  background: var(--vestara-marketplace-primary-bg);
-  border-radius: var(--vestara-radius, 6px) var(--vestara-radius, 6px) 0 0;
-}
+/* Tab-bar entrance respects reduced motion (transitions off). */
 
-/* Discover shell: single-column stack — full-width hero, category
-   strip, grids, then the bottom rail (former sidebar content). */
+/* Discover shell: full-width 2-column layout — hero row on top,
+   then main content + right sidebar side by side. */
 .mpg-discover {
   display: grid;
   gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-main-gap, 0.875rem));
   grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+/* Main + right-sidebar body: stacked on mobile, 2 columns at ≥1024px. */
+.mpg-discover-body {
+  display: grid;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-main-gap, 0.875rem));
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .mpg-discover-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 19rem);
+  }
+}
+.mpg-discover-main {
+  display: grid;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-main-gap, 0.875rem));
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  align-content: start;
+}
+.mpg-discover-side {
+  display: grid;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-side-gap, 0.625rem));
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  align-content: start;
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .mpg-discover-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .mpg-discover-side .mpg-publish-cta {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Product category strip: horizontal chips directly under the hero. */
@@ -612,7 +650,66 @@ button.mpg-category-strip-item:hover {
   color: var(--vestara-text-muted);
 }
 
-/* Bottom rail: releases + publish CTA pushed below the grids. */
+/* Capabilities detail drawer: right slide-over + backdrop (all sizes). */
+.mpg-cap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: none;
+  background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--vestara-motion-normal) var(--vestara-motion-easing);
+}
+.mpg-cap-backdrop-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mpg-cap-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: min(27.5rem, 100%);
+  border-left: 1px solid var(--vestara-border-subtle);
+  background: var(--vestara-surface-panel);
+  transform: translateX(100%);
+  transition: transform var(--vestara-motion-normal) var(--vestara-motion-easing);
+}
+.mpg-cap-drawer-visible {
+  transform: translateX(0);
+}
+/* Selected capability row: accent edge without shadows. */
+.mpg-cap-row-selected {
+  border-color: var(--vestara-marketplace-primary-border);
+  outline: 1px solid var(--vestara-marketplace-primary);
+  outline-offset: -1px;
+  background: var(--vestara-gallery-card-bg,
+    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 16%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, var(--vestara-surface-panel-raised) 0%, var(--vestara-surface-panel) 130%));
+}
+@media (prefers-reduced-motion: reduce) {
+  .mpg-cap-backdrop,
+  .mpg-cap-drawer {
+    transition: none;
+  }
+}
+
+/* Right sidebar category list: vertical rows with tile + name + count. */
+.mpg-sidebar-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Legacy bottom rail (pre-sidebar layout) — retained for hosts still
+   rendering releases + publish below the grids. */
 .mpg-bottom-rail {
   display: grid;
   gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-side-gap, 0.625rem));
@@ -943,4 +1040,67 @@ button.mpg-category-strip-item:hover {
 }
 .mpg-publish-btn:hover {
   background: var(--vestara-marketplace-primary-bg);
+}
+
+/* Categories tab: curated category overview cards + inline search.
+   Token-bound gallery grammar only — no hardcoded colors. */
+.mpg-cat-grid {
+  display: grid;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-card-gap, 0.75rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .mpg-cat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .mpg-cat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.mpg-cat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  border-radius: var(--vestara-radius-lg, 8px);
+  border: 1px solid var(--vestara-border-subtle);
+  background: color-mix(in srgb, var(--vestara-surface-interactive) 55%, transparent);
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  transition: border-color var(--vestara-motion-normal) var(--vestara-motion-easing), background var(--vestara-motion-normal) var(--vestara-motion-easing);
+}
+.mpg-cat-card:hover {
+  border-color: var(--vestara-marketplace-primary-border);
+  background: var(--vestara-marketplace-primary-bg);
+}
+.mpg-cat-card-active {
+  border-color: var(--vestara-marketplace-primary);
+  background: var(--vestara-marketplace-primary-bg);
+  outline: 1px solid var(--vestara-marketplace-primary);
+  outline-offset: -1px;
+}
+.mpg-cat-tile {
+  width: var(--vestara-marketplace-category-tile-size, 1.375rem);
+  height: var(--vestara-marketplace-category-tile-size, 1.375rem);
+}
+.mpg-cat-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-medium);
+  color: var(--vestara-text-primary);
+}
+.mpg-cat-count {
+  flex-shrink: 0;
+  font-size: var(--vestara-font-size-xs);
+  color: var(--vestara-text-muted);
+  white-space: nowrap;
+}
+.mpg-cat-search {
+  max-width: 28rem;
 }

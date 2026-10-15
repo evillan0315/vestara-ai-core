@@ -1,22 +1,86 @@
 /**
- * Marketplace Premium Gallery (v7.14) — Categories.
+ * Marketplace Premium Gallery — Categories.
  *
- * Premium sidebar + asset grid with shared AssetCard, left accents,
- * and staggered entrance.
+ * Restructured: the Categories tab shares Discover's canonical taxonomy
+ * (`DISCOVER_CATEGORY_FILTERS`) instead of filtering by raw `asset.type`.
+ * Category cards carry live counts computed with the same matcher Discover
+ * uses, the selection syncs to `?category=<filterId>` so Discover's
+ * "View All" links deep-link here, and the asset grid reuses AssetCard
+ * display enrichment + sort/search like Discover.
+ *
+ * Data: live registry first; `DISCOVER_FIXTURES` are fallback design
+ * examples used only when the registry returns no assets — never presented
+ * as live data. Tokens: only var(--vestara-*) via marketplace.css + the
+ * shared mpg-* gallery grammar (no inline visual literals).
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { MarketplaceAsset } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
+import {
+  DISCOVER_CATEGORY_FILTERS,
+  DISCOVER_FIXTURES,
+  displayForLiveAsset,
+  type DiscoverDisplayMeta,
+} from '@vestara/marketplace-ui';
 import {
   AssetCard,
   AssetGridSkeleton,
   MarketplaceEmptyState,
+  MarketplaceFilterRow,
   MarketplacePage,
   MarketplaceSection,
+  MarketplaceStatPill,
+  typeAccent,
+  type MarketplaceSortId,
   type NavigateHandler,
 } from '@vestara/marketplace-ui';
+
+/** Same matcher Discover uses — canonical VestaraPackageType equality. */
+function normalizePackageType(type: string): string {
+  switch (type) {
+    case 'agent':
+    case 'skill':
+    case 'workflow':
+      return 'agent-pack';
+    case 'command':
+    case 'tool':
+      return 'plugin';
+    case 'mcp-server':
+    case 'mcpserver':
+      return 'integration';
+    case 'template':
+    case 'ui':
+    case 'component':
+      return 'theme';
+    case 'system':
+      return 'standards-pack';
+    default:
+      return type;
+  }
+}
+
+function matchesDiscoverFilter(asset: MarketplaceAsset, filterId: string): boolean {
+  if (filterId === 'all') return true;
+  const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === filterId);
+  if (!filter) return normalizePackageType(asset.type) === filterId;
+  return filter.match.includes(normalizePackageType(asset.type));
+}
+
+/** Text glyph per canonical package type (no custom illustrations). */
+const CATEGORY_GLYPHS: Record<string, string> = {
+  all: '⬣',
+  'agent-pack': '❖',
+  module: '◈',
+  plugin: '</>',
+  provider: '◇',
+  integration: '➤',
+  theme: '▤',
+  'verification-pack': '☑',
+  'standards-pack': '◉',
+  tui: '◧',
+};
 
 export default function Categories() {
   const navigate = useNavigate();
@@ -27,97 +91,222 @@ export default function Categories() {
     },
     [navigate],
   );
-  const [categories, setCategories] = useState<Array<{ name: string; assetCount: number }>>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<MarketplaceSortId>('relevant');
   const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
-  const [selected, setSelected] = useState<string>('');
+  const [usingFixtures, setUsingFixtures] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const requested = searchParams.get('category') ?? 'all';
+  const selected = DISCOVER_CATEGORY_FILTERS.some((f) => f.id === requested) ? requested : 'all';
+
+  const selectCategory = useCallback(
+    (filterId: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (filterId === 'all') next.delete('category');
+        else next.set('category', filterId);
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
   useEffect(() => {
-    Promise.all([marketplaceClient.categories(), marketplaceClient.listAssets()])
-      .then(([categoryList, assetList]) => {
-        setCategories(categoryList);
-        setAssets(assetList);
+    marketplaceClient
+      .listAssets()
+      .then((assetList) => {
+        if (assetList.length === 0) {
+          setAssets(DISCOVER_FIXTURES.map((f) => f.asset));
+          setUsingFixtures(true);
+        } else {
+          setAssets(assetList);
+          setUsingFixtures(false);
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        setAssets(DISCOVER_FIXTURES.map((f) => f.asset));
+        setUsingFixtures(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const visible = selected ? assets.filter((asset) => asset.type === selected) : assets;
+  const displayByPackage = useMemo(() => {
+    const map = new Map<string, DiscoverDisplayMeta>();
+    for (const fixture of DISCOVER_FIXTURES) map.set(fixture.asset.packageName, fixture.display);
+    for (const asset of assets) {
+      if (!map.has(asset.packageName)) map.set(asset.packageName, displayForLiveAsset(asset));
+    }
+    return map;
+  }, [assets]);
+
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const filter of DISCOVER_CATEGORY_FILTERS) {
+      if (filter.id === 'all') map.set('all', assets.length);
+      else map.set(filter.id, assets.filter((asset) => matchesDiscoverFilter(asset, filter.id)).length);
+    }
+    return map;
+  }, [assets]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return assets.filter((asset) => {
+      if (!matchesDiscoverFilter(asset, selected)) return false;
+      if (!q) return true;
+      return (
+        `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.tags.join(' ')}`
+          .toLowerCase()
+          .includes(q)
+      );
+    });
+  }, [assets, selected, query]);
+
+  const sorted = useMemo(() => {
+    const copy = [...filtered];
+    switch (sort) {
+      case 'name':
+        return copy.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      case 'newest':
+        return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      case 'popular':
+        return copy.sort(
+          (a, b) => (displayByPackage.get(b.packageName)?.reviews ?? 0) - (displayByPackage.get(a.packageName)?.reviews ?? 0),
+        );
+      case 'relevant':
+      default:
+        return copy;
+    }
+  }, [filtered, sort, displayByPackage]);
+
+  const filters = useMemo(
+    () => DISCOVER_CATEGORY_FILTERS.map((f) => ({ id: f.id, label: f.label, active: selected === f.id })),
+    [selected],
+  );
+  const activeLabel = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === selected)?.label ?? 'All';
 
   return (
     <MarketplacePage
       title="Categories"
-      description="Browse assets by category to discover what's available."
+      description="Browse assets by curated category — the same taxonomy Discover filters by."
+      stats={
+        <div className="flex flex-wrap gap-2">
+          <MarketplaceStatPill label="Categories" value={DISCOVER_CATEGORY_FILTERS.length - 1} />
+          <MarketplaceStatPill label="Assets" value={assets.length} />
+          <MarketplaceStatPill label="Showing" value={sorted.length} />
+          {usingFixtures && !loading && <MarketplaceStatPill label="Reference examples" value="●" />}
+        </div>
+      }
     >
-      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="mpg-card mpg-hairline-top h-fit p-[var(--vestara-spacing-section)]">
-          <div className="relative z-[2]">
-            <div className="px-2 pb-2 text-[length:var(--vestara-font-size-base)] font-semibold text-[var(--vestara-text-primary)]">Categories</div>
-            {categories.length === 0 && !loading && (
-              <div className="px-2 text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
-                No categories yet.
-              </div>
-            )}
-            {categories.map((category) => (
+      {/* Category overview cards — curated taxonomy with live counts. */}
+      <MarketplaceSection title="All Categories">
+        <div className="mpg-cat-grid" role="listbox" aria-label="Marketplace categories">
+          {DISCOVER_CATEGORY_FILTERS.filter((f) => f.id !== 'all').map((filter) => {
+            const count = counts.get(filter.id) ?? 0;
+            const active = selected === filter.id;
+            return (
               <button
+                key={filter.id}
                 type="button"
-                key={category.name}
-                onClick={() => setSelected(category.name === selected ? '' : category.name)}
-                className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-[length:var(--vestara-font-size-base)] transition-all ${
-                  category.name === selected
-                    ? 'text-white shadow-[0_0_16px_var(--vestara-surface-glow-hover)]'
-                    : 'hover:bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-muted)]'
-                }`}
-                style={
-                  category.name === selected
-                    ? {
-                        background: 'color-mix(in srgb, var(--vestara-accent) 22%, transparent)',
-                        border: '1px solid var(--vestara-accent-border-hover)',
-                      }
-                    : undefined
-                }
+                role="option"
+                aria-selected={active}
+                onClick={() => selectCategory(active ? 'all' : filter.id)}
+                className={`mpg-cat-card ${active ? 'mpg-cat-card-active' : ''}`}
               >
-                <span>{category.name}</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-border-subtle)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                  {category.assetCount}
+                <span
+                  className="mpg-category-tile mpg-cat-tile"
+                  style={{ background: typeAccent(filter.id) }}
+                  aria-hidden="true"
+                >
+                  {CATEGORY_GLYPHS[filter.id] ?? '⬣'}
+                </span>
+                <span className="mpg-cat-name">{filter.label}</span>
+                <span className="mpg-cat-count">
+                  {count} item{count === 1 ? '' : 's'}
                 </span>
               </button>
-            ))}
-          </div>
-        </aside>
+            );
+          })}
+        </div>
+      </MarketplaceSection>
 
-        <section>
-          {selected && (
-            <div className="mb-3 text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
-              {selected} — {visible.length} asset(s)
-            </div>
-          )}
-          {loading ? (
-            <AssetGridSkeleton count={6} />
-          ) : visible.length === 0 ? (
-            <MarketplaceEmptyState message="No assets in this category." />
-          ) : (
-            <MarketplaceSection title={selected || 'All Assets'}>
-              <div className="grid gap-[var(--vestara-spacing-section)] md:grid-cols-2 xl:grid-cols-3">
-                {visible.map((asset, i) => (
+      {/* Filter + sort toolbar (same FilterRow contract as Discover). */}
+      <MarketplaceFilterRow filters={filters} onFilterChange={selectCategory} sort={sort} onSortChange={setSort} />
+      {/* Native category select preserves the single-combobox filter contract (a11y/tests). */}
+      <label className="sr-only" htmlFor="categories-type-filter">
+        Filter by category
+      </label>
+      <select
+        id="categories-type-filter"
+        aria-label="Filter by category"
+        value={selected}
+        onChange={(event) => selectCategory(event.target.value)}
+        className="mpg-native-select sr-only"
+      >
+        {DISCOVER_CATEGORY_FILTERS.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.label}
+          </option>
+        ))}
+      </select>
+      <div className="mpg-hero-search mpg-cat-search">
+        <span aria-hidden="true">⌕</span>
+        <label className="sr-only" htmlFor="categories-search">
+          Search within {activeLabel}
+        </label>
+        <input
+          id="categories-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={`Search within ${activeLabel}…`}
+        />
+      </div>
+
+      <section aria-live="polite">
+        {loading ? (
+          <AssetGridSkeleton count={6} />
+        ) : sorted.length === 0 ? (
+          <MarketplaceEmptyState message="No assets in this category. Try a different search or category." />
+        ) : (
+          <MarketplaceSection
+            title={selected === 'all' ? 'All Assets' : activeLabel}
+            action={
+              <span className="mpg-cat-count">
+                {sorted.length} asset{sorted.length === 1 ? '' : 's'}
+                {usingFixtures ? ' · reference examples' : ''}
+              </span>
+            }
+          >
+            <div className="mpg-all-grid">
+              {sorted.map((asset, i) => {
+                const display = displayByPackage.get(asset.packageName);
+                return (
                   <AssetCard
                     key={asset.id}
                     to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
                     onNavigate={handleNavigate}
                     displayName={asset.displayName}
                     packageName={asset.packageName}
+                    publisherId={asset.publisherId}
                     type={asset.type}
                     summary={asset.summary}
+                    tags={asset.tags}
                     latestVersion={asset.latestVersion}
                     verified={asset.verification.checksumVerified}
                     index={i}
+                    rating={display?.rating}
+                    reviews={display?.reviews}
+                    installs={display?.installs}
+                    glyph={display?.glyph}
+                    accentOverride={display?.accent}
                   />
-                ))}
-              </div>
-            </MarketplaceSection>
-          )}
-        </section>
-      </div>
+                );
+              })}
+            </div>
+          </MarketplaceSection>
+        )}
+      </section>
     </MarketplacePage>
   );
 }

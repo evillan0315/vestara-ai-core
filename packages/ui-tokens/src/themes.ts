@@ -215,16 +215,19 @@ export const DARK_THEME: Theme = {
 export const LIGHT_THEME: Theme = {
   mode: 'light',
   surface: {
-    canvas: COLOR.zinc[50],
-    shell: '#ffffff',
-    panel: '#ffffff',
-    panelRaised: COLOR.zinc[50],
-    composer: 'linear-gradient(to top, #fafafa, #fafafa 55%, #ffffff)',
+    // Accent-aligned like the dark surfaces: a cast of the
+    // user-selected accent palette over the neutral light base.
+    canvas: 'color-mix(in srgb, var(--vestara-accent) 4%, #fafafa)',
+    shell: 'color-mix(in srgb, var(--vestara-accent) 4%, #ffffff)',
+    panel: 'color-mix(in srgb, var(--vestara-accent-bg) 70%, transparent)',
+    panelRaised: 'color-mix(in srgb, var(--vestara-accent) 5%, #fafafa)',
+    composer:
+      'linear-gradient(to top, var(--vestara-surface-canvas), var(--vestara-surface-canvas) 55%, var(--vestara-surface-panel))',
     assistant:
       'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-    interactive: COLOR.zinc[100],
-    interactiveHover: COLOR.zinc[200],
+    overlay: 'color-mix(in srgb, var(--vestara-accent) 5%, rgba(0, 0, 0, 0.5))',
+    interactive: 'color-mix(in srgb, var(--vestara-accent) 6%, #f4f4f5)',
+    interactiveHover: 'color-mix(in srgb, var(--vestara-accent) 8%, #e4e4e7)',
   },
   text: {
     primary: COLOR.zinc[900],
@@ -233,7 +236,7 @@ export const LIGHT_THEME: Theme = {
     disabled: COLOR.zinc[400],
   },
   border: {
-    subtle: COLOR.zinc[200],
+    subtle: 'var(--vestara-accent-border)',
     default: COLOR.zinc[300],
     strong: COLOR.zinc[400],
     focus: COLOR.brand.amber,

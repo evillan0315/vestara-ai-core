@@ -88,12 +88,12 @@ const UI_UX_GOVERNANCE = [
 /**
  * Single source of truth for the unified agent platform.
  *
- * The six core agents each have exactly one OpenCode native twin (referenced
+ * The seven core agents each have exactly one OpenCode native twin (referenced
  * by `runtimeAgent`); `apps/api/src/routes/agents.ts` merges them via that
  * field, `AgentStorage.seedBuiltIn()` seeds them into `plans.db`, and
- * `scripts/agents-sync.ts` renders their `opencodePermissions` + `opencodePrompt`
- * into `.opencode/agents/<runtimeAgent>.md` for both the root and
- * `vestara-ai-core` repositories.
+ * `scripts/agents-sync.mjs` renders them to all first-class runtimes
+ * (`AgentTarget`: opencode, codex, claude, gemini) from the provider-agnostic
+ * core prompt (`getAgentCorePrompt`) plus optional per-target adapter addenda.
  *
  * To add or change an agent, edit ONLY this array.
  */
@@ -533,3 +533,108 @@ export const DROPPED_BUILT_IN_AGENT_IDS: string[] = [
   'agent-workspace-ui-tester',
   'agent-tester',
 ];
+
+// ─── Multi-Target Agent Registry (OpenCode + Codex + Claude + Gemini) ────────
+// Prompts are authored once, provider-agnostic, in `opencodePrompt` (the core
+// prompt). `scripts/agents-sync.mjs` renders the byte-identical core to all
+// four runtimes; per-target overlays live in `adapters` and are appended as an
+// addendum only. Never duplicate a prompt per runtime.
+
+/** First-class agent runtimes. `opencode` is native; the rest are rendered projections. */
+export type AgentTarget = 'opencode' | 'codex' | 'claude' | 'gemini';
+
+/** All supported targets in render order. */
+export const AGENT_TARGETS: AgentTarget[] = ['opencode', 'codex', 'claude', 'gemini'];
+
+/** Per-target adapter overlay applied on top of the byte-identical core prompt. */
+export interface AgentTargetAdapter {
+  systemPromptAddendum?: string;
+  tools?: string[];
+  modelHint?: string;
+}
+
+/**
+ * Provider-agnostic agent view: stable identity + byte-identical core prompt
+ * plus optional per-target overlays. The canonical store (`CANONICAL_AGENTS`)
+ * carries this shape via `MultiTargetAgent.adapters`.
+ */
+export interface MultiTargetAgentDefinition {
+  id: string;
+  description: string;
+  prompt: string;
+  adapters?: Partial<Record<AgentTarget, AgentTargetAdapter>>;
+}
+
+/** A canonical agent plus its optional per-target adapter overlays. */
+export type MultiTargetAgent = CanonicalAgent & {
+  adapters?: Partial<Record<AgentTarget, AgentTargetAdapter>>;
+};
+
+/** Provenance header stamped on every generated agent/runtime file. */
+export const GENERATED_HEADER =
+  '<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->';
+
+/** Agent markdown directory per runtime, relative to the repo root. */
+export const TARGET_AGENT_DIR: Record<AgentTarget, string> = {
+  opencode: '.opencode/agents',
+  codex: '.codex/agents',
+  claude: '.claude/agents',
+  gemini: '.gemini/agents',
+};
+
+/** Root instruction file per runtime. `AGENTS.md` is the hand-maintained source (managed block only). */
+export const TARGET_ROOT_FILE: Record<AgentTarget, string> = {
+  opencode: 'opencode.json',
+  codex: 'AGENTS.md',
+  claude: 'CLAUDE.md',
+  gemini: 'GEMINI.md',
+};
+
+/**
+ * Canonical root instruction sources, mirrored into `opencode.json`
+ * `instructions` and the generated `CLAUDE.md` / `GEMINI.md` loaders.
+ */
+export const AGENT_ROOT_INSTRUCTIONS: string[] = ['AGENTS.md', 'docs/governance/UI-UX-GOVERNANCE.md'];
+
+/** Managed-block markers for the generated section inside the hand-maintained `AGENTS.md`. */
+export const AGENTS_MD_MANAGED_START =
+  '<!-- AGENTS-SYNC:MANAGED-START — do not hand-edit this block. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->';
+export const AGENTS_MD_MANAGED_END = '<!-- AGENTS-SYNC:MANAGED-END -->';
+
+/** File basename for an agent in every target dir. */
+export function getAgentFileName(agent: CanonicalAgent): string {
+  return `${agent.runtimeAgent ?? agent.role}.md`;
+}
+
+/** Provider-agnostic core prompt — byte-identical across all four runtimes. */
+export function getAgentCorePrompt(agent: CanonicalAgent): string {
+  return agent.opencodePrompt.trim();
+}
+
+/** Core prompt plus the target adapter addendum (when one is defined). */
+export function getAgentPromptForTarget(agent: MultiTargetAgent, target: AgentTarget): string {
+  const core = getAgentCorePrompt(agent);
+  const addendum = agent.adapters?.[target]?.systemPromptAddendum?.trim();
+  if (!addendum) return core;
+  return `${core}\n\n---\n${target} adapter addendum:\n${addendum}\n`;
+}
+
+/** Effective tool allowlist overlay for a target (empty when the adapter defines none). */
+export function getAgentToolsForTarget(agent: MultiTargetAgent, target: AgentTarget): string[] {
+  return agent.adapters?.[target]?.tools ?? [];
+}
+
+/** Effective model hint overlay for a target (undefined falls back to the canonical provider/model). */
+export function getAgentModelHintForTarget(agent: MultiTargetAgent, target: AgentTarget): string | undefined {
+  return agent.adapters?.[target]?.modelHint;
+}
+
+/** Provider-agnostic projection of a canonical agent (plan shape: id/description/prompt/adapters). */
+export function toMultiTargetAgent(agent: MultiTargetAgent): MultiTargetAgentDefinition {
+  return {
+    id: agent.runtimeAgent ?? agent.role,
+    description: agent.description ?? '',
+    prompt: getAgentCorePrompt(agent),
+    ...(agent.adapters ? { adapters: agent.adapters } : {}),
+  };
+}

@@ -1,3 +1,12 @@
+---
+title: AR SNAPSHOT 001 CODEX REVIEW
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-SNAPSHOT-001-CODEX-REVIEW — Independent Verification Audit
 
 Status: AUDIT ONLY. This review performed read-only source inspection and a

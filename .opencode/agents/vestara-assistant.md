@@ -1,3 +1,5 @@
+<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->
+
 ---
 description: "Global conversational assistant for Workspace users."
 mode: primary

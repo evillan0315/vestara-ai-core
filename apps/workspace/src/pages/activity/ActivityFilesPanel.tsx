@@ -65,6 +65,7 @@ export default function ActivityFilesPanel({
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [activeEditTab, setActiveEditTab] = useState<'current' | 'diff'>('current');
@@ -331,6 +332,8 @@ export default function ActivityFilesPanel({
               query={query}
               facet={facet}
               showHidden={showHidden}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
               onSelect={(entry) => setSelectedPath(entry.path)}
               onOpenFile={openFile}
               onMenu={(entry, x, y) => {

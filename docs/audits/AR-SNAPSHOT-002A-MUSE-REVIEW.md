@@ -1,3 +1,12 @@
+---
+title: AR SNAPSHOT 002A MUSE REVIEW
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-SNAPSHOT-002A — Independent Acceptance Review (Muse)
 
 Status: AUDIT ONLY. Zero production mutation. No source, test, database,

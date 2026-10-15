@@ -28,6 +28,11 @@ interface FileTreeProps {
   readonly query: string;
   readonly facet: TreeFacet;
   readonly showHidden: boolean;
+  /** Controlled expansion (owned by the workspace so footers can expand/collapse all). */
+  readonly expanded: ReadonlySet<string>;
+  onExpandedChange: (next: ReadonlySet<string>) => void;
+  /** Render the recent-files section (browser panel shows it above the tree instead). */
+  readonly showRecent?: boolean;
   onSelect: (entry: FileEntry) => void;
   onOpenFile: (entry: FileEntry) => void;
   onMenu: (entry: FileEntry, x: number, y: number) => void;
@@ -94,14 +99,23 @@ export function FileTree({
   query,
   facet,
   showHidden,
+  expanded,
+  onExpandedChange,
+  showRecent = true,
   onSelect,
   onOpenFile,
   onMenu,
   onMove,
 }: FileTreeProps) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+
+  const setExpanded = useCallback(
+    (updater: (prev: ReadonlySet<string>) => ReadonlySet<string>) => {
+      onExpandedChange(updater(expanded));
+    },
+    [expanded, onExpandedChange],
+  );
 
   const rows = useMemo(() => {
     const visible = showHidden ? entries : entries.filter((e) => !e.name.startsWith('.'));
@@ -314,7 +328,7 @@ export function FileTree({
           );
         })}
       </ul>
-      {resolvedRecent.length > 0 && (
+      {showRecent && resolvedRecent.length > 0 && (
         <div className="mt-3 shrink-0">
           <p className="ar-kicker mb-1.5">Recent</p>
           <ul className="space-y-1">

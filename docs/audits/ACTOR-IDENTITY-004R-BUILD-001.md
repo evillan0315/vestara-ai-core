@@ -1,3 +1,12 @@
+---
+title: ACTOR IDENTITY 004R BUILD 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # ACTOR-IDENTITY-004R-BUILD-001 — Full Build Failure Audit
 
 Status: audit complete. Documentation only. No source, runtime, database,

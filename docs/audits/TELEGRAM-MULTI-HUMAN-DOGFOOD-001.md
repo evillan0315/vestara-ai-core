@@ -1,3 +1,12 @@
+---
+title: TELEGRAM MULTI HUMAN DOGFOOD 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # TELEGRAM-MULTI-HUMAN-DOGFOOD-001 — Readiness Audit
 
 Mode: audit only. No second Telegram account, HumanPrincipal, binding, or

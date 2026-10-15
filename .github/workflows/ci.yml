@@ -32,6 +32,8 @@ jobs:
 
       - run: pnpm dependencies:check
 
+      - run: pnpm agents:check
+
       - name: OpenCode contract guard
         run: |
           pnpm --filter @vestara/opencode-runtime opencode:spec:generate

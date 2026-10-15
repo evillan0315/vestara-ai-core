@@ -834,6 +834,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const marketplaceRoots = [
     path.join(abs, '.vestara', 'marketplace'),
     path.join(abs, '.vestara', 'packages'),
+    path.join(abs, 'packages'),
+    path.join(abs, 'apps'),
     path.join(os.homedir(), '.config', 'vestara', 'marketplace'),
   ];
   if (process.env.VESTARA_MARKETPLACE_ROOTS)

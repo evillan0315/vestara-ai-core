@@ -581,6 +581,8 @@ function createContext(confirmAll = false): { service: MarketplaceService; manag
   const roots = [
     path.join(workspace, '.vestara', 'marketplace'),
     path.join(workspace, '.vestara', 'packages'),
+    path.join(workspace, 'packages'),
+    path.join(workspace, 'apps'),
     path.join(os.homedir(), '.config', 'vestara', 'marketplace'),
   ];
   if (process.env.VESTARA_MARKETPLACE_ROOTS)

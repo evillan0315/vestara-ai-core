@@ -1,3 +1,12 @@
+---
+title: AR SNAPSHOT 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-SNAPSHOT-001 — Initial Activity Snapshot / Projection Cardinality Audit
 
 Status: AUDIT ONLY. Zero production mutation. No source, test, database,

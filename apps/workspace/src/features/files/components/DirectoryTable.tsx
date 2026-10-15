@@ -13,8 +13,7 @@ import { useMemo } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { ActionIcon, EmptyState } from '@vestara/ui';
 import { formatBytes } from '../../../lib/diagnostics';
-import type { FileEntry } from '../files.types';
-import type { FilesDensity, FilesFacet, FilesSort } from './FilesToolbar';
+import type { FileEntry, FilesDensity, FilesFacet, FilesSort } from '../files.types';
 import { accentFor, tileClass } from './FileTree';
 
 interface DirectoryTableProps {

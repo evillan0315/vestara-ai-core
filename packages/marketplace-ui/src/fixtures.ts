@@ -125,7 +125,7 @@ export const FEATURED_FIXTURES: FixtureAsset[] = [
     'git-helper',
     'Git Helper',
     'vestara',
-    'agent',
+    'agent-pack',
     'AI-powered Git workflow assistant for commits, PRs, and code reviews.',
     ['Git', 'DevOps', 'Automation'],
     '1.9.0',
@@ -194,7 +194,7 @@ export const ALL_ITEMS_FIXTURES: FixtureAsset[] = [
     'agent-skill-kit',
     'Agent Skill Kit',
     'vestara',
-    'skill',
+    'agent-pack',
     'Create and manage agent skills and capabilities.',
     ['Agent', 'Skill', 'Extension'],
     '2.1.0',
@@ -205,7 +205,7 @@ export const ALL_ITEMS_FIXTURES: FixtureAsset[] = [
     'api-generator',
     'API Generator',
     'vestara',
-    'command',
+    'plugin',
     'Generate REST/GraphQL APIs from specifications.',
     ['API', 'Generator', 'Backend'],
     '1.7.2',
@@ -227,7 +227,7 @@ export const ALL_ITEMS_FIXTURES: FixtureAsset[] = [
     'telegram-integration',
     'Telegram Integration',
     'vestara',
-    'mcp-server',
+    'integration',
     'Connect Vestara with Telegram for remote access.',
     ['Integration', 'Communication', 'Bot'],
     '0.8.1',
@@ -246,16 +246,20 @@ export interface DiscoverCategoryFilter {
   match: readonly string[];
 }
 
+// Canonical: one filter per VestaraPackageType
+// (@vestara/extension-contracts) + All. match holds exact asset.type
+// values - matchers must use exact equality, never substring search.
 export const DISCOVER_CATEGORY_FILTERS: DiscoverCategoryFilter[] = [
   { id: 'all', label: 'All', match: [] },
-  { id: 'agents', label: 'Agents', match: ['agent', 'skill'] },
-  { id: 'modules', label: 'Modules', match: ['module', 'plugin'] },
-  { id: 'templates', label: 'Templates', match: ['template', 'theme'] },
-  { id: 'tools', label: 'Tools', match: ['command', 'tool'] },
-  { id: 'integrations', label: 'Integrations', match: ['mcp-server', 'mcpserver', 'provider', 'integration'] },
-  { id: 'ui-components', label: 'UI Components', match: ['ui', 'theme', 'component'] },
-  { id: 'workflows', label: 'Workflows', match: ['workflow'] },
-  { id: 'system', label: 'System', match: ['system', 'standards-pack', 'provider'] },
+  { id: 'agent-pack', label: 'Agents', match: ['agent-pack'] },
+  { id: 'module', label: 'Modules', match: ['module'] },
+  { id: 'plugin', label: 'Plugins', match: ['plugin'] },
+  { id: 'provider', label: 'Providers', match: ['provider'] },
+  { id: 'integration', label: 'Integrations', match: ['integration'] },
+  { id: 'theme', label: 'Themes', match: ['theme'] },
+  { id: 'verification-pack', label: 'Verification', match: ['verification-pack'] },
+  { id: 'standards-pack', label: 'Standards', match: ['standards-pack'] },
+  { id: 'tui', label: 'TUI', match: ['tui'] },
 ];
 
 export const MARKETPLACE_SORTS = [

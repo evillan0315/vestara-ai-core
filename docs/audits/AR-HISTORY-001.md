@@ -1,3 +1,12 @@
+---
+title: AR HISTORY 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-HISTORY-001 — Activity History Continuity & Pagination Audit
 
 Status: AUDIT ONLY. Zero production mutation. No behavior, persistence,

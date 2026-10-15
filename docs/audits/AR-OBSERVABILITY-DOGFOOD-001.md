@@ -1,3 +1,12 @@
+---
+title: AR OBSERVABILITY DOGFOOD 001
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-OBSERVABILITY-DOGFOOD-001 — Activity Room Observability Audit
 
 Mode: audit only. No Activity Room state or implementation was changed.

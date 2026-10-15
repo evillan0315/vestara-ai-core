@@ -1,3 +1,12 @@
+---
+title: ACTOR IDENTITY 003B
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # ACTOR-IDENTITY-003B — Assistant Intelligence Identity Context Audit
 
 Status: audit complete; no production implementation performed.

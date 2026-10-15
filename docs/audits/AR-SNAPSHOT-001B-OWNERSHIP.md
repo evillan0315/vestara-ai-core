@@ -1,3 +1,12 @@
+---
+title: AR SNAPSHOT 001B OWNERSHIP
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-15
+next-review: 2026-11-15
+---
+
 # AR-SNAPSHOT-001B — Snapshot Projection Ownership Decision
 
 Status: architecture/ownership decision only. No production source, tests,

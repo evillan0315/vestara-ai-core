@@ -52,21 +52,25 @@ export const MARKETPLACE_LAYOUT_VARS = {
 // so every host lays out the gallery identically.
 
 export const DISCOVER_GRID = {
-  /** Discover shell: single-column stack (hero → category strip → grids → bottom rail). */
+  /** Discover shell: hero row on top, then main + right-sidebar body. */
   shellColumns: 'minmax(0, 1fr)',
-  /** Category strip + grids below the hero run full width. */
-  categoryStrip: 'wrap',
-  /** Bottom rail (releases + publish): 1-up → 2-up at ≥900px. */
+  /** Body: stacked on mobile, main + 19rem sidebar at ≥1024px. */
+  bodyBreakpoint: '1024px',
+  bodyColumns: 'minmax(0, 1fr) minmax(0, 19rem)',
+  /** Sidebar: Popular Categories + Latest Releases + Publish CTA. */
+  sidebarCards: ['popular-categories', 'latest-releases', 'publish-cta'],
+  /** Bottom rail (legacy pre-sidebar layout): 1-up → 2-up at ≥900px. */
   bottomRailBreakpoint: '900px',
   bottomRailColumns: 2,
-  /** Featured row: 1-up → 3-up at ≥900px. */
-  featuredBreakpoint: '900px',
+  /** Featured row in the main column: 1-up → 2-up at ≥700px → 3-up at ≥1280px. */
+  featuredBreakpoint: '1280px',
   featuredColumns: 3,
-  /** All-items grid: 1-up → 2-up at ≥640px → 4-up at ≥1200px. */
-  allGridBreakpoints: ['640px', '1200px'],
-  allGridColumns: [1, 2, 4],
-  /** Hero: full-width panel with the benefits strip stacked below. */
-  heroColumns: 'minmax(0, 1fr)',
+  /** All-items grid in the main column: 1-up → 2-up at ≥640px → 3-up at ≥1400px. */
+  allGridBreakpoints: ['640px', '1400px'],
+  allGridColumns: [1, 2, 3],
+  /** Hero row: Build More (3fr) + benefits (1fr) at ≥900px, stacked below. */
+  heroBreakpoint: '900px',
+  heroColumns: 'minmax(0, 3fr) minmax(0, 1fr)',
 } as const;
 
 // ─── Spacing / Radius / Gap Presets (profile wiring) ────────────
