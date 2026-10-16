@@ -76,6 +76,14 @@ export function startServer(port = 3001): http.Server {
     }
   });
 
+  // `server.listen` failures (e.g. EADDRINUSE) are emitted asynchronously as
+  // an 'error' event, not thrown. Without a listener Node crashes the whole
+  // process on the unhandled 'error' event. Report it here so callers can
+  // degrade; callers may attach their own listener for context-specific UX.
+  server.on('error', (error) => {
+    console.warn(`[events-server] Failed to listen on port ${port}: ${(error as Error).message}`);
+  });
+
   server.listen(port, () => {
     console.log(`[events-server] Listening on http://127.0.0.1:${port}`);
   });

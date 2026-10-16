@@ -15,7 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
-import { ELEVATION, MARKETPLACE_LAYOUT, MOTION } from './tokens.js';
+import { ELEVATION, MARKETPLACE_LAYOUT, MOTION, UI_COMPONENT } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -155,6 +155,33 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-marketplace-icon-box-size': MARKETPLACE_LAYOUT.iconBoxSize,
     '--vestara-marketplace-icon-box-radius': MARKETPLACE_LAYOUT.iconBoxRadius,
     '--vestara-marketplace-category-tile-size': MARKETPLACE_LAYOUT.categoryTileSize,
+
+    // VES-DESIGN-006: @vestara/ui-components palette. Each value aliases a
+    // dynamic canonical token, so the extracted component gallery follows
+    // the selected theme mode, accent palette, and workspace profile.
+    '--vestara-surface-os-canvas': UI_COMPONENT.surface.canvas,
+    '--vestara-surface-os-panel': UI_COMPONENT.surface.panel,
+    '--vestara-surface-os-raised': UI_COMPONENT.surface.raised,
+    '--vestara-surface-os-elevated': UI_COMPONENT.surface.elevated,
+    '--vestara-surface-os-hover': UI_COMPONENT.surface.hover,
+    '--vestara-surface-os-inset': UI_COMPONENT.surface.inset,
+    '--vestara-border-os-subtle': UI_COMPONENT.border.subtle,
+    '--vestara-border-os-default': UI_COMPONENT.border.default,
+    '--vestara-border-os-strong': UI_COMPONENT.border.strong,
+    '--vestara-text-os-primary': UI_COMPONENT.text.primary,
+    '--vestara-text-os-secondary': UI_COMPONENT.text.secondary,
+    '--vestara-text-os-muted': UI_COMPONENT.text.muted,
+    '--vestara-text-os-faint': UI_COMPONENT.text.faint,
+    '--vestara-accent-os-teal': UI_COMPONENT.accent.teal,
+    '--vestara-accent-os-cyan': UI_COMPONENT.accent.cyan,
+    '--vestara-accent-os-amber': UI_COMPONENT.accent.amber,
+    '--vestara-status-os-success': UI_COMPONENT.status.success,
+    '--vestara-status-os-warning': UI_COMPONENT.status.warning,
+    '--vestara-status-os-danger': UI_COMPONENT.status.danger,
+    '--vestara-status-os-info': UI_COMPONENT.status.info,
+    '--vestara-color-os-on-accent': UI_COMPONENT.color.onAccent,
+    '--vestara-color-os-inverse': UI_COMPONENT.color.inverse,
+    '--vestara-color-os-auth-canvas': UI_COMPONENT.color.authCanvas,
   };
 }
 

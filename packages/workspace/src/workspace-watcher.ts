@@ -121,6 +121,13 @@ export class WorkspaceWatcher {
         });
       });
 
+      // Watcher failures arrive asynchronously as an 'error' event (not a
+      // throw); an unhandled one crashes the process. Degrade to non-watching.
+      this.watcher?.on('error', (error) => {
+        this.logger?.warn('File watcher error; watching disabled', { error });
+        this.stop();
+      });
+
       this.logger?.info('File watcher started', { rootDir: this.rootDir });
       this.emitEvent('watch:started', { rootDir: this.rootDir });
     } catch (error) {

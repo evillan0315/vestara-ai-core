@@ -25,6 +25,7 @@ export type MarketplaceBadgeVariant = 'default' | 'success' | 'warning' | 'error
 
 export const TYPE_ACCENTS: Record<string, string> = {
   // ── canonical ──
+  'ui-components': 'var(--vestara-marketplace-theme)',
   'agent-pack': 'var(--vestara-marketplace-agent)',
   module: 'var(--vestara-marketplace-module)',
   plugin: 'var(--vestara-marketplace-plugin)',

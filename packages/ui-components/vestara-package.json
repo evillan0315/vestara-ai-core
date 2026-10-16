@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "vestara.ui-components",
+  "name": "Vestara UI Components",
+  "version": "0.1.0",
+  "description": "The Vestara OS component library — shared UI primitives (FileIcon, TreeNode, CommandPalette, ChatMessage, Composer, onboarding shells) extracted onto the canonical design tokens.",
+  "type": "module",
+  "publisher": {
+    "id": "vestara",
+    "name": "Vestara"
+  },
+  "compatibility": {
+    "vestara": ">=0.3.0",
+    "operatingSystems": ["linux", "macos", "win32"],
+    "architectures": ["x64", "arm64"]
+  },
+  "entrypoints": {
+    "runtime": "dist/index.js"
+  },
+  "capabilities": ["ui:component", "ui:gallery"],
+  "permissions": [],
+  "dependencies": [
+    {
+      "packageName": "@vestara/ui-tokens",
+      "version": "workspace:*"
+    }
+  ],
+  "contributions": {
+    "components": [
+      { "id": "file-workspace", "name": "File Workspace", "count": 12 },
+      { "id": "chat-assistant", "name": "Chat Assistant", "count": 14 },
+      { "id": "auth-onboarding", "name": "Auth & Onboarding", "count": 17 },
+      { "id": "data-display", "name": "Data Display", "count": 2 }
+    ]
+  },
+  "isolation": "in-process",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "pending"
+  }
+}

@@ -73,13 +73,16 @@ export type {
 } from './fixtures.js';
 export {
   ALL_ITEMS_FIXTURES,
+  assetMatchesCategory,
   DISCOVER_CATEGORY_FILTERS,
   DISCOVER_FIXTURES,
   displayForLiveAsset,
   FEATURED_FIXTURES,
   LATEST_RELEASES_FIXTURE,
   MARKETPLACE_SORTS,
+  normalizePackageType,
   POPULAR_CATEGORIES_FIXTURE,
+  UI_COMPONENT_FIXTURES,
   WORKSPACE_BENEFITS_FIXTURE,
 } from './fixtures.js';
 export {

@@ -44,6 +44,7 @@
     "@vestara/shared": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/ui": "workspace:*",
+    "@vestara/ui-components": "workspace:*",
     "@vestara/ui-theme": "workspace:*",
     "@vestara/ui-tokens": "workspace:*",
     "@vestara/workflow-orchestrator": "workspace:*",

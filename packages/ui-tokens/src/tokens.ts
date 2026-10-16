@@ -425,6 +425,60 @@ export const MARKETPLACE_LAYOUT = {
   categoryTileSize: '1.375rem',
 } as const;
 
+// ─── UI Components Palette (VES-DESIGN-006) ────────────────────
+// Surface/ink/accent vocabulary for the extracted Vestara OS component
+// library (@vestara/ui-components). Every value is an alias of the
+// dynamic canonical token it maps onto — so the component library follows
+// the selected theme mode, accent palette, and workspace profile instead
+// of shipping a fixed appearance. Normalised into one token system so no
+// component ever carries a raw hex literal.
+// Categories per UI-UX governance: surface|text|border|accent|status|color.
+// Consumed as `var(--vestara-{category}-os-{name})`.
+
+export const UI_COMPONENT = {
+  surface: {
+    canvas: 'var(--vestara-surface-canvas)',
+    panel: 'var(--vestara-surface-panel)',
+    raised: 'var(--vestara-surface-panel-raised)',
+    elevated: 'var(--vestara-surface-interactive)',
+    hover: 'var(--vestara-surface-interactive-hover)',
+    inset: 'var(--vestara-surface-canvas)',
+  },
+  border: {
+    subtle: 'var(--vestara-border-subtle)',
+    default: 'var(--vestara-border-default)',
+    strong: 'var(--vestara-border-strong)',
+  },
+  text: {
+    primary: 'var(--vestara-text-primary)',
+    secondary: 'var(--vestara-text-secondary)',
+    muted: 'var(--vestara-text-muted)',
+    faint: 'var(--vestara-text-disabled)',
+  },
+  accent: {
+    /** Primary action accent (selected accent palette). */
+    teal: 'var(--vestara-accent)',
+    /** Secondary accent used for highlights and user affordances. */
+    cyan: 'var(--vestara-accent-light)',
+    /** Warm tone for architecture/status highlights. */
+    amber: 'var(--vestara-status-warning)',
+  },
+  status: {
+    success: 'var(--vestara-status-success)',
+    warning: 'var(--vestara-status-warning)',
+    danger: 'var(--vestara-status-error)',
+    info: 'var(--vestara-status-info)',
+  },
+  color: {
+    /** Ink for text/icons placed on an accent-coloured fill. */
+    onAccent: 'var(--vestara-on-accent)',
+    /** Inverse ink used by the onboarding appearance (follows theme mode). */
+    inverse: 'var(--vestara-text-primary)',
+    /** Canvas for the onboarding appearance (follows theme mode). */
+    authCanvas: 'var(--vestara-surface-canvas)',
+  },
+} as const;
+
 // ─── Accent Palettes (VES-DESIGN-004) ─────────────────────────
 
 export type AccentColorTheme =

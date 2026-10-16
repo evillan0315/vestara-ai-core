@@ -1,4 +1,7 @@
+import * as fs from 'node:fs';
 import type * as http from 'node:http';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { type HumanPrincipalStatus, isHumanPrincipalStatus } from '@vestara/workspace';
 import { AuditAction, logAudit } from '../audit-log';
 import { type AuthUser, requireRole } from '../auth';
@@ -7,6 +10,36 @@ import { readJsonBody } from '../http/body';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 import { getActor } from './types';
+
+function isLoopback(req: http.IncomingMessage): boolean {
+  const address = req.socket?.remoteAddress ?? '';
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+}
+
+/**
+ * Provision the shared session file so local CLI/TUI clients are authenticated
+ * after the Vestara OS login (no `vestara auth login` needed). Loopback-only and
+ * best-effort: a failure never affects the login response. The path mirrors the
+ * CLI's `auth.json` (`VESTARA_SESSION_FILE` overrides it for images/services).
+ */
+function persistSessionFile(port: number, user: { username: string; role: string; token: string }): void {
+  try {
+    const file =
+      process.env.VESTARA_SESSION_FILE ??
+      path.join(process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), '.config'), 'vestara', 'auth.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const payload = {
+      endpoint: `http://127.0.0.1:${port}`,
+      token: user.token,
+      username: user.username,
+      role: user.role,
+      savedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  } catch {
+    // Best-effort provisioning; explicit `vestara auth login` remains available.
+  }
+}
 
 function requireExplicitAdmin(
   req: http.IncomingMessage,
@@ -73,6 +106,7 @@ export async function handleAuthRoute(
       if (user) {
         logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Token login');
         json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+        if (isLoopback(req)) persistSessionFile(port, user);
       } else throw ApiError.unauthorized('Invalid token.');
     } else if (username) {
       const existing = ctx.users.listAll().find((u) => u.username === username);
@@ -90,6 +124,7 @@ export async function handleAuthRoute(
         json(res, 200, {
           user: { id: existing.id, username: existing.username, role: existing.role, token: existing.token },
         });
+        if (isLoopback(req)) persistSessionFile(port, existing);
       } else {
         const newUser = ctx.users.createUser(username, 'editor');
         logAudit(
@@ -105,6 +140,7 @@ export async function handleAuthRoute(
         json(res, 201, {
           user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
         });
+        if (isLoopback(req)) persistSessionFile(port, newUser);
       }
     } else throw ApiError.badRequest('Provide username or token.');
     return true;

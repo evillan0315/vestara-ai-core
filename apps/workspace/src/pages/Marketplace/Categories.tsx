@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { MarketplaceAsset } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
+  assetMatchesCategory,
   DISCOVER_CATEGORY_FILTERS,
   DISCOVER_FIXTURES,
   displayForLiveAsset,
@@ -37,40 +38,10 @@ import {
   type NavigateHandler,
 } from '@vestara/marketplace-ui';
 
-/** Same matcher Discover uses — canonical VestaraPackageType equality. */
-function normalizePackageType(type: string): string {
-  switch (type) {
-    case 'agent':
-    case 'skill':
-    case 'workflow':
-      return 'agent-pack';
-    case 'command':
-    case 'tool':
-      return 'plugin';
-    case 'mcp-server':
-    case 'mcpserver':
-      return 'integration';
-    case 'template':
-    case 'ui':
-    case 'component':
-      return 'theme';
-    case 'system':
-      return 'standards-pack';
-    default:
-      return type;
-  }
-}
-
-function matchesDiscoverFilter(asset: MarketplaceAsset, filterId: string): boolean {
-  if (filterId === 'all') return true;
-  const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === filterId);
-  if (!filter) return normalizePackageType(asset.type) === filterId;
-  return filter.match.includes(normalizePackageType(asset.type));
-}
-
 /** Text glyph per canonical package type (no custom illustrations). */
 const CATEGORY_GLYPHS: Record<string, string> = {
   all: '⬣',
+  'ui-components': '◧',
   'agent-pack': '❖',
   module: '◈',
   plugin: '</>',
@@ -145,7 +116,7 @@ export default function Categories() {
     const map = new Map<string, number>();
     for (const filter of DISCOVER_CATEGORY_FILTERS) {
       if (filter.id === 'all') map.set('all', assets.length);
-      else map.set(filter.id, assets.filter((asset) => matchesDiscoverFilter(asset, filter.id)).length);
+      else map.set(filter.id, assets.filter((asset) => assetMatchesCategory(asset, filter.id)).length);
     }
     return map;
   }, [assets]);
@@ -153,7 +124,7 @@ export default function Categories() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return assets.filter((asset) => {
-      if (!matchesDiscoverFilter(asset, selected)) return false;
+      if (!assetMatchesCategory(asset, selected)) return false;
       if (!q) return true;
       return (
         `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.tags.join(' ')}`

@@ -68,6 +68,13 @@ export class WorkspaceUiWatcher {
         this.pendingChanges.add(filename);
         this.debounceEmit();
       });
+
+      // Watcher failures arrive asynchronously as an 'error' event (not a
+      // throw); an unhandled one crashes the process. Degrade to non-watching.
+      this.watcher?.on('error', (error) => {
+        console.warn(`[WorkspaceUiWatcher] File watcher error; monitoring disabled: ${error.message}`);
+        this.stop();
+      });
     } catch {
       this.active = false;
     }

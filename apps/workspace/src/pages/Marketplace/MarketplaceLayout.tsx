@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { type MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { WorkspaceTabs, type WorkspaceTabItem } from '@vestara/ui-components';
 import '../../styles/marketplace.css';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import AssetDetail from './AssetDetail.js';
 import Capabilities from './Capabilities.js';
 import Categories from './Categories.js';
+import Components from './Components.js';
 import Collections from './Collections.js';
 import Discover from './Discover.js';
 import ExtractorPage from './Extractor/ExtractorPage.js';
@@ -33,6 +35,11 @@ const TABS: MarketplaceTab[] = [
     to: '/marketplace/categories',
     label: 'Categories',
     description: 'Browse assets by category to discover what’s available.',
+  },
+  {
+    to: '/marketplace/components',
+    label: 'UI Components',
+    description: 'The Vestara OS component library plus the shared UI, tokens, and primitives packages.',
   },
   {
     to: '/marketplace/capabilities',
@@ -73,34 +80,9 @@ const TABS: MarketplaceTab[] = [
 
 const ASSET_DETAIL_DESCRIPTION = 'Inspect asset details, versions, and install options.';
 
-function renderTab(
-  tab: MarketplaceTab,
-  badge: { installedCount: number | null; updateCount: number },
-) {
-  return (
-    <NavLink
-      key={tab.to}
-      to={tab.to}
-      end={tab.end}
-      className={({ isActive }) => `mpg-market-tab ${isActive ? 'mpg-market-tab-active' : ''}`}
-    >
-      {tab.label}
-      {tab.label === 'Installed' && badge.installedCount !== null && badge.installedCount > 0 && (
-        <span className="mpg-tab-count" aria-label={`${badge.installedCount} installed`}>
-          {badge.installedCount}
-        </span>
-      )}
-      {tab.label === 'Updates' && badge.updateCount > 0 && (
-        <span className="mpg-tab-count" aria-label={`${badge.updateCount} updates available`}>
-          {badge.updateCount}
-        </span>
-      )}
-    </NavLink>
-  );
-}
-
 export default function MarketplaceLayout() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [updateCount, setUpdateCount] = useState(0);
   const [installedCount, setInstalledCount] = useState<number | null>(null);
 
@@ -119,7 +101,32 @@ export default function MarketplaceLayout() {
     tab.end ? pathname === tab.to : pathname === tab.to || pathname.startsWith(`${tab.to}/`),
   );
   const description = activeTab?.description ?? ASSET_DETAIL_DESCRIPTION;
-  const badge = { installedCount, updateCount };
+
+  // Section tabs render through the reusable @vestara/ui-components tab bar,
+  // extended with router-agnostic href/onNavigate + count badges.
+  const tabItems = useMemo<WorkspaceTabItem[]>(
+    () =>
+      TABS.map((tab) => ({
+        id: tab.to,
+        label: tab.label,
+        href: tab.to,
+        badge:
+          tab.label === 'Installed' && installedCount !== null && installedCount > 0
+            ? installedCount
+            : tab.label === 'Updates' && updateCount > 0
+              ? updateCount
+              : undefined,
+      })),
+    [installedCount, updateCount],
+  );
+
+  const handleNavigate = useCallback(
+    (href: string, event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      navigate(href);
+    },
+    [navigate],
+  );
 
   return (
     <div className="mpg-page w-full min-w-0 space-y-3 p-[var(--vestara-spacing-page)]">
@@ -132,9 +139,13 @@ export default function MarketplaceLayout() {
         <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">{description}</p>
       </div>
       <header className="mpg-market-header relative z-[2]">
-        <nav className="mpg-market-tabs" aria-label="Marketplace sections">
-          {TABS.map((tab) => renderTab(tab, badge))}
-        </nav>
+        <WorkspaceTabs
+          active={activeTab?.to ?? ''}
+          tabs={tabItems}
+          onActive={(id) => navigate(id)}
+          onNavigate={handleNavigate}
+          ariaLabel="Marketplace sections"
+        />
       </header>
       <div className="relative z-[2] min-w-0">
         <Routes>
@@ -142,6 +153,7 @@ export default function MarketplaceLayout() {
           <Route path="capabilities" element={<Capabilities />} />
           <Route path="publish" element={<Publish />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="components" element={<Components />} />
           <Route path="collections" element={<Collections />} />
           <Route path="installed" element={<Installed />} />
           <Route path="updates" element={<Updates />} />

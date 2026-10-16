@@ -20,10 +20,12 @@ import type { InstalledMarketplaceAsset, MarketplaceAsset, MarketplaceUpdateCand
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
   ALL_ITEMS_FIXTURES,
+  assetMatchesCategory,
   DISCOVER_CATEGORY_FILTERS,
   DISCOVER_FIXTURES,
   FEATURED_FIXTURES,
   LATEST_RELEASES_FIXTURE,
+  normalizePackageType,
   POPULAR_CATEGORIES_FIXTURE,
   displayForLiveAsset,
   type DiscoverDisplayMeta,
@@ -58,37 +60,6 @@ function relativeTime(iso: string): string {
   }
   const months = Math.floor(days / 30);
   return months === 1 ? '1 month ago' : `${months} months ago`;
-}
-
-/** Canonical VestaraPackageType normalization for pre-alignment registry data. */
-function normalizePackageType(type: string): string {
-  switch (type) {
-    case 'agent':
-    case 'skill':
-    case 'workflow':
-      return 'agent-pack';
-    case 'command':
-    case 'tool':
-      return 'plugin';
-    case 'mcp-server':
-    case 'mcpserver':
-      return 'integration';
-    case 'template':
-    case 'ui':
-    case 'component':
-      return 'theme';
-    case 'system':
-      return 'standards-pack';
-    default:
-      return type;
-  }
-}
-
-function matchesCategory(asset: MarketplaceAsset, filterId: string): boolean {
-  if (filterId === 'all') return true;
-  const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === filterId);
-  if (!filter) return normalizePackageType(asset.type) === filterId;
-  return filter.match.includes(normalizePackageType(asset.type));
 }
 
 function filterIdForCategoryName(name: string): string {
@@ -178,7 +149,7 @@ export default function Discover() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return assets.filter((asset) => {
-      if (!matchesCategory(asset, category)) return false;
+      if (!assetMatchesCategory(asset, category)) return false;
       if (!q) return true;
       return (
         `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.tags.join(' ')}`

@@ -87,6 +87,15 @@ export class MonitorService {
         }
       });
 
+      // A watcher failure (e.g. ENOSPC when the inotify watch/instance limit
+      // is reached) is delivered asynchronously as an 'error' event, NOT thrown,
+      // so the surrounding try/catch cannot observe it. Without a listener Node
+      // crashes on the unhandled 'error' event. Degrade to non-watching instead.
+      this.watcher?.on('error', (error) => {
+        console.warn(`[MonitorService] File watcher error; monitoring disabled: ${error.message}`);
+        this.stop();
+      });
+
       this.emit({ type: 'health-updated', path: rootDir, timestamp: new Date().toISOString() });
     } catch (_err) {
       this.active = false;

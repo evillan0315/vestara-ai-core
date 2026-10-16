@@ -25,8 +25,11 @@ export class TuiController {
   private routingState?: RoutingSelection;
   private workflowFollow?: { threadId: string; lastPush: number };
   private conversationId?: string;
+  /** Bearer token for API auth (VES-AUTH-001); absent when unauthenticated. */
+  private readonly token?: string;
   constructor(options: TuiControllerOptions = {}) {
     this.endpoint = new URL(options.endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001');
+    this.token = process.env.VESTARA_API_KEY?.trim() || undefined;
   }
 
   async connect(listener: (event: TuiEvent) => void): Promise<() => void> {
@@ -372,7 +375,7 @@ export class TuiController {
       new URL(`/api/conversations/${encodeURIComponent(conversationId)}/stream`, this.endpoint),
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
+        headers: this.headers(true),
         body: JSON.stringify({ message }),
         signal,
       },
@@ -413,8 +416,17 @@ export class TuiController {
     yield { type: 'conversation-complete', id };
   }
 
+  /** Request headers, including Bearer auth when a token is available. */
+  private headers(json = false): Record<string, string> {
+    return {
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+      'X-Vestara-Source': 'cli',
+      ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+    };
+  }
+
   private async getJson<T>(pathname: string): Promise<T> {
-    const response = await fetch(new URL(pathname, this.endpoint), { headers: { 'X-Vestara-Source': 'cli' } });
+    const response = await fetch(new URL(pathname, this.endpoint), { headers: this.headers() });
     if (!response.ok) throw new Error(`Runtime API ${response.status}: ${pathname}`);
     return response.json() as Promise<T>;
   }
@@ -422,7 +434,7 @@ export class TuiController {
   private async requestJson<T>(pathname: string, method: string, body: unknown): Promise<T> {
     const response = await fetch(new URL(pathname, this.endpoint), {
       method,
-      headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
+      headers: this.headers(true),
       body: JSON.stringify(body),
     });
     if (!response.ok) {

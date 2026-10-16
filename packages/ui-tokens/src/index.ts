@@ -58,5 +58,6 @@ export {
   SURFACE,
   TEXT,
   TYPOGRAPHY,
+  UI_COMPONENT,
   Z_INDEX,
 } from './tokens.js';
