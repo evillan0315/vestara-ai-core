@@ -17,6 +17,9 @@ referenced_by:
     target: "10-developer-platform/extension-platform.md"
   - type: "blueprint"
     target: "20-roadmaps/extension-platform-roadmap.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

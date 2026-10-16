@@ -7,6 +7,8 @@ status: "proposed"
 owner: "@chief-architect"
 created: "2026-08-04"
 tags: ["governance", "stewardship", "data-classification", "ethics", "compliance", "least-privilege"]
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 # Information Stewardship & Data Governance

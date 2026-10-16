@@ -15,6 +15,9 @@ depends_on: ["adr-106", "adr-111", "adr-112"]
 referenced_by:
   - type: "blueprint"
     target: "13-design-system/17-terminal-console.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

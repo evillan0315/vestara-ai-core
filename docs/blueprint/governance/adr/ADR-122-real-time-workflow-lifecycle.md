@@ -15,6 +15,9 @@ depends_on: ["adr-104", "adr-105", "adr-111", "adr-120", "adr-121"]
 referenced_by:
   - type: "blueprint"
     target: "04-platform/engineering-operating-system.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

@@ -15,6 +15,9 @@ depends_on: ["adr-115", "adr-124"]
 referenced_by:
   - type: "blueprint"
     target: "10-developer-platform/marketplace-implementation.md#16-future-architecture-identity-and-authorization"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

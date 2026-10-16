@@ -7,6 +7,7 @@ status: "ratified"
 owner: "@chief-architect"
 last-reviewed: "2026-07-28"
 tags: ["constitution", "product", "experience", "north-star"]
+next-review: "2026-11-16"
 ---
 
 # Vestara Product Constitution

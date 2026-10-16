@@ -15,6 +15,9 @@ depends_on: ["adr-120", "adr-123"]
 referenced_by:
   - type: "blueprint"
     target: "05-ai-core/ai-qualification-framework.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

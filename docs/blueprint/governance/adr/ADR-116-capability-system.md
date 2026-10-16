@@ -19,6 +19,9 @@ referenced_by:
     target: "vestara-ai-core/packages/workspace/src/agent-capability.ts"
   - type: "blueprint"
     target: "05-ai-core/agent-runtime.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

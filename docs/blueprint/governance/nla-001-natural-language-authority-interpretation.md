@@ -11,6 +11,9 @@ verification-status: "unverified"
 implementation-repository: "evillan0315/vestara-ai-core"
 implementation-ref: "pending"
 tags: ["experiment", "organization", "authority", "communication", "observation", "pre-orb", "both-protocol"]
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 # NLA-001 — Natural-Language Authority Interpretation

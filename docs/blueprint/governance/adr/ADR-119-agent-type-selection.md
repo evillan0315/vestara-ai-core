@@ -21,6 +21,9 @@ referenced_by:
     target: "vestara-ai-core/apps/workspace/src/pages/Agents/AgentRegistryModal.tsx"
   - type: "api"
     target: "vestara-ai-core/apps/api/src/routes/agents.ts"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

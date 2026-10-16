@@ -15,6 +15,9 @@ depends_on: ["adr-121", "adr-122"]
 referenced_by:
   - type: "blueprint"
     target: "06-workspace/activity-room.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

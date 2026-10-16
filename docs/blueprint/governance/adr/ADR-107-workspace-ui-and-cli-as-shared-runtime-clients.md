@@ -14,6 +14,9 @@ tags: ["cli", "workspace", "integration"]
 referenced_by:
   - type: "blueprint"
     target: "06-workspace/cli-workspace-integration.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

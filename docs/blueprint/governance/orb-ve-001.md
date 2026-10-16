@@ -11,6 +11,9 @@ verification-status: "unverified"
 implementation-repository: "evillan0315/vestara-ai-core"
 implementation-ref: "pending"
 tags: ["experiment", "organization", "benchmark", "unresolved-conditions", "convergence", "visual-edit"]
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 # ORB-VE-001 — Organizational Convergence Experiment

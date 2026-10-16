@@ -17,6 +17,9 @@ referenced_by:
     target: "vestara-ai-core/packages/filesystem-runtime/src/index.ts"
   - type: "blueprint"
     target: "06-workspace/workspace-native-context.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

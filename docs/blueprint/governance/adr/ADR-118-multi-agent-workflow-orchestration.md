@@ -21,6 +21,9 @@ referenced_by:
     target: "14-engineering/multi-agent-workflow.md"
   - type: "implementation"
     target: "vestara-ai-core/docs/PCS-025-phase-1-implementation-plan.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

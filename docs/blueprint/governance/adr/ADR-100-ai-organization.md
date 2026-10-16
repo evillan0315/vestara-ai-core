@@ -25,6 +25,9 @@ influences:
   - "Reviewer"
   - "Verifier"
   - "Context"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

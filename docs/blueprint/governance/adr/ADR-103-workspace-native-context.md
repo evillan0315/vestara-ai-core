@@ -27,6 +27,9 @@ influences:
   - "Knowledge Graph"
   - "Memory Architecture"
   - "Planner"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

@@ -17,6 +17,9 @@ referenced_by:
     target: "07-operating-system/os-0-host-integration.md"
   - type: "blueprint"
     target: "07-operating-system/README.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

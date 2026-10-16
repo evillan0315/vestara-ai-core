@@ -6,6 +6,8 @@ version: "1.0.0"
 status: "draft"
 owner: "@chief-architect"
 tags: ["validation", "capabilities", "experience", "measurement"]
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 # Capability Validation Framework

@@ -17,6 +17,9 @@ referenced_by:
     target: "04-platform/agent-harness-architecture.md"
   - type: "blueprint"
     target: "04-platform/engineering-operating-system.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context

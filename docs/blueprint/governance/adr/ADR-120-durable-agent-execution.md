@@ -15,6 +15,9 @@ depends_on: ["adr-104", "adr-111", "adr-117"]
 referenced_by:
   - type: "blueprint"
     target: "04-platform/agent-harness-architecture.md"
+owner: "@chief-architect"
+last-reviewed: "2026-10-16"
+next-review: "2026-11-16"
 ---
 
 ## Context
