@@ -10,6 +10,7 @@
  */
 
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -30,6 +31,10 @@ import {
   parsePackageReference,
 } from '@vestara/marketplace';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+
+// ESM: `require` is not defined in ES modules. Create a module-scoped require
+// bound to this file so the lazy, synchronous loads below keep working.
+const nodeRequire = createRequire(import.meta.url);
 
 export async function runMarketplace(args: readonly string[]): Promise<void> {
   const subcommand = args[0] ?? '';
@@ -295,13 +300,16 @@ async function runRollback(args: readonly string[], json: boolean): Promise<void
 }
 
 function nativeInstaller(): import('@vestara/native-installer').NativePackageInstaller {
-  const { NativePackageInstaller } = require('@vestara/native-installer') as typeof import('@vestara/native-installer');
+  const { NativePackageInstaller } = nodeRequire(
+    '@vestara/native-installer',
+  ) as typeof import('@vestara/native-installer');
   return new NativePackageInstaller({ root: nativePackagesRoot() });
 }
 
 function nativePackagesRoot(): string {
-  const { defaultPackagesRoot } =
-    require('../lib/interface-resolver.js') as typeof import('../lib/interface-resolver.js');
+  const { defaultPackagesRoot } = nodeRequire(
+    '../lib/interface-resolver.js',
+  ) as typeof import('../lib/interface-resolver.js');
   return defaultPackagesRoot();
 }
 

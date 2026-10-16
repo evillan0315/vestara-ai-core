@@ -153,6 +153,15 @@ export async function runOpen(openPath: string, force = false): Promise<void> {
     try {
       const { startServer, registerSession, subscribeToEventBus } = await import('@vestara/events-server');
       eventsServer = startServer(3001);
+      // `listen` failures arrive asynchronously as an 'error' event; the sync
+      // try/catch below cannot observe them. Report and drop the server so the
+      // later shutdown does not close a server that never listened.
+      eventsServer.on('error', (error: NodeJS.ErrnoException) => {
+        const detail =
+          error.code === 'EADDRINUSE' ? 'port 3001 is already in use (is the dev API running?)' : error.message;
+        console.log(`${GRAY}  (Events server unavailable: ${detail})${RESET}`);
+        eventsServer = null;
+      });
       registerSession(runtime.getSession());
       unsubscribeEvents = subscribeToEventBus(kernel.eventBus);
       console.log(`${GRAY}  UI:         http://127.0.0.1:5173 (run: pnpm --filter @vestara/workspace-ui dev)${RESET}`);
@@ -172,24 +181,11 @@ export async function runOpen(openPath: string, force = false): Promise<void> {
       /* desktop is optional */
     }
 
-    // Start file system monitor (if supported)
-    try {
-      const ws = runtime.getSession();
-      const { MonitorService, KnowledgeGraphStorage } = await import('@vestara/workspace');
-      const initSqlJs = (await import('sql.js')).default;
-      const SQL = await initSqlJs();
-      const planDb = new SQL.Database();
-      const graph = new KnowledgeGraphStorage(planDb);
-      const monitor = new MonitorService(ws, graph);
-      await monitor.start((event: any) => {
-        if (event.type === 'file-changed' || event.type === 'file-added') {
-          // File changed — event logged but no action needed in CLI mode
-        }
-      });
-      (globalThis as any).__vestara_monitor = monitor;
-    } catch {
-      // Monitor is optional — works without file watching
-    }
+    // NOTE: a recursive file-system monitor used to be started here. Its
+    // callback was a no-op, it was stashed on `globalThis` to outlive this
+    // command, and a whole-repo recursive `fs.watch` could exhaust the inotify
+    // watch/instance limit (ENOSPC) and crash the process. It is intentionally
+    // not started — file watching is owned by the API/TUI when it is needed.
 
     // Interactive work continues in the canonical TUI. `open` remains a
     // finite workspace command and never takes ownership of terminal input.

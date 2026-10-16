@@ -17,6 +17,11 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ESM: `__dirname` is not defined in ES modules. Resolve this file's directory
+// from `import.meta.url` instead.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const FORWARDED_SIGNALS: readonly NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 
@@ -98,7 +103,9 @@ export class OwnedApiProcess {
 }
 
 export function spawnOwnedApi(repoPath: string): OwnedApiProcess {
-  const apiEntry = path.resolve(__dirname, '..', '..', 'api', 'dist', 'index.js');
+  // HERE is `apps/cli/dist/lib` at runtime, one level below `dist`: three `..`
+  // are required to reach `apps/`, then `api/dist/index.js`.
+  const apiEntry = path.resolve(HERE, '..', '..', '..', 'api', 'dist', 'index.js');
   return new OwnedApiProcess(process.execPath, [apiEntry], {
     cwd: repoPath,
     env: { ...process.env, VESTARA_REPO: repoPath },

@@ -1,7 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ArchitectureRuntime } from '@vestara/architecture-runtime';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+
+// ESM: `__dirname` is not defined in ES modules. Resolve this file's directory
+// from `import.meta.url` instead.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 function resolveAdrDir(): string {
   const envDir = process.env.VESTARA_BLUEPRINT_DIR;
@@ -14,7 +19,7 @@ function resolveAdrDir(): string {
   if (fs.existsSync(fromCwdAlt)) return fromCwdAlt;
 
   const fromDirname = path.resolve(
-    __dirname,
+    HERE,
     '..',
     '..',
     '..',

@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
+import { spawn } from 'node:child_process';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runAgentsList } from './commands/agents.js';
 import { runArchitecture, runBlueprintVerify } from './commands/architecture.js';
+import { runAuth } from './commands/auth.js';
 import { runBenchmarkConversation } from './commands/benchmark.js';
 import { runBrief } from './commands/brief.js';
 import { runCompletions } from './commands/completions.js';
@@ -44,10 +47,16 @@ import { runSuggest } from './commands/suggest.js';
 import { runTeamsAssign, runTeamsCreate, runTeamsList } from './commands/teams.js';
 import type { CliContext } from './context/cli-context.js';
 import { createCliContext } from './context/cli-context.js';
+import { resolveAuthToken } from './lib/auth-store.js';
 import { CommandRegistry } from './lib/command-registry.js';
+import { isCommandAvailable } from './lib/executable.js';
 import { isInteractiveTerminal } from './lib/interface-resolver.js';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStatus } from './output/format.js';
 import { VERSION } from './version.js';
+
+// ESM: `__dirname` is not defined in ES modules. Resolve this file's directory
+// from `import.meta.url` instead.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 async function launchTui(endpoint?: string, repoPath?: string, forceDev = false): Promise<void> {
   const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
@@ -87,7 +96,17 @@ async function spawnInstalledTui(endpoint: string, repoPath: string): Promise<vo
     process.exitCode = 1;
     return;
   }
-  // Not installed — fall back to the in-repo Bun launch (development path).
+  // kind === 'cli': the TUI package is not installed. Only fall back to the
+  // in-repo Bun development launch when Bun is actually on PATH; otherwise
+  // degrade with an actionable message instead of a raw `spawn bun ENOENT`.
+  if (!isCommandAvailable('bun')) {
+    console.error(`${RED}The Marketplace TUI is not installed and Bun was not found on PATH.${RESET}`);
+    console.error(
+      `${GRAY}  Install Bun (https://bun.sh), install the TUI package, or run the standard CLI with --no-tui.${RESET}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
   console.log(`${GRAY}Marketplace TUI not installed; using in-repo development launch.${RESET}`);
   await spawnBunTui(endpoint, repoPath);
 }
@@ -99,7 +118,7 @@ async function spawnInstalledTui(endpoint: string, repoPath: string): Promise<vo
  * is installed.
  */
 async function spawnBunTui(endpoint: string, repoPath: string): Promise<void> {
-  const tuiEntry = path.resolve(__dirname, '..', '..', '..', 'packages', 'tui', 'dist', 'index.js');
+  const tuiEntry = path.resolve(HERE, '..', '..', '..', 'packages', 'tui', 'dist', 'index.js');
   await spawnExecutable('bun', endpoint, repoPath, ['run', tuiEntry]);
 }
 
@@ -110,13 +129,16 @@ function spawnExecutable(
   repoPath: string,
   extraArgs: readonly string[] = [],
 ): Promise<void> {
-  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  // Propagate the shared session token (provisioned at OS login or by
+  // `vestara auth login`) so the TUI authenticates without its own login step.
+  const authToken = process.env.VESTARA_API_KEY?.trim() || resolveAuthToken(endpoint);
   const child = spawn(executablePath, [...extraArgs, '--endpoint', endpoint, '--repo', repoPath], {
     cwd: repoPath,
     env: {
       ...process.env,
       VESTARA_API_URL: endpoint,
       VESTARA_REPO: repoPath,
+      ...(authToken ? { VESTARA_API_KEY: authToken } : {}),
     },
     stdio: 'inherit',
   });
@@ -131,7 +153,13 @@ function spawnExecutable(
       if (code === 0) resolve();
       else reject(new Error(`Vestara TUI exited with ${signal ?? code}`));
     });
-    child.once('error', reject);
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      reject(
+        error.code === 'ENOENT'
+          ? new Error(`Executable not found: ${executablePath} (is it installed and on PATH?)`)
+          : error,
+      );
+    });
   }).finally(() => {
     process.off('SIGINT', () => forward('SIGINT'));
     process.off('SIGTERM', () => forward('SIGTERM'));
@@ -196,6 +224,7 @@ function printHelp(): void {
   console.log(
     `    ${GREEN}provider${RESET} [sub]     ${GRAY}Provider management (add|list|status|enable|disable|remove|models)${RESET}`,
   );
+  console.log(`    ${GREEN}auth${RESET} [sub]         ${GRAY}Authentication (login|status|logout|token)${RESET}`);
   console.log(
     `    ${GREEN}plan${RESET} [sub]         ${GRAY}Plan management (list|show|create|approve|status|delete)${RESET}`,
   );
@@ -227,6 +256,7 @@ function printHelp(): void {
 }
 
 function registerCommands(registry: CommandRegistry): void {
+  registry.register('auth', (args) => runAuth(args));
   registry.register('docs', (args) => runDocs(args));
   registry.register('hello', () => runHello());
   registry.register('brief', (args) => runBrief(args));
@@ -356,6 +386,10 @@ export async function main() {
     return;
   }
 
+  if (args[0] === 'auth') {
+    await runAuth(args.slice(1));
+    return;
+  }
   if (args[0] === 'docs') {
     await runDocs(args.slice(1));
     return;

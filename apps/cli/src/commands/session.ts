@@ -93,6 +93,12 @@ export async function runBackgroundServices(): Promise<void> {
   try {
     const { startServer } = await import('@vestara/events-server');
     const server = startServer(3002);
+    // `listen` failures (EADDRINUSE) arrive asynchronously as an 'error' event;
+    // the sync catch below cannot see them. Report and continue.
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      const detail = error.code === 'EADDRINUSE' ? 'port 3002 is already in use' : error.message;
+      console.log(`  ${GOLD}⚠${RESET} Events server unavailable: ${detail}${RESET}\n`);
+    });
     console.log(`  ${GREEN}✓${RESET} Events server started on port 3002`);
     console.log();
     (globalThis as any).__vestara_background_server = server;
