@@ -6217,3 +6217,208 @@ schemas, staging, commits, or pushes.
 tracks `vX.Y` version milestones; the `WF-GRAPH`/`WF-PLAYGROUND` precedent
 likewise lives only in `MILESTONES.md`). No source, contract, dependency, or
 styling file modified.
+
+---
+
+## GA-ASSISTANT-SURFACE-REVIEW-001 — Global / Floating Assistant Surface Review 🔎 Findings recorded 2026-10-16
+
+**Record**: [review artifact](reviews/GA-ASSISTANT-SURFACE-REVIEW-001.md)
+
+**Objective**: Independently inspect and review the Global Assistant and its
+floating presentation against the frozen GA-006 convergence contract, and
+record defects with evidence. Read-only; no mutation.
+
+**Result**: Architecture verdict **verified** — one assistant system, one hook
+instance, two chrome modes over a shared substrate (matches GA-006 §§2, 20).
+Seven findings recorded; none are architectural.
+
+| Finding | Severity | Summary |
+|---|---|---|
+| F-01 | HIGH | Invalid Tailwind class `text-(--vestara-text)0` in the launcher dock drops a text token (`apps/workspace/src/components/assistant/LauncherDock.tsx:181`) |
+| F-02 | HIGH | Hardcoded visual literals in the assistant surfaces (UI/UX governance BLOCKER); `apps/workspace` is Biome-excluded, so the documented CI gate cannot catch them |
+| F-03 | MEDIUM | Side effects inside React state updaters (`GlobalAssistant.tsx`) |
+| F-04 | MEDIUM | Open-focus contract broken in full-window mode (`FullWindowSurface.tsx:183` passes a throwaway ref) |
+| F-05 | LOW | `aria-expanded` / icon state mismatch when the full window is open |
+| F-06 | LOW | Inline z-index; full-window surface not registered with `FloatingWindowManager` |
+| F-07 | OBSERVATION | Render-phase ref mutation (`GlobalAssistant.tsx:440-443`) |
+
+**Coverage note (evidence gap)**: one front-end assistant test file exists
+(`apps/workspace/src/components/assistant/LauncherDock.test.tsx`); there are
+no tests for `GlobalAssistant`, `FloatingPanel`, `FullWindowSurface`,
+`useAssistantConversation`, or `ConversationPanel`. Recorded as an evidence gap
+against the GA-006 "production quality" classification.
+
+**Suggested remediation order (gated — not authorized by this record)**:
+F-01 (small, user-visible) → F-04 (focus contract) → F-03 → F-02 (token
+migration; create the missing `--vestara-*` tokens and validate with
+`pnpm vds:validate`) → add UI smoke tests.
+
+**Explicitly not done**: no source, test, token, style, or configuration
+change; no staging, commit, or push; no runtime dogfood and no runtime
+verification claimed.
+
+**Depends on**: GA-006 (baseline), `docs/governance/UI-UX-GOVERNANCE.md`.
+
+---
+
+## CLI ESM Launch Fix (GA-CLI-ESM-001) ✅ Fixed 2026-10-16
+
+**Defect**: the built CLI aborted immediately after the repository summary on
+the `open` command with:
+
+```
+Fatal error: ReferenceError: __dirname is not defined
+    at spawnOwnedApi (apps/cli/dist/lib/owned-api.js:93:35)
+    at launchTui (apps/cli/dist/index.js:39:20)
+```
+
+**Root cause**: `apps/cli` is `"type": "module"` and the root tsconfig emits
+native ESM (`module: nodenext`), where the CommonJS-only globals `__dirname`
+and `require` are undefined. Six sites in `apps/cli/src` still used them;
+TypeScript emits them verbatim and Node throws at runtime. The `open` command
+was the first path to reach this code, via the owned-API child spawn.
+
+**Second defect (previously masked by the crash)**: `spawnOwnedApi` was one `..`
+short. The module compiles to `apps/cli/dist/lib/owned-api.js`, so the child
+entry resolved to `apps/cli/api/dist/index.js` (nonexistent) instead of
+`apps/api/dist/index.js`.
+
+**Fix** (all six sites plus the path depth):
+
+| Site | Change |
+|---|---|
+| `apps/cli/src/lib/owned-api.ts` | `__dirname` → `HERE` (`fileURLToPath(import.meta.url)`); API entry depth 2×`..` → 3×`..` |
+| `apps/cli/src/index.ts` | `__dirname` → `HERE`; lazy `require('node:child_process')` → top-level static `import { spawn }` |
+| `apps/cli/src/commands/architecture.ts` | `__dirname` → `HERE` |
+| `apps/cli/src/commands/marketplace.ts` | two lazy `require(...)` calls → module-scoped `nodeRequire` via `createRequire(import.meta.url)` (preserves lazy loading) |
+
+**Regression test**: `apps/cli/__tests__/esm-globals.test.ts` (new). Mocks the
+child process, then asserts `spawnOwnedApi` spawns the real API entry with the
+expected cwd/env and that the resolved entry actually exists (this pins both the
+ESM fix and the relative-depth fix). A second suite walks `apps/cli/src`,
+strips comments, and fails if `__dirname` or a bare `require(` reappears.
+
+**Verification** (2026-10-16): `tsc -b apps/cli/tsconfig.json` green;
+`biome check` clean on the five changed files; `vitest run apps/cli` 3/3;
+`node apps/cli/dist/index.js --help` loads and exits 0; the built `dist` under
+`apps/cli` contains no `__dirname` or bare `require` (only explanatory
+comments remain).
+
+**Explicitly not claimed**: a full live `open` run was not performed (it spawns
+a real API child and a TUI process). The crash site and the resolved path target
+are covered by the unit test and built-artifact inspection.
+
+**Adjacent (recorded, not fixed)**: the `build` script of `apps/cli` invokes
+`scripts/inject-version.js`, which does not exist under `apps/cli` (the working
+build path is the root build); and the `architecture.ts` directory fallback uses
+six `..`, one level too deep for a file now under `dist/commands/` — a
+last-resort branch reached only after the env/cwd checks, so it degrades
+silently rather than crashing.
+
+---
+
+## CLI `open` Resilience Fix (GA-CLI-OPEN-002) ✅ Fixed 2026-10-16
+
+Follow-on to GA-CLI-ESM-001. Two further failures aborted the CLI `open`
+command after the ESM fix; both are now handled and regression-tested.
+
+**1. Events-server port conflict (EADDRINUSE).**
+
+- Defect: with an API/dev server already listening on port 3001, the events
+  server started by `open` crashed the process with an unhandled `'error'`
+  event and exit 1.
+- Root cause: `server.listen()` failures are emitted asynchronously as an
+  `'error'` event, not thrown, so the caller's `try/catch` never observes them,
+  and an unhandled `'error'` crashes Node. `startServer` attached no listener.
+- Fix: `packages/events-server/src/index.ts` now attaches an `'error'` listener
+  (crash guard for all callers); `apps/cli/src/commands/open.ts` attaches a
+  contextual handler that prints `(Events server unavailable: …)` and drops the
+  server; `apps/cli/src/commands/session.ts` does the same for its port-3002
+  server.
+
+**2. Missing Bun binary (spawn ENOENT).**
+
+- Defect: when the Marketplace TUI package is not installed, `open` fell back
+  to the in-repo Bun development launch and crashed with `spawn bun ENOENT`
+  (exit 1) on a machine without Bun.
+- Root cause: the fallback was unconditional — the resolver's `kind: 'cli'`
+  ("not installed") result was not honored and there was no availability probe
+  before spawning.
+- Fix: new `apps/cli/src/lib/executable.ts` (`isCommandAvailable`, a pure PATH
+  probe). `spawnInstalledTui` now uses the Bun development path only when Bun is
+  on PATH; otherwise it prints an actionable message and exits non-zero without
+  a stack trace. `spawnExecutable` also maps `ENOENT` to a clear message.
+
+**Regression tests**: `packages/events-server/__tests__/start-server-error.test.ts`
+(occupied port handled, no crash) and `apps/cli/__tests__/executable.test.ts`
+(PATH probe true/false, including non-executable and empty-PATH cases).
+
+**Verification** (2026-10-16): `pnpm build` green; `biome check` clean on the
+seven changed files; `vitest run packages/events-server/__tests__
+packages/workspace/__tests__ apps/cli` passes 5 files / 15 tests. A bounded live
+run of the `open` command (against the already-running dev API, with the API URL
+pinned so no child process was spawned) completed **without a fatal error**: the
+Bun fallback printed its message and exited non-zero, and no process was left
+behind.
+
+**Explicitly not claimed**: the events-server `EADDRINUSE` line did not surface
+in that live run because `open` closes the events server immediately after
+starting it, so the listen error is normally cancelled before it fires; the
+handler is proven by the unit test, not by that run.
+
+**Adjacent (recorded, not fixed)**: `open` starts an events server on the API
+port and closes it moments later, making it effectively vestigial — a candidate
+for removal or for reusing the API's own events endpoint.
+
+---
+
+## CLI/TUI Authentication (GA-AUTH-001) ✅ Implemented 2026-10-16
+
+**Problem**: the API enforces Bearer auth on every `/api/*` request
+(VES-AUTH-001, fail-closed), but the TUI controller sent only
+`X-Vestara-Source: cli` and the CLI had no way to authenticate. Every TUI call
+returned 401 — runtime status, the provider catalog, and send all failed.
+
+**Product rule**: on the Vestara OS the user is authenticated by the OS/Vestara
+login, and the CLI/TUI recognize that automatically. A manual CLI login is only
+needed when the CLI is installed standalone on another operating system.
+
+**Design**: a shared session file at `~/.config/vestara/auth.json` (mode 0600;
+`VESTARA_AUTH_FILE` overrides the path). Token precedence: the `VESTARA_API_KEY`
+environment variable, then the stored session (matched to the endpoint).
+
+**Changes**:
+
+- `apps/cli/src/lib/auth-store.ts` — read/write/clear the shared session;
+  `resolveAuthToken` precedence and endpoint matching.
+- `apps/cli/src/commands/auth.ts` — new `auth` command group: `login`
+  (username or token), `status`, `logout`, `token`.
+- `apps/cli/src/index.ts` — register/dispatch/help for `auth`; the TUI launcher
+  propagates the resolved token to the child as `VESTARA_API_KEY`.
+- `packages/tui/src/controller.ts` — sends an `Authorization: Bearer` header
+  (from `VESTARA_API_KEY`) on every API request.
+- `apps/api/src/routes/auth.ts` — on a successful **loopback** login, best-effort
+  writes the shared session file, so the OS/Vestara login provisions it for local
+  CLI/TUI clients (non-loopback logins are untouched).
+- `assets/templates/html/vestara-os-login.html` — the provided Vestara OS login
+  template stored as a compiled reference artifact (design target, not shippable
+  source; mirrors the GA-UI-009 treatment of `global-assistant.html`).
+
+**Regression tests**: `apps/cli/__tests__/auth-store.test.ts` (round-trip,
+mode 0600, precedence, endpoint match, malformed input) and
+`packages/tui/__tests__/controller-auth.test.ts` (Bearer present when
+authenticated, absent otherwise).
+
+**Verification** (2026-10-16): `pnpm build` green; `biome check` clean on all
+changed files; `vitest run apps/cli packages/tui/__tests__
+packages/events-server/__tests__ packages/workspace/__tests__` passes 7 files /
+22 tests; `auth status` smoke (read-only) works.
+
+**Not done / next (gated)**: recreating the Vestara OS login screen from the
+template as governed, tokenized React source (UI/UX governance applies); and
+wiring the OS startup session to provision the file explicitly — today
+provisioning is API-side on a loopback login.
+
+**Explicitly not claimed**: no live end-to-end login was performed against the
+running dev API (that process predates this build and was not restarted); the
+login path is covered by unit tests plus a read-only status smoke.

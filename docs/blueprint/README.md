@@ -65,6 +65,8 @@ docs/blueprint/
 ├── GA-UI-005-rich-message-presentation.md
 ├── GA-UI-006-conversation-navigation.md
 ├── GA-UI-007-global-assistant-window-plan.md
+├── GA-UI-008-global-assistant-launcher-dock.md
+├── GA-UI-009-global-assistant-restructure-plan.md
 ├── GA-UX-PREMIUM-assistant-experience.md
 ├── GA-UX-PREMIUM-M3.1-live-evidence.json
 ├── GA-UX-PREMIUM-M3.2-live-evidence.json
