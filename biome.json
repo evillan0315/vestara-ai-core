@@ -9,6 +9,7 @@
       "!**/node_modules",
       "!**/.vestara",
       "!apps/workspace",
+      "!assets/templates/html",
       "!packages/evaluation/fixtures",
       "!packages/opencode-runtime/openapi",
       "!packages/opencode-runtime/src/generated"
