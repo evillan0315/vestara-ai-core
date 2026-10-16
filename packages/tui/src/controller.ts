@@ -136,7 +136,13 @@ export class TuiController {
     }
   }
 
-  async *execute(rawInput: string, signal?: AbortSignal): AsyncGenerator<TuiEvent> {
+  /**
+   * Execute raw input, yielding UI events. Callers that gate events against an
+   * active execution (e.g. the conversation coordinator) must pass their
+   * execution id so every yielded conversation/tool event carries it —
+   * otherwise the stream gate rejects them as stale and nothing renders.
+   */
+  async *execute(rawInput: string, signal?: AbortSignal, executionId?: string): AsyncGenerator<TuiEvent> {
     const input = rawInput.trim();
     if (!input) return;
     const [command, ...args] = splitArguments(input.startsWith('/') ? input.slice(1) : input);
@@ -205,7 +211,7 @@ export class TuiController {
       };
       return;
     }
-    yield* this.streamConversation(input, signal);
+    yield* this.streamConversation(input, signal, executionId);
   }
 
   private async *approval(approved: boolean, args: string[]): AsyncGenerator<TuiEvent> {
@@ -357,8 +363,15 @@ export class TuiController {
     }
   }
 
-  private async *streamConversation(message: string, signal?: AbortSignal): AsyncGenerator<TuiEvent> {
-    const id = `assistant-${Date.now()}`;
+  private async *streamConversation(
+    message: string,
+    signal?: AbortSignal,
+    executionId?: string,
+  ): AsyncGenerator<TuiEvent> {
+    // Unified identity: when the caller armed the stream gate with an execution
+    // id, every event carries it. Standalone callers get a fresh assistant id.
+    const id = executionId ?? `assistant-${Date.now()}`;
+    let toolSequence = 0;
     yield { type: 'conversation-start', id };
 
     // Ensure a conversation exists (create once per TUI session, then reuse).
@@ -401,7 +414,9 @@ export class TuiController {
           yield {
             type: 'tool',
             card: {
-              id: `tool-${Date.now()}`,
+              // Scoped to the owning execution so the stream gate accepts it
+              // while still rejecting tools from prior/cancelled executions.
+              id: `${id}-tool-${toolSequence++}`,
               tool: event.name ?? 'tool',
               label: event.name ?? 'Tool',
               status: 'completed',

@@ -125,7 +125,8 @@ export function ConversationProvider(props: ConversationProviderProps): ReactNod
     chat.pushUser(message);
     setBusy(true);
     try {
-      for await (const event of props.host.controller.execute(message, controller.signal)) handleEvent(event);
+      for await (const event of props.host.controller.execute(message, controller.signal, executionId))
+        handleEvent(event);
     } catch (error) {
       if (!controller.signal.aborted) {
         props.notify('error', error instanceof Error ? error.message : String(error));
