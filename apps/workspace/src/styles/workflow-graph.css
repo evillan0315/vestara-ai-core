@@ -127,6 +127,21 @@
   color: var(--vestara-status-info);
 }
 
+.workflow-legend-completed {
+  color: var(--vestara-status-success);
+  background: var(--vestara-status-success);
+}
+
+.workflow-legend-running {
+  color: var(--vestara-status-running);
+  background: var(--vestara-status-running);
+}
+
+.workflow-legend-blocked {
+  color: var(--vestara-status-error);
+  background: var(--vestara-status-error);
+}
+
 .workflow-graph-control {
   border: 1px solid var(--vestara-border-default);
   border-radius: var(--vestara-radius-full, 9999px);

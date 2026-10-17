@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { useTelemetryStore } from '../../contexts/TelemetryContext';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { ComposerSuggestionMenu } from '../../components/composer/ComposerSuggestionMenu';
+import { ComposerAutoComplete } from '../../components/composer/ComposerAutoComplete';
 import { parseComposerSuggestionCommand } from '../../components/composer/composerSuggestion';
+import {
+  applyAutoComplete,
+  detectAutoComplete,
+  dismissAutoComplete,
+  type AutoCompleteCommand,
+} from '../../components/composer/composerAutoComplete';
 import { DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
 import type {
   ActivityMessageInput,
@@ -54,6 +61,7 @@ export default function ActivityComposer({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [effect, setEffect] = useState<ActivityOrganizationalEffect>('message');
+  const [autoCompleteIndex, setAutoCompleteIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Configurable cap from Settings → General (`general.composerMaxChars`).
   const [composerMax, setComposerMax] = useState(COMPOSER_MAX_FALLBACK);
@@ -83,6 +91,12 @@ export default function ActivityComposer({
     .filter(([, state]) => state === 'failed')
     .map(([id]) => id);
 
+  const autoComplete = useMemo(() => detectAutoComplete(draft), [draft]);
+
+  useEffect(() => {
+    setAutoCompleteIndex(0);
+  }, [autoComplete]);
+
   const handleChange = (value: string): void => {
     setDraft(value);
     const at = value.lastIndexOf('@');
@@ -93,6 +107,21 @@ export default function ActivityComposer({
       setMentionOpen(false);
     }
   };
+
+  const handleAutoCompleteSelect = useCallback(
+    (command: AutoCompleteCommand): void => {
+      if (!autoComplete) return;
+      setDraft(applyAutoComplete(draft, autoComplete, command));
+      textareaRef.current?.focus();
+    },
+    [autoComplete, draft],
+  );
+
+  const handleAutoCompleteDismiss = useCallback(() => {
+    if (!autoComplete) return;
+    setDraft(dismissAutoComplete(draft, autoComplete));
+    textareaRef.current?.focus();
+  }, [autoComplete, draft]);
 
   const chooseMention = (agentId: string): void => {
     onTargetChange(agentId);
@@ -121,6 +150,28 @@ export default function ActivityComposer({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (autoComplete && autoComplete.commands.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setAutoCompleteIndex((i) => (i + 1) % autoComplete.commands.length);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setAutoCompleteIndex((i) => (i - 1 + autoComplete.commands.length) % autoComplete.commands.length);
+        return;
+      }
+      if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
+        event.preventDefault();
+        handleAutoCompleteSelect(autoComplete.commands[autoCompleteIndex]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleAutoCompleteDismiss();
+        return;
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit();
@@ -138,7 +189,7 @@ export default function ActivityComposer({
       data-ve-name="Activity Composer"
 
     >
-      <div className="h-0.5 bg-[linear-gradient(90deg,var(--vestara-primary),var(--vestara-primary-muted))]" />
+      <div className="h-0.5 bg-[linear-gradient(90deg,var(--vestara-primary),var(--vestara-accent-text-muted))]" />
       <div className="px-3 py-2">
         <div className="flex items-center justify-between gap-2 text-[9px] text-(--vestara-text-dim)">
           <div className="flex items-center gap-3">
@@ -195,6 +246,16 @@ export default function ActivityComposer({
             onApply={setDraft}
             onDismiss={() => setDraft(parseComposerSuggestionCommand(draft)?.draft ?? draft)}
           />
+          {autoComplete && (
+            <ComposerAutoComplete
+              draft={draft}
+              state={autoComplete}
+              selectedIndex={autoCompleteIndex}
+              onSelect={handleAutoCompleteSelect}
+              onDismiss={handleAutoCompleteDismiss}
+              onNavigate={setAutoCompleteIndex}
+            />
+          )}
           <textarea
             ref={textareaRef}
             value={draft}

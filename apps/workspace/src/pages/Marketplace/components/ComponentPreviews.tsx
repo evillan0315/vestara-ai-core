@@ -17,6 +17,7 @@ import {
   ChatMessage,
   CodeBlock,
   CodeViewer,
+  CollapsedBar,
   CommandPalette,
   Composer,
   ConnectionTestButton,
@@ -24,6 +25,8 @@ import {
   ConversationItem,
   DetailCard,
   DisplayNameInput,
+  Drawer,
+  DrawerMenu,
   ExtensionCard,
   FileIcon,
   FilterChips,
@@ -31,12 +34,15 @@ import {
   GitStatusCard,
   HardwareKeyCard,
   MethodTabs,
+  Modal,
   ModelSelector,
   NewChatButton,
   OnboardingShell,
+  OperationalPanel,
   OsUnitsCard,
   PartitionCard,
   PassphraseInput,
+  ProgressBar,
   PropTable,
   ProviderCard,
   RecoveryGrid,
@@ -45,9 +51,15 @@ import {
   SecureBootToggle,
   SeedGrid,
   Sidebar,
+  SplitView,
+  StatCard,
   StepProgress,
   StorageOptionCard,
   TabBar,
+  TerminalDrawer,
+  TerminalPane,
+  TerminalSuggest,
+  TerminalTabs,
   TestSuiteCard,
   Toast,
   TracerBadge,
@@ -63,6 +75,7 @@ import type {
   FileNode,
   PropRow,
   TabEntry,
+  TerminalSession,
   TestRow,
 } from '@vestara/ui-components';
 
@@ -91,6 +104,13 @@ const TABS: TabEntry[] = [
   { name: 'TreeNode.tsx', path: 'components/TreeNode.tsx', category: 'ui' },
 ];
 
+const TERM_TABS: TerminalSession[] = [
+  { id: 'bash', name: 'bash', status: 'active', icon: icons.Terminal },
+  { id: 'zsh', name: 'zsh', status: 'idle', icon: icons.Terminal },
+  { id: 'vestara', name: 'vestara', status: 'active', icon: icons.Sparkles },
+  { id: 'logs', name: 'logs', status: 'error', icon: icons.FileText },
+];
+
 const PALETTE_RESULTS: FileIndexEntry[] = [
   { name: 'FileIcon.tsx', path: 'components/FileIcon.tsx', category: 'ui' },
   { name: 'AGENTS.md', path: 'AGENTS.md', category: 'docs' },
@@ -104,7 +124,7 @@ const CONVERSATIONS: Conversation[] = [
 ];
 
 const MESSAGES: ChatMessageData[] = [
-  { id: 'm1', role: 'assistant', text: 'VESTARA OS initialised. 45 components merged into one token system.', time: '09:41' },
+  { id: 'm1', role: 'assistant', text: 'VESTARA OS initialised. 51 components merged into one token system.', time: '09:41' },
   { id: 'm2', role: 'user', text: 'Show me the FileIcon mapping.', time: '09:42' },
 ];
 
@@ -421,6 +441,169 @@ function WorkspaceTabsPreview() {
   return <WorkspaceTabs active={active} onActive={setActive} />;
 }
 
+function TerminalDrawerPreview() {
+  const [height, setHeight] = useState(300);
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="w-full overflow-hidden rounded-[10px] border border-[var(--vestara-border-os-subtle)]">
+      <TerminalDrawer
+        height={height}
+        onHeightChange={setHeight}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+        sessionCount={3}
+        lastCommand="ls"
+        onSearch={() => {}}
+        onSplitH={() => {}}
+        onSplitV={() => {}}
+        onMaximize={() => {}}
+        onClear={() => {}}
+      >
+        <TerminalPane />
+      </TerminalDrawer>
+    </div>
+  );
+}
+
+function TerminalTabsPreview() {
+  const [activeId, setActiveId] = useState('bash');
+  const [tabs, setTabs] = useState(TERM_TABS);
+  return (
+    <div className="w-full overflow-hidden rounded-[10px] border border-[var(--vestara-border-os-subtle)]">
+      <TerminalTabs
+        tabs={tabs}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={(id) => setTabs((current) => current.filter((tab) => tab.id !== id))}
+        onNew={() => {}}
+      />
+    </div>
+  );
+}
+
+function TerminalPanePreview() {
+  return (
+    <div className="flex h-[320px] w-full flex-col overflow-hidden rounded-[10px] border border-[var(--vestara-border-os-subtle)]">
+      <TerminalPane />
+    </div>
+  );
+}
+
+function SplitViewPreview() {
+  return (
+    <div className="flex h-[320px] w-full flex-col overflow-hidden rounded-[10px] border border-[var(--vestara-border-os-subtle)]">
+      <SplitView leftPane={<TerminalPane id="left" />} rightPane={<TerminalPane id="right" cwd="~/marketplace/logs" />} />
+    </div>
+  );
+}
+
+function TerminalSuggestPreview() {
+  const [query, setQuery] = useState('git');
+  return (
+    <div className="relative h-[260px] w-full overflow-hidden rounded-[10px] border border-[var(--vestara-border-os-subtle)] bg-[var(--vestara-surface-os-panel)] p-3">
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Type a command…"
+        aria-label="Suggest query"
+        className="h-8 w-full rounded-[8px] border border-[var(--vestara-border-os-subtle)] bg-[var(--vestara-surface-os-canvas)] px-3 font-mono text-[12px] text-[var(--vestara-text-os-primary)] outline-none placeholder:text-[var(--vestara-text-os-faint)]"
+      />
+      <TerminalSuggest query={query} visible onSelect={() => {}} onClose={() => {}} />
+    </div>
+  );
+}
+
+function DrawerPreview() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-9 items-center gap-2 rounded-[9px] bg-[var(--vestara-accent)] px-4 text-[13px] font-semibold text-[var(--vestara-on-accent)]"
+      >
+        Open Drawer <icons.PanelBottomOpen className="h-4 w-4" />
+      </button>
+      <Drawer open={open} onClose={() => setOpen(false)} title="Inspector" storageKey="preview-drawer">
+        <p className="p-4 font-mono text-[12px] text-[var(--vestara-text-secondary)]">
+          Resizable slide-over — drag the edge, pick a preset, or press Escape.
+        </p>
+      </Drawer>
+    </div>
+  );
+}
+
+function DrawerMenuPreview() {
+  return (
+    <DrawerMenu
+      actions={[
+        { id: 'normal', label: 'Normal size', checked: true },
+        { id: 'full', label: 'Full size' },
+        { id: 'sep', label: '', divider: true },
+        { id: 'close', label: 'Close drawer' },
+      ]}
+      onSelect={() => {}}
+    />
+  );
+}
+
+function ModalPreview() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-9 items-center gap-2 rounded-[9px] bg-[var(--vestara-accent)] px-4 text-[13px] font-semibold text-[var(--vestara-on-accent)]"
+      >
+        Open Modal <icons.Maximize2 className="h-4 w-4" />
+      </button>
+      {open && (
+        <Modal onClose={() => setOpen(false)} ariaLabel="Preview dialog">
+          <p className="p-5 font-mono text-[12px] text-[var(--vestara-text-secondary)]">
+            Focus-trapped dialog — Tab cycles inside, Escape closes.
+          </p>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function OperationalPanelPreview() {
+  return (
+    <OperationalPanel
+      icon={<icons.Zap />}
+      title="Runtime"
+      description="Live services backing this workspace"
+      tone="info"
+      actions={<span className="font-mono text-[10px] text-[var(--vestara-text-muted)]">3 live</span>}
+    >
+      <p className="font-mono text-[12px] text-[var(--vestara-text-secondary)]">
+        Icon / title / description / actions card — replaces SectionCard stacks.
+      </p>
+    </OperationalPanel>
+  );
+}
+
+function StatCardPreview() {
+  return (
+    <div className="grid w-full grid-cols-2 gap-2">
+      <StatCard label="Running" value={4} accent="var(--vestara-status-success)" />
+      <StatCard label="Blocked" value={1} sub="needs review" accent="var(--vestara-status-error)" compact />
+    </div>
+  );
+}
+
+function ProgressBarPreview() {
+  return (
+    <div className="w-full space-y-2">
+      <ProgressBar pct={82} size="md" />
+      <ProgressBar pct={45} />
+      <ProgressBar pct={12} size="lg" />
+    </div>
+  );
+}
+
 // ─── Registry ──────────────────────────────────────────────────
 
 export const COMPONENT_PREVIEWS: Record<string, () => ReactNode> = {
@@ -497,6 +680,22 @@ export const COMPONENT_PREVIEWS: Record<string, () => ReactNode> = {
   // data display
   CodeBlock: () => <CodeBlock code={SAMPLE_CODE} />,
   PropTable: () => <PropTable rows={PROPS} />,
+
+  // workspace chrome
+  Drawer: DrawerPreview,
+  DrawerMenu: DrawerMenuPreview,
+  Modal: ModalPreview,
+  OperationalPanel: OperationalPanelPreview,
+  StatCard: StatCardPreview,
+  ProgressBar: ProgressBarPreview,
+
+  // terminal drawer
+  TerminalDrawer: TerminalDrawerPreview,
+  TerminalTabs: TerminalTabsPreview,
+  TerminalPane: TerminalPanePreview,
+  SplitView: SplitViewPreview,
+  TerminalSuggest: TerminalSuggestPreview,
+  CollapsedBar: () => <CollapsedBar sessionCount={3} lastCommand="vestara status" onExpand={() => {}} />,
 };
 
 export { PartitionCard };

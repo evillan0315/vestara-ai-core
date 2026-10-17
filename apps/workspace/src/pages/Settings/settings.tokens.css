@@ -118,7 +118,7 @@
 }
 
 .st-card-supporting {
-  --st-panel-shadow: 0 6px 18px color-mix(in srgb, var(--vestara-surface-base) 62%, transparent);
+  --st-panel-shadow: 0 6px 18px color-mix(in srgb, var(--vestara-surface-panel) 62%, transparent);
 }
 
 /* ── Navigation 3-column fixed panels ── */

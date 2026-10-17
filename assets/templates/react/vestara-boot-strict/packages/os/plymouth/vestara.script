@@ -1,0 +1,21 @@
+Window.SetBackgroundTopColor(0.02, 0.02, 0.04);
+Window.SetBackgroundBottomColor(0.01, 0.01, 0.02);
+logo_image = Image("vestara-logo.png");
+logo_sprite = Sprite(logo_image);
+logo_sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - logo_image.GetWidth() / 2);
+logo_sprite.SetY(Window.GetY() + Window.GetHeight() / 2 - 180);
+progress_box_image = Image("progress_box.png");
+progress_bar_image = Image("progress_bar.png");
+box_sprite = Sprite(progress_box_image);
+bar_sprite = Sprite(progress_bar_image);
+box_x = Window.GetX() + Window.GetWidth() / 2 - progress_box_image.GetWidth() / 2;
+box_y = Window.GetY() + Window.GetHeight() / 2 + 80;
+box_sprite.SetX(box_x);
+box_sprite.SetY(box_y);
+bar_sprite.SetX(box_x);
+bar_sprite.SetY(box_y);
+fun progress_callback(duration, progress) {
+  if (progress > 1) progress = 1;
+  bar_sprite.SetOpacity(1);
+}
+Plymouth.SetBootProgressFunction(progress_callback);

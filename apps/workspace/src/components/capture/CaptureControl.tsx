@@ -186,7 +186,7 @@ function ActionButton({
       aria-label={`${action.operation} ${action.label}`}
       aria-disabled={!entry.supported}
       onClick={() => onAction?.({ operation: action.operation, scope: action.scope })}
-      className="flex w-full items-center gap-2 rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-surface-hover)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
+      className="flex w-full items-center gap-2 rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-surface-interactive-hover)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
     >
       <span aria-hidden="true" className="text-sm text-[var(--vestara-text-muted)]">
         {action.icon}
@@ -232,7 +232,7 @@ export function CaptureControl({
       </Button>
 
       {recording ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--vestara-status-danger)] bg-[var(--vestara-surface-panel)] px-2.5 py-1 text-[10px] font-semibold text-[var(--vestara-status-danger)]">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--vestara-status-error)] bg-[var(--vestara-surface-panel)] px-2.5 py-1 text-[10px] font-semibold text-[var(--vestara-status-error)]">
           <span aria-hidden="true" className="inline-flex animate-pulse items-center">
             <FiberManualRecordOutlinedIcon fontSize="inherit" />
           </span>
@@ -242,7 +242,7 @@ export function CaptureControl({
             aria-label="Stop recording"
             title="Stop recording"
             onClick={() => onCancel?.()}
-            className="inline-flex items-center rounded-full px-1 hover:bg-[var(--vestara-surface-hover)]"
+            className="inline-flex items-center rounded-full px-1 hover:bg-[var(--vestara-surface-interactive-hover)]"
           >
             <StopRoundedIcon fontSize="inherit" />
           </button>
@@ -251,7 +251,7 @@ export function CaptureControl({
 
       {activeLabel && !recording ? <Pill variant={state === 'failed' ? 'danger' : 'default'}>{activeLabel}</Pill> : null}
       {state === 'failed' && lastError ? (
-        <span role="alert" className="max-w-56 truncate text-[10px] text-[var(--vestara-status-danger)]" title={lastError}>
+        <span role="alert" className="max-w-56 truncate text-[10px] text-[var(--vestara-status-error)]" title={lastError}>
           {lastError}
         </span>
       ) : null}
@@ -261,7 +261,7 @@ export function CaptureControl({
           aria-label={state === 'failed' ? 'Dismiss capture error' : 'Cancel capture'}
           title={state === 'failed' ? 'Dismiss capture error' : 'Cancel capture'}
           onClick={() => onCancel()}
-          className="inline-flex items-center rounded-full border border-[var(--vestara-border-subtle)] p-1 text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-hover)]"
+          className="inline-flex items-center rounded-full border border-[var(--vestara-border-subtle)] p-1 text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive-hover)]"
         >
           <CloseRoundedIcon fontSize="inherit" />
         </button>

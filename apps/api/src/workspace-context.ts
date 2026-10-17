@@ -51,7 +51,12 @@ import { HostRuntime } from '@vestara/host-runtime';
 import { InteractionService } from '@vestara/interaction-app';
 import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
 import { DefaultKernel } from '@vestara/kernel';
-import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
+import {
+  LocalMarketplaceRegistry,
+  type MarketplaceEventSink,
+  MarketplaceService,
+  RemoteMarketplaceRegistry,
+} from '@vestara/marketplace';
 import { InMemoryRuntimeSessionRegistry, OpenCodeHttpClient, resolveOpenCodeConfig } from '@vestara/opencode-runtime';
 import {
   OpenAIProvider,
@@ -855,9 +860,30 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     roots: marketplaceRoots,
     eventSink: marketplaceEventSink,
   });
+  // Remote registries are catalog-only until an archive fetcher is wired for
+  // install materialization. Format: `;`-separated `id|displayName|baseUrl`.
+  const remoteRegistries: RemoteMarketplaceRegistry[] = [];
+  const remoteSpec = process.env.VESTARA_MARKETPLACE_REMOTE;
+  if (remoteSpec) {
+    for (const entry of remoteSpec
+      .split(';')
+      .map((e) => e.trim())
+      .filter(Boolean)) {
+      const [id, displayName, baseUrl] = entry.split('|').map((f) => f.trim());
+      if (!id || !baseUrl) continue;
+      remoteRegistries.push(
+        new RemoteMarketplaceRegistry({
+          id,
+          displayName: displayName || id,
+          baseUrl,
+          eventSink: marketplaceEventSink,
+        }),
+      );
+    }
+  }
   const marketplace = isCapabilityActive(plan, 'marketplace')
     ? new MarketplaceService({
-        registries: [marketplaceRegistry],
+        registries: [marketplaceRegistry, ...remoteRegistries],
         manager: marketplaceManager,
         eventSink: marketplaceEventSink,
         vestaraVersion: '1.0.0',

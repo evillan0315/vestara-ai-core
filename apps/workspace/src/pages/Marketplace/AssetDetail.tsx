@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Badge, Button } from '@vestara/ui';
 import type { InstalledMarketplaceAsset, MarketplaceAssetDetails } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
@@ -130,11 +130,23 @@ export default function AssetDetail() {
           <p className="mt-2 text-sm text-[var(--vestara-text-muted)]">{asset.description}</p>
         )}
         <div className="mt-3 flex flex-wrap gap-1">
-          {details.capabilities.map((capability) => (
-            <Badge key={capability} variant="default" size="md">
-              {capability}
-            </Badge>
-          ))}
+          {details.capabilities.length === 0 ? (
+            <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+              No capabilities declared.
+            </span>
+          ) : (
+            details.capabilities.map((capability) => (
+              <Link
+                key={capability}
+                to={`/marketplace/discover?capability=${encodeURIComponent(capability)}`}
+                title={`Find Marketplace assets matching ${capability}`}
+              >
+                <Badge variant="default" size="md">
+                  {capability}
+                </Badge>
+              </Link>
+            ))
+          )}
         </div>
       </DetailCard>
 

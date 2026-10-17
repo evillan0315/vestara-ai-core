@@ -16,6 +16,7 @@ import type {
   MarketplaceSearchQuery,
   MarketplaceUpdateCandidate,
   PublishIntoRootResult,
+  RuntimeCompatibilityContext,
 } from '@vestara/marketplace';
 import { MarketplacePublisher } from '@vestara/marketplace';
 import type { WorkspaceContext } from '../workspace-context';
@@ -139,9 +140,22 @@ export async function handleMarketplaceRoute(
   // ─── Reads ────────────────────────────────────────────────────────────────
 
   if (method === 'GET' && p === '/api/marketplace/search') {
-    const query = searchQueryFromUrl(req);
+    const query = searchQueryFromUrl(req, ctx.marketplace.context);
     const result = await ctx.marketplace.search(query);
     json(res, 200, { results: result });
+    return true;
+  }
+
+  if (method === 'GET' && p === '/api/marketplace/suggest') {
+    // workspaceRoot is never accepted from HTTP (filesystem probing) — it
+    // comes server-side from the workspace context.
+    const suggestQuery = { ...suggestQueryFromUrl(req), workspaceRoot: ctx.repoPath };
+    const result = await ctx.marketplace.suggest(suggestQuery);
+    json(res, 200, {
+      suggestions: result.suggestions,
+      total: result.total,
+      ...(result.registryErrors ? { registryErrors: result.registryErrors } : {}),
+    });
     return true;
   }
 
@@ -599,7 +613,35 @@ function parseBody(raw: string): MutationBody {
   }
 }
 
-function searchQueryFromUrl(req: http.IncomingMessage): MarketplaceSearchQuery {
+function splitList(values: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const value of values) {
+    for (const part of value.split(',')) {
+      const trimmed = part.trim();
+      if (trimmed) out.push(trimmed);
+    }
+  }
+  return out;
+}
+
+function suggestQueryFromUrl(
+  req: http.IncomingMessage,
+): Parameters<NonNullable<WorkspaceContext['marketplace']>['suggest']>[0] {
+  const url = new URL(req.url ?? '', 'http://127.0.0.1');
+  const limit = Number(url.searchParams.get('limit') ?? '6');
+  const includeInstalled = url.searchParams.get('includeInstalled') === 'true';
+  return {
+    workspaceId: url.searchParams.get('workspaceId') ?? undefined,
+    capabilities: splitList(url.searchParams.getAll('capability').concat(url.searchParams.getAll('capabilities'))),
+    types: splitList(url.searchParams.getAll('type')),
+    tags: splitList(url.searchParams.getAll('tag')),
+    query: url.searchParams.get('q') ?? undefined,
+    limit: Number.isFinite(limit) ? limit : 6,
+    ...(includeInstalled ? { includeInstalled: true as const } : {}),
+  };
+}
+
+function searchQueryFromUrl(req: http.IncomingMessage, context?: RuntimeCompatibilityContext): MarketplaceSearchQuery {
   const url = new URL(req.url ?? '', 'http://127.0.0.1');
   const typeValue = url.searchParams.get('type');
   const publisherValue = url.searchParams.get('publisher');
@@ -612,6 +654,9 @@ function searchQueryFromUrl(req: http.IncomingMessage): MarketplaceSearchQuery {
       publisherIds: publisherValue ? [publisherValue] : undefined,
       tags: tagValue ? [tagValue] : undefined,
     },
+    capabilities: splitList(url.searchParams.getAll('capability').concat(url.searchParams.getAll('capabilities'))),
+    ...(url.searchParams.get('excludeInstalled') === 'true' ? { excludeInstalled: true as const } : {}),
+    ...(url.searchParams.get('compatibleOnly') === 'true' && context ? { compatibleWith: context } : {}),
     limit: Number.isFinite(limit) ? limit : 50,
     offset: Number(url.searchParams.get('offset') ?? '0') || undefined,
     sort: (url.searchParams.get('sort') as MarketplaceSearchQuery['sort']) ?? undefined,

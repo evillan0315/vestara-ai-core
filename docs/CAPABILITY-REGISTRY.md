@@ -93,4 +93,9 @@ Catalog, discovery, resolution, and install orchestration above
 | 28 | Marketplace Workspace API (operation DTOs) | `GET/POST /api/marketplace/*` | MarketplaceOperationDto | v9.2 | ✅ CSP-014 | ✅ |
 | 29 | Marketplace Workspace UI + Operation Center | (Workspace UI) | Marketplace views | v9.2 | ✅ CSP-014 | ✅ |
 
-Remote registries, publishing, and signature enforcement are not yet implemented.
+Remote registries are wired into `MarketplaceService` via `VESTARA_MARKETPLACE_REMOTE`
+(`;`-separated `id|displayName|baseUrl`) and serve catalog discovery/search/health;
+installs from a remote registry require an archive fetcher (not yet wired).
+Publishing (`MarketplacePublisher`) and Ed25519 signature sign/verify are implemented
+in `packages/marketplace` and exposed through the publish route. Registry-declared
+social/commercial stats flow through to the catalog; the local registry never fabricates them.

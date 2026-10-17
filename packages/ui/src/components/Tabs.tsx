@@ -25,6 +25,8 @@ export interface Tab {
   title?: string;
   borderBottom?: boolean;
   disabled?: boolean;
+  /** Count pill rendered after the label (decorative; the label stays the accessible name). */
+  badge?: string | number;
 }
 
 export interface TabsProps {
@@ -193,6 +195,14 @@ export function Tabs({
               )}
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
+              {tab.badge !== undefined && (
+                <span
+                  aria-hidden="true"
+                  className="rounded-full border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-px font-mono text-[10px] leading-tight text-[var(--vestara-text-muted)]"
+                >
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}

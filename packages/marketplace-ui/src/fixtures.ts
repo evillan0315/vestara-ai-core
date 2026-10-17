@@ -41,6 +41,12 @@ export interface GalleryAsset {
     checksumVerified: boolean;
     runtimeVerified: boolean;
   };
+  /** Provenance-backed social stats. Absent when the registry declares none. */
+  stats?: {
+    downloads?: number;
+    rating?: number;
+    reviews?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -48,9 +54,12 @@ export interface GalleryAsset {
 // ─── Display Enrichment ─────────────────────────────────────────
 
 export interface DiscoverDisplayMeta {
-  rating: number;
-  reviews: number;
-  installs: string;
+  /** Provenance-backed. Absent when the registry declares no rating (never fabricated). */
+  rating?: number;
+  /** Provenance-backed. Absent when the registry declares no review count. */
+  reviews?: number;
+  /** Provenance-backed install count, formatted for display. Absent when undeclared. */
+  installs?: string;
   /** Text glyph rendered inside the icon tile (no custom illustrations). */
   glyph: string;
   /** Icon-tile accent — always a `var(--vestara-*)` token reference. */
@@ -397,18 +406,27 @@ export type MarketplaceSortId = (typeof MARKETPLACE_SORTS)[number]['id'];
 // ─── Live-Asset Enrichment ──────────────────────────────────────
 // Deterministic display metadata for LIVE registry assets (no fabrication).
 
+/**
+ * Deterministic display metadata for LIVE registry assets. Social/commercial
+ * values come only from `asset.stats` (registry-declared); when the registry
+ * declares none, the fields are omitted rather than fabricated.
+ */
 export function displayForLiveAsset(
-  asset: Pick<GalleryAsset, 'publisherId' | 'packageName' | 'displayName'>,
+  asset: Pick<GalleryAsset, 'publisherId' | 'packageName' | 'displayName' | 'stats'>,
 ): DiscoverDisplayMeta {
-  let hash = 0;
-  const seed = `${asset.publisherId}/${asset.packageName}`;
-  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  const rating = 42 + (hash % 8); // 4.2 – 4.9
-  const reviews = 20 + (hash % 180);
-  const installsRaw = 900 + (hash % 14_000);
-  const installs = installsRaw >= 1000 ? `${(installsRaw / 1000).toFixed(1)}K` : `${installsRaw}`;
+  const stats = asset.stats;
   const initial = (asset.displayName.trim().charAt(0) || 'V').toUpperCase();
-  return { rating: rating / 10, reviews, installs, glyph: initial, accent: 'var(--vestara-marketplace-primary)' };
+  return {
+    ...(stats?.rating !== undefined ? { rating: stats.rating } : {}),
+    ...(stats?.reviews !== undefined ? { reviews: stats.reviews } : {}),
+    ...(stats?.downloads !== undefined ? { installs: formatInstalls(stats.downloads) } : {}),
+    glyph: initial,
+    accent: 'var(--vestara-marketplace-primary)',
+  };
+}
+
+function formatInstalls(count: number): string {
+  return count >= 1000 ? `${(count / 1000).toFixed(1)}K` : `${count}`;
 }
 
 // ─── Sidebar Fixtures ───────────────────────────────────────────

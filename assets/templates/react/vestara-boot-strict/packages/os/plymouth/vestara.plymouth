@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Vestara AI OS
+Description=Portable AI OS - Let's Change the World
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/vestara
+ScriptFile=/usr/share/plymouth/themes/vestara/vestara.script

@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { ExtensionTrustLevel, VestaraPermissionScope } from '@vestara/extension-contracts';
 import {
   digestPackageDirectory,
@@ -7,8 +9,9 @@ import {
 import type { MarketplaceAsset, MarketplaceAssetDetails, MarketplaceAssetVersion } from './asset';
 import { MarketplaceCatalog } from './catalog';
 import type { RuntimeCompatibilityContext } from './compatibility';
-import { platformToOperatingSystem } from './compatibility';
+import { isCompatible, platformToOperatingSystem } from './compatibility';
 import { type DetectionReport, DirectoryDetector, type DirectoryDetectorOptions } from './detector';
+import { detectPackageInDirectory } from './detector/manifest-readers';
 import { errorMessage, MarketplaceError, MarketplaceInstallError, MarketplaceNotFoundError } from './errors';
 import type { MarketplaceRegistryScanResult } from './local-registry';
 import type { MarketplaceRegistry, MarketplaceRegistryStatus } from './registry';
@@ -20,7 +23,7 @@ import {
 } from './registry';
 import { latestCatalogVersionFor, type ResolutionPlan, type ResolvedPackage, resolveInstall } from './resolver';
 import type { MarketplaceSearchQuery, MarketplaceSearchResult } from './search';
-import { searchAssets } from './search';
+import { assetMatchesCapability, searchAssets } from './search';
 import {
   detectUpdates,
   type InstalledMarketplaceAsset,
@@ -84,6 +87,40 @@ export interface MarketplaceSetEnabledRequest {
   readonly workspaceId?: string;
 }
 
+export interface MarketplaceSuggestQuery {
+  /**
+   * Accepted for future per-workspace scoping and event attribution.
+   * Install state is currently global (`LocalExtensionManager.list()`), so
+   * this does not narrow results yet.
+   */
+  readonly workspaceId?: string;
+  readonly capabilities?: readonly string[];
+  readonly types?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly query?: string;
+  readonly limit?: number;
+  readonly includeInstalled?: boolean;
+  /**
+   * Filesystem root scanned (read-only, bounded depth) for stack signals
+   * such as ecosystem tags and dependency names. Never accepted from HTTP —
+   * the API layer sets this server-side from the workspace context.
+   */
+  readonly workspaceRoot?: string;
+}
+
+export interface MarketplaceSuggestion {
+  readonly asset: MarketplaceAsset;
+  readonly registryId: string;
+  readonly score: number;
+  readonly reasons: readonly string[];
+}
+
+export interface MarketplaceSuggestResult {
+  readonly suggestions: readonly MarketplaceSuggestion[];
+  readonly total: number;
+  readonly registryErrors?: readonly string[];
+}
+
 export interface MarketplaceServiceOptions {
   readonly registries: readonly MarketplaceRegistry[];
   readonly manager: LocalExtensionManager;
@@ -93,6 +130,60 @@ export interface MarketplaceServiceOptions {
   readonly operatingSystem?: string;
   readonly architecture?: string;
   readonly workspaceId?: string;
+  /** Default filesystem root for stack-signal scans (see `MarketplaceSuggestQuery.workspaceRoot`). */
+  readonly workspaceRoot?: string;
+}
+
+/** TTL for cached workspace stack signals — scans are bounded but still filesystem I/O. */
+const STACK_SIGNAL_TTL_MS = 60_000;
+
+/** Max depth for stack-signal directory walks (root + two levels covers monorepo members). */
+const STACK_SIGNAL_MAX_DEPTH = 2;
+
+/** Directories never descended into during stack-signal scans. */
+const STACK_SIGNAL_SKIPPED_DIRS = new Set(['node_modules', '.git', 'dist', '.vestara', '.cache', 'coverage']);
+
+const STACK_SIGNAL_MANIFEST_ECOSYSTEMS: Record<string, string> = {
+  'package.json': 'node',
+  'Cargo.toml': 'rust',
+  'pyproject.toml': 'python',
+  'go.mod': 'go',
+};
+
+/**
+ * Read-only stack-signal scan: collects lowercase tags from manifests found at
+ * `root` and its children (bounded depth), plus ecosystem labels and
+ * dependency names. Never writes manifests or touches the catalog — use
+ * `DirectoryDetector` when registration is intended.
+ */
+export function detectWorkspaceStackTags(root: string, maxDepth: number = STACK_SIGNAL_MAX_DEPTH): string[] {
+  const tags = new Set<string>();
+  const visit = (dir: string, depth: number): void => {
+    if (depth > maxDepth) return;
+    const detected = detectPackageInDirectory(dir);
+    if (detected) {
+      for (const tag of detected.tags) {
+        if (tag.trim()) tags.add(tag.toLowerCase());
+      }
+      const ecosystem = STACK_SIGNAL_MANIFEST_ECOSYSTEMS[detected.manifestFile];
+      if (ecosystem) tags.add(ecosystem);
+      for (const name of Object.keys(detected.dependencies)) {
+        if (name.trim()) tags.add(name.toLowerCase());
+      }
+    }
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || STACK_SIGNAL_SKIPPED_DIRS.has(entry.name)) continue;
+      visit(path.join(dir, entry.name), depth + 1);
+    }
+  };
+  visit(root, 0);
+  return [...tags].sort().slice(0, 40);
 }
 
 /**
@@ -110,7 +201,9 @@ export class MarketplaceService {
   private readonly registries: readonly MarketplaceRegistry[];
   private readonly eventSink?: MarketplaceEventSink;
   private readonly defaultWorkspaceId?: string;
+  private readonly defaultWorkspaceRoot?: string;
   private readonly registryErrors: string[] = [];
+  private readonly stackSignalCache = new Map<string, { expiresAt: number; tags: readonly string[] }>();
   private scanned = false;
 
   constructor(options: MarketplaceServiceOptions) {
@@ -118,6 +211,7 @@ export class MarketplaceService {
     this.manager = options.manager;
     this.eventSink = options.eventSink;
     this.defaultWorkspaceId = options.workspaceId;
+    this.defaultWorkspaceRoot = options.workspaceRoot;
     this.context = {
       vestaraVersion: options.vestaraVersion ?? '1.0.0',
       nodeVersion: options.nodeVersion ?? process.versions.node.split('-')[0] ?? process.versions.node,
@@ -128,7 +222,11 @@ export class MarketplaceService {
 
   async search(query: MarketplaceSearchQuery): Promise<MarketplaceSearchResult> {
     await this.ensureScanned();
-    const hits = searchAssets(this.catalog.assets(), query).map((hit) => ({
+    const effectiveQuery =
+      query.excludeInstalled && !query.excludePackageNames
+        ? { ...query, excludePackageNames: [...this.installedMap().keys()] }
+        : query;
+    const hits = searchAssets(this.catalog.assets(), effectiveQuery).map((hit) => ({
       ...hit,
       registryId: this.catalog.get(hit.asset.packageName, hit.asset.publisherId)?.registryId ?? 'local',
     }));
@@ -147,6 +245,154 @@ export class MarketplaceService {
       registries: this.registries.map((registry) => registry.id),
     });
     return result;
+  }
+
+  /**
+   * Suggest catalog assets relevant to the current workspace.
+   *
+   * Catalog-only heuristic (no manifest materialization): excludes installed
+   * packages by default, excludes runtime-incompatible versions, then scores
+   * explicit hints (capabilities/types/tags/query) plus overlap with the
+   * installed set (same type, shared tags) and verification signals. All
+   * reasons are evidence-backed — verification reflects only recomputed
+   * signals, never fabricated popularity.
+   */
+  async suggest(query: MarketplaceSuggestQuery = {}): Promise<MarketplaceSuggestResult> {
+    await this.ensureScanned();
+    const installedIds = new Set<string>();
+    for (const item of this.manager.list()) installedIds.add(item.packageId);
+    const installedAssets: MarketplaceAsset[] = [];
+    for (const entry of this.catalog.list()) {
+      if (installedIds.has(entry.asset.packageName)) installedAssets.push(entry.asset);
+    }
+    const installedTypes = new Set(installedAssets.map((asset) => asset.type.toLowerCase()));
+    const installedTags = new Set<string>();
+    for (const asset of installedAssets) {
+      for (const tag of asset.tags) installedTags.add(tag.toLowerCase());
+    }
+
+    const wantedCapabilities = (query.capabilities ?? []).map((value) => value.trim()).filter(Boolean);
+    const wantedTypes = new Set((query.types ?? []).map((value) => value.toLowerCase()).filter(Boolean));
+    const wantedTags = new Set((query.tags ?? []).map((value) => value.toLowerCase()).filter(Boolean));
+    const needle = query.query?.trim().toLowerCase() ?? '';
+    const hasHints = wantedCapabilities.length > 0 || wantedTypes.size > 0 || wantedTags.size > 0 || needle !== '';
+    const stackTags = this.stackSignalsFor(query.workspaceRoot ?? this.defaultWorkspaceRoot);
+
+    const scored: MarketplaceSuggestion[] = [];
+    for (const asset of this.catalog.assets()) {
+      if (!query.includeInstalled && installedIds.has(asset.packageName)) continue;
+      const latestCompatibility = asset.versions[0]?.compatibility;
+      if (latestCompatibility && !isCompatible(latestCompatibility, this.context)) continue;
+
+      const haystack =
+        `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.description ?? ''} ${asset.type} ${asset.tags.join(' ')}`.toLowerCase();
+      const assetTags = asset.tags.map((tag) => tag.toLowerCase());
+
+      let score = 0;
+      let hintScore = 0;
+      const reasons: string[] = [];
+
+      if (wantedTypes.has(asset.type.toLowerCase())) {
+        score += 30;
+        hintScore += 30;
+        reasons.push(`matches requested type: ${asset.type}`);
+      }
+      for (const tag of wantedTags) {
+        if (assetTags.some((candidate) => candidate.includes(tag) || tag.includes(candidate))) {
+          score += 10;
+          hintScore += 10;
+          reasons.push(`matches requested tag: ${tag}`);
+        }
+      }
+      for (const capability of wantedCapabilities) {
+        if (assetMatchesCapability(asset, capability)) {
+          score += 25;
+          hintScore += 25;
+          reasons.push(`matches requested capability: ${capability}`);
+        }
+      }
+      if (needle && haystack.includes(needle)) {
+        score += 8;
+        hintScore += 8;
+        reasons.push(`matches search: ${query.query?.trim()}`);
+      }
+      if (hasHints && hintScore === 0) continue;
+
+      if (installedTypes.has(asset.type.toLowerCase())) {
+        score += 15;
+        reasons.push(`extends ${asset.type} already in use`);
+      }
+      const sharedTags = assetTags.filter((tag) => installedTags.has(tag)).slice(0, 2);
+      if (sharedTags.length > 0) {
+        score += Math.min(sharedTags.length * 4, 12);
+        reasons.push(`shares tags: ${sharedTags.join(', ')}`);
+      }
+      if (stackTags.length > 0) {
+        const stackMatches = assetTags.filter((tag) => stackTags.includes(tag)).slice(0, 2);
+        if (stackMatches.length > 0) {
+          score += Math.min(stackMatches.length * 3, 9);
+          reasons.push(`matches workspace stack: ${stackMatches.join(', ')}`);
+        }
+      }
+      if (asset.verification.checksumVerified) {
+        score += 6;
+        reasons.push('checksum verified');
+      }
+      if (asset.verification.signed) {
+        score += 4;
+        reasons.push('signed');
+      }
+      if (reasons.length === 0) reasons.push('compatible with current runtime');
+
+      scored.push({
+        asset,
+        registryId: this.catalog.get(asset.packageName, asset.publisherId)?.registryId ?? 'local',
+        score,
+        reasons,
+      });
+    }
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const recency = b.asset.updatedAt.localeCompare(a.asset.updatedAt);
+      if (recency !== 0) return recency;
+      return a.asset.packageName.localeCompare(b.asset.packageName);
+    });
+
+    const limit = Math.min(Math.max(query.limit ?? 6, 1), 50);
+    const result: MarketplaceSuggestResult = {
+      suggestions: scored.slice(0, limit),
+      total: scored.length,
+      ...(this.registryErrors.length > 0 ? { registryErrors: [...this.registryErrors] } : {}),
+    };
+    await this.emit('marketplace.suggest.completed', {
+      query: query.query ?? '',
+      total: result.total,
+      registries: this.registries.map((registry) => registry.id),
+      ...(query.workspaceId || this.defaultWorkspaceId
+        ? { workspaceId: query.workspaceId ?? this.defaultWorkspaceId }
+        : {}),
+    });
+    return result;
+  }
+
+  /**
+   * Cached workspace stack signals for a filesystem root. Returns an empty
+   * list when no root is configured, the root is unreadable, or the scan
+   * fails — suggestions degrade to install/verification signals, never error.
+   */
+  private stackSignalsFor(root: string | undefined): readonly string[] {
+    if (!root) return [];
+    const cached = this.stackSignalCache.get(root);
+    if (cached && cached.expiresAt > Date.now()) return cached.tags;
+    let tags: readonly string[] = [];
+    try {
+      if (fs.existsSync(root)) tags = detectWorkspaceStackTags(root);
+    } catch {
+      tags = [];
+    }
+    this.stackSignalCache.set(root, { expiresAt: Date.now() + STACK_SIGNAL_TTL_MS, tags });
+    return tags;
   }
 
   async getAsset(reference: MarketplaceAssetReference | string): Promise<MarketplaceAssetDetails> {

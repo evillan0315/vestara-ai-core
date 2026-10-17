@@ -122,7 +122,7 @@ export type {
   MarketplaceSort,
   MarketplaceSortDirection,
 } from './search';
-export { searchAssets, withRegistryId } from './search';
+export { assetMatchesCapability, searchAssets, withRegistryId } from './search';
 export type {
   MarketplaceInstallRequest,
   MarketplaceOperation,
@@ -130,11 +130,14 @@ export type {
   MarketplacePermissionSummary,
   MarketplaceServiceOptions,
   MarketplaceSetEnabledRequest,
+  MarketplaceSuggestion,
+  MarketplaceSuggestQuery,
+  MarketplaceSuggestResult,
   MarketplaceUninstallRequest,
   MarketplaceUpdateRequest,
   MarketplaceVerifyRequest,
 } from './service';
-export { MarketplaceService } from './service';
+export { detectWorkspaceStackTags, MarketplaceService } from './service';
 export type { PublisherKeyPair, SignatureAlgorithm, SignatureVerificationResult } from './signature';
 export { generatePublisherKeys, signManifest, verifyManifest } from './signature';
 export type {

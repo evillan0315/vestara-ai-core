@@ -52,4 +52,20 @@ describe('WorkflowGraph', () => {
     expect(screen.queryByLabelText('Workflow graph legend')).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Graph view controls' })).toBeInTheDocument();
   });
+
+  it('renders canvas chrome without panel furniture, with floating legend and zoom pill', () => {
+    render(<WorkflowGraph chrome="canvas" graph={null} height={560} />);
+    expect(screen.queryByText('Workflow graph')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow graph legend')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Graph zoom controls' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Fit view' })).toBeDisabled();
+    expect(screen.getByText('Select a workflow project to view its graph.')).toBeInTheDocument();
+  });
+
+  it('hides canvas overlays on request', () => {
+    render(<WorkflowGraph chrome="canvas" graph={null} showLegend={false} showControls={false} />);
+    expect(screen.queryByLabelText('Workflow graph legend')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Graph zoom controls' })).not.toBeInTheDocument();
+  });
 });

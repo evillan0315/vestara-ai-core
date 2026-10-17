@@ -40,6 +40,12 @@ export interface MarketplaceAsset {
   latestVersion: string;
   versions: MarketplaceAssetVersion[];
   verification: MarketplaceVerification;
+  /** Provenance-backed social stats. Absent when the registry declares none. */
+  stats?: {
+    downloads?: number;
+    rating?: number;
+    reviews?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -135,6 +141,19 @@ export interface MarketplaceSearchResult {
   registryErrors?: string[];
 }
 
+export interface MarketplaceSuggestion {
+  asset: MarketplaceAsset;
+  registryId: string;
+  score: number;
+  reasons: string[];
+}
+
+export interface MarketplaceSuggestResult {
+  suggestions: MarketplaceSuggestion[];
+  total: number;
+  registryErrors?: string[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -184,20 +203,60 @@ export const marketplaceClient = {
     type?: string;
     publisher?: string;
     tag?: string;
+    capability?: string | string[];
     limit?: number;
     offset?: number;
+    excludeInstalled?: boolean;
+    compatibleOnly?: boolean;
   }): Promise<MarketplaceSearchResult> {
-    const data = await request<{ results: MarketplaceSearchResult }>(
-      `/api/marketplace/search${params({
-        q: options?.q,
-        type: options?.type,
-        publisher: options?.publisher,
-        tag: options?.tag,
-        limit: options?.limit ?? 50,
-        offset: options?.offset,
-      })}`,
-    );
+    const search = new URLSearchParams();
+    const setIf = (key: string, value: string | number | undefined) => {
+      if (value !== undefined && value !== '') search.set(key, String(value));
+    };
+    setIf('q', options?.q);
+    setIf('type', options?.type);
+    setIf('publisher', options?.publisher);
+    setIf('tag', options?.tag);
+    const capabilities = options?.capability === undefined ? [] : Array.isArray(options.capability) ? options.capability : [options.capability];
+    for (const capability of capabilities) {
+      if (capability !== '') search.append('capability', capability);
+    }
+    setIf('limit', options?.limit ?? 50);
+    setIf('offset', options?.offset);
+    if (options?.excludeInstalled) search.set('excludeInstalled', 'true');
+    if (options?.compatibleOnly) search.set('compatibleOnly', 'true');
+    const qs = search.toString();
+    const data = await request<{ results: MarketplaceSearchResult }>(`/api/marketplace/search${qs ? `?${qs}` : ''}`);
     return data.results;
+  },
+
+  async suggest(options?: {
+    q?: string;
+    capability?: string | string[];
+    type?: string | string[];
+    tag?: string | string[];
+    limit?: number;
+    includeInstalled?: boolean;
+  }): Promise<MarketplaceSuggestResult> {
+    const search = new URLSearchParams();
+    const appendList = (key: string, value: string | string[] | undefined) => {
+      if (value === undefined) return;
+      const list = Array.isArray(value) ? value : [value];
+      for (const entry of list) {
+        if (entry !== '') search.append(key, entry);
+      }
+    };
+    if (options?.q) search.set('q', options.q);
+    appendList('capability', options?.capability);
+    appendList('type', options?.type);
+    appendList('tag', options?.tag);
+    if (options?.limit !== undefined) search.set('limit', String(options.limit));
+    if (options?.includeInstalled) search.set('includeInstalled', 'true');
+    const qs = search.toString();
+    const data = await request<{ suggestions: MarketplaceSuggestion[]; total: number; registryErrors?: string[] }>(
+      `/api/marketplace/suggest${qs ? `?${qs}` : ''}`,
+    );
+    return { suggestions: data.suggestions, total: data.total, registryErrors: data.registryErrors };
   },
 
   async listAssets(options?: { q?: string; type?: string }): Promise<MarketplaceAsset[]> {

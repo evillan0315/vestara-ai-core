@@ -2,7 +2,7 @@
  * WorkflowGraph — reusable plan/task dependency graph.
  *
  * Renders any {@link WorkflowGraphProjection} (orchestration snapshots,
- * adapters, fixtures) on a token-driven cytoscape canvas. Two chromes:
+ * adapters, fixtures) on a token-driven cytoscape canvas. Three chromes:
  *
  * - `panel` (default): WorkspaceOperationalPanel shell with title,
  *   description, legend, and zoom controls. Drop-in for full pages:
@@ -10,21 +10,27 @@
  * - `bare`: borderless canvas + toolbar only, for embedding inside drawers,
  *   context panels, modals, or other cards:
  *   `<WorkflowGraph chrome="bare" height={240} showLegend={false} graph={mini} />`
+ * - `canvas`: fullscreen command-center canvas (Vestara Workflow
+ *   Orchestration shell): orchestrator octagon, HTML node cards, floating
+ *   legend, bottom zoom pill, and minimap. No panel furniture:
+ *   `<WorkflowGraph chrome="canvas" height={560} graph={graph} ... />`
  *
  * Live updates apply in place (viewport preserved, fit on first mount
  * only). Selecting a node dims the rest for focus. All styling resolves
  * `--vestara-*` tokens at render time so dark/light follow automatically.
+ * Node cards never fabricate data — they render label, kind, and status
+ * from the projection only.
  */
 
 import cytoscape from 'cytoscape';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WorkflowGraphNode, WorkflowGraphProjection } from '@vestara/workflow-orchestrator';
 import { navIcon } from '../../layouts/workspace-navigation';
 import { workflowGraphNodeForSelection, workflowGraphToCytoscapeElements } from '../../lib/workflow-graph-cytoscape';
 import { WorkspaceOperationalPanel } from '../WorkspaceOperationalPanel';
 import '../../styles/workflow-graph.css';
 
-export type WorkflowGraphChrome = 'panel' | 'bare';
+export type WorkflowGraphChrome = 'panel' | 'bare' | 'canvas';
 export type WorkflowGraphLayoutName = 'breadthfirst' | 'concentric' | 'grid' | 'circle';
 
 export interface WorkflowGraphProps {
@@ -33,7 +39,7 @@ export interface WorkflowGraphProps {
   isLoading?: boolean;
   selectedNodeId?: string;
   onNodeSelect?: (node: WorkflowGraphNode | null) => void;
-  /** `panel` wraps in WorkspaceOperationalPanel; `bare` renders canvas only. */
+  /** `panel` wraps in WorkspaceOperationalPanel; `bare` renders canvas only; `canvas` renders the command-center shell. */
   chrome?: WorkflowGraphChrome;
   title?: string;
   description?: string;
@@ -45,6 +51,11 @@ export interface WorkflowGraphProps {
   height?: number | string;
   className?: string;
   emptyMessage?: string;
+  /**
+   * Render rich HTML node cards over task nodes (title, status badge, meta).
+   * Defaults to true for `canvas` chrome, false otherwise.
+   */
+  nodeCards?: boolean;
 }
 
 const DEFAULT_TITLE = 'Workflow graph';
@@ -86,6 +97,60 @@ const statusBackgroundToken: Record<string, string> = {
   cancelled: '--vestara-surface-panel-raised',
 };
 
+type CardTone = 'success' | 'running' | 'error' | 'warning' | 'muted';
+
+function cardTone(status: string): CardTone {
+  if (status === 'completed' || status === 'approved') return 'success';
+  if (status === 'running' || status === 'in-progress') return 'running';
+  if (status === 'blocked' || status === 'failed') return 'error';
+  if (
+    status === 'awaiting-approval' ||
+    status === 'awaiting-verification' ||
+    status === 'needs-review' ||
+    status === 'pending'
+  )
+    return 'warning';
+  return 'muted';
+}
+
+/** Static class literals only — Tailwind generates utilities from source text. */
+const CARD_BORDER: Record<CardTone, string> = {
+  success: 'border-[color-mix(in_srgb,var(--vestara-status-success)_45%,transparent)]',
+  running: 'border-[color-mix(in_srgb,var(--vestara-status-running)_55%,transparent)]',
+  error: 'border-[color-mix(in_srgb,var(--vestara-status-error)_55%,transparent)]',
+  warning: 'border-[color-mix(in_srgb,var(--vestara-status-warning)_45%,transparent)]',
+  muted: 'border-[var(--vestara-border-subtle)]',
+};
+
+const CARD_GLOW: Record<CardTone, string> = {
+  success: 'shadow-[0_0_20px_-4px_var(--vestara-status-success)]',
+  running: 'shadow-[0_0_24px_-4px_var(--vestara-status-running)]',
+  error: 'shadow-[0_0_20px_-4px_var(--vestara-status-error)]',
+  warning: 'shadow-[0_0_20px_-4px_var(--vestara-status-warning)]',
+  muted: 'shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]',
+};
+
+const CARD_BADGE: Record<CardTone, string> = {
+  success: 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]',
+  running:
+    'border-[color-mix(in_srgb,var(--vestara-status-running)_40%,transparent)] bg-[color-mix(in_srgb,var(--vestara-status-running)_12%,transparent)] text-[var(--vestara-status-running)]',
+  error: 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]',
+  warning: 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]',
+  muted: 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-muted)]',
+};
+
+const CARD_ICON: Record<CardTone, string> = {
+  success: 'border-[var(--vestara-status-success)] text-[var(--vestara-status-success)]',
+  running: 'border-[var(--vestara-status-running)] text-[var(--vestara-status-running)]',
+  error: 'border-[var(--vestara-status-error)] text-[var(--vestara-status-error)]',
+  warning: 'border-[var(--vestara-status-warning)] text-[var(--vestara-status-warning)]',
+  muted: 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)]',
+};
+
+function prettyStatus(status: string): string {
+  return status.replaceAll('-', ' ').toUpperCase();
+}
+
 function tokenValue(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || `var(${name})`;
 }
@@ -112,7 +177,7 @@ function buildLayout(name: WorkflowGraphLayoutName): cytoscape.LayoutOptions {
   }
 }
 
-function stylesheet(): cytoscape.StylesheetJson {
+function stylesheet(cards: boolean): cytoscape.StylesheetJson {
   // Cytoscape 3.34's bundled types omit the runtime-valid `shadow-*` node
   // styles, so entries are built loosely and cast once at this boundary.
   const entries: Array<{ selector: string; style: Record<string, string | number> }> = [
@@ -147,17 +212,28 @@ function stylesheet(): cytoscape.StylesheetJson {
       style: {
         'background-color': tokenValue('--vestara-accent-bg'),
         'border-color': tokenValue('--vestara-accent-primary'),
-        width: 188,
-        height: 74,
+        width: 168,
+        height: 168,
+        shape: 'octagon',
         'font-size': '13px',
         'shadow-color': tokenValue('--vestara-accent-primary'),
-        'shadow-blur': 22,
-        'shadow-opacity': 0.35,
+        'shadow-blur': 26,
+        'shadow-opacity': 0.4,
       },
     },
     {
       selector: 'node[kind = "task"]',
-      style: { 'border-color': tokenValue('--vestara-status-info') },
+      style: {
+        ...(cards
+          ? {
+              width: 12,
+              height: 12,
+              'background-opacity': 0,
+              'border-width': 0,
+              'shadow-blur': 0,
+            }
+          : { 'border-color': tokenValue('--vestara-status-info') }),
+      },
     },
     // Live-work glow: running tasks read as lit from within.
     {
@@ -247,13 +323,41 @@ function stylesheet(): cytoscape.StylesheetJson {
   return entries as cytoscape.StylesheetJson;
 }
 
-function styledElements(graph: WorkflowGraphProjection): cytoscape.ElementDefinition[] {
-  return workflowGraphToCytoscapeElements(graph).map((element) => {
-    if (element.group !== 'nodes') return element;
+function statusEdgeColor(status: string | undefined): string | null {
+  if (status === 'running' || status === 'in-progress') return tokenValue('--vestara-status-running');
+  if (status === 'blocked' || status === 'failed') return tokenValue('--vestara-status-error');
+  return null;
+}
+
+function styledElements(graph: WorkflowGraphProjection, cards: boolean): cytoscape.ElementDefinition[] {
+  const statusById = new Map(graph.nodes.map((node) => [node.id, node.status]));
+  const base = workflowGraphToCytoscapeElements(graph);
+  return base.map((element) => {
+    if (element.group !== 'nodes') {
+      if (element.group === 'edges' && element.data.kind === 'depends_on') {
+        const targetStatus = statusById.get(element.data.target);
+        const highlight = statusEdgeColor(targetStatus);
+        if (highlight) {
+          return {
+            ...element,
+            style: { 'line-color': highlight, 'target-arrow-color': highlight },
+          };
+        }
+      }
+      return element;
+    }
     const node = graph.nodes.find((candidate) => candidate.id === element.data.id);
-    return node
-      ? { ...element, style: { 'border-color': nodeColor(node), 'background-color': nodeBackground(node) } }
-      : element;
+    if (!node) return element;
+    if (node.kind === 'task' && cards) {
+      return { ...element, data: { ...element.data, label: '' } };
+    }
+    if (node.kind === 'plan' && cards) {
+      return { ...element, data: { ...element.data, label: `${node.label}\n${prettyStatus(node.status)}` } };
+    }
+    return {
+      ...element,
+      style: { 'border-color': nodeColor(node), 'background-color': nodeBackground(node) },
+    };
   });
 }
 
@@ -268,6 +372,166 @@ function syncSelection(cy: cytoscape.Core, selectedNodeId?: string) {
     cy.nodes().not(selected).addClass('dimmed');
     cy.edges().not(selected.connectedEdges()).addClass('dimmed');
   }
+}
+
+/** Status glyph for node cards: check, spinner, alert, or idle dot. */
+function NodeCardGlyph({ status }: { status: string }) {
+  const tone = cardTone(status);
+  if (status === 'completed' || status === 'approved') {
+    return (
+      <span
+        aria-hidden="true"
+        className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${CARD_ICON[tone]}`}
+      >
+        ✓
+      </span>
+    );
+  }
+  if (status === 'running' || status === 'in-progress') {
+    return (
+      <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center">
+        <span className={`size-4 animate-spin rounded-full border-2 border-transparent ${CARD_ICON[tone]} border-t-current`} />
+      </span>
+    );
+  }
+  if (status === 'blocked' || status === 'failed') {
+    return (
+      <span
+        aria-hidden="true"
+        className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${CARD_ICON[tone]}`}
+      >
+        !
+      </span>
+    );
+  }
+  return (
+    <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border ${CARD_ICON[tone]}`}>
+      <span className="size-1.5 rounded-full bg-current" />
+    </span>
+  );
+}
+
+function NodeCard({
+  node,
+  meta,
+  selected,
+  dimmed,
+  position,
+  onSelect,
+}: {
+  node: WorkflowGraphNode;
+  meta: string;
+  selected: boolean;
+  dimmed: boolean;
+  position: { x: number; y: number };
+  onSelect: (node: WorkflowGraphNode) => void;
+}) {
+  const tone = cardTone(node.status);
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(node)}
+      aria-label={`${node.kind} ${node.label}, status ${prettyStatus(node.status)}`}
+      aria-pressed={selected}
+      className={`pointer-events-auto w-52 rounded-xl border bg-[var(--vestara-surface-panel)] p-3 text-left transition-opacity ${CARD_BORDER[tone]} ${CARD_GLOW[tone]} ${selected ? 'ring-2 ring-[var(--vestara-accent-primary)]' : ''} ${dimmed ? 'opacity-40' : ''}`}
+      style={{ position: 'absolute', left: position.x, top: position.y, transform: 'translate(-50%, -50%)' }}
+    >
+      <span className="flex items-start justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate font-mono text-[length:var(--vestara-font-size-xs)] font-semibold leading-snug text-[var(--vestara-text-primary)]">
+          {node.label}
+        </span>
+        <NodeCardGlyph status={node.status} />
+      </span>
+      <span
+        className={`mt-2 inline-block rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide ${CARD_BADGE[tone]}`}
+      >
+        {prettyStatus(node.status)}
+      </span>
+      <span className="mt-1.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">{meta}</span>
+    </button>
+  );
+}
+
+/** Display-only minimap: node dots plus the current viewport rectangle. */
+function GraphMinimap({ graph, cy }: { graph: WorkflowGraphProjection; cy: cytoscape.Core | null }) {
+  if (!cy || graph.nodes.length === 0) return null;
+  const positions = graph.nodes.map((node) => {
+    try {
+      const rendered = cy.getElementById(node.id);
+      if (rendered.empty()) return null;
+      return rendered.position();
+    } catch {
+      return null;
+    }
+  });
+  const valid = positions.filter((position): position is { x: number; y: number } => position !== null);
+  if (valid.length === 0) return null;
+  const xs = valid.map((position) => position.x);
+  const ys = valid.map((position) => position.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const pad = 40;
+  const spanX = Math.max(maxX - minX, 1) + pad * 2;
+  const spanY = Math.max(maxY - minY, 1) + pad * 2;
+  const width = 112;
+  const height = 80;
+  const scale = Math.min(width / spanX, height / spanY);
+  const toSvg = (x: number, y: number): [number, number] => [
+    (x - minX + pad) * scale + (width - spanX * scale) / 2,
+    (y - minY + pad) * scale + (height - spanY * scale) / 2,
+  ];
+  let viewport: [number, number, number, number] | null = null;
+  try {
+    const extent = cy.extent();
+    const [x1, y1] = toSvg(extent.x1, extent.y1);
+    const [x2, y2] = toSvg(extent.x2, extent.y2);
+    viewport = [Math.max(x1, 0), Math.max(y1, 0), Math.min(x2, width), Math.min(y2, height)];
+  } catch {
+    viewport = null;
+  }
+  const statusById = new Map(graph.nodes.map((node) => [node.id, node.status]));
+  return (
+    <div
+      className="absolute bottom-3 right-3 rounded-[10px] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]/90 p-2 backdrop-blur"
+      aria-hidden="true"
+    >
+      <div className="mb-1 font-mono text-[9px] uppercase tracking-widest text-[var(--vestara-text-muted)]">Minimap</div>
+      <svg width={width} height={height} className="block rounded-[6px] bg-[var(--vestara-surface-canvas)]">
+        {valid.map((position, index) => {
+          const [cx, cyDot] = toSvg(position.x, position.y);
+          const status = statusById.get(graph.nodes[index]?.id ?? '') ?? '';
+          return <circle key={graph.nodes[index]?.id ?? index} cx={cx} cy={cyDot} r={3} fill={`var(${statusToken[status] ?? '--vestara-text-muted'})`} />;
+        })}
+        {viewport && (
+          <rect
+            x={viewport[0]}
+            y={viewport[1]}
+            width={Math.max(viewport[2] - viewport[0], 4)}
+            height={Math.max(viewport[3] - viewport[1], 4)}
+            fill="none"
+            stroke="var(--vestara-accent-primary)"
+            strokeWidth={1}
+          />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function GraphLegend() {
+  return (
+    <div className="workflow-graph-legend" aria-label="Workflow graph legend">
+      <span><i className="workflow-legend-swatch workflow-legend-plan" />Plan</span>
+      <span><i className="workflow-legend-swatch workflow-legend-task" />Task</span>
+      <span><i className="workflow-legend-line workflow-legend-contains" />Contains</span>
+      <span><i className="workflow-legend-line workflow-legend-dependency" />Depends on</span>
+      <span><i className="workflow-legend-swatch workflow-legend-completed" />Completed</span>
+      <span><i className="workflow-legend-swatch workflow-legend-running" />Running</span>
+      <span><i className="workflow-legend-swatch workflow-legend-blocked" />Blocker</span>
+    </div>
+  );
 }
 
 export function WorkflowGraph({
@@ -285,11 +549,17 @@ export function WorkflowGraph({
   height,
   className = '',
   emptyMessage = DEFAULT_EMPTY,
+  nodeCards,
 }: WorkflowGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
   const graphRef = useRef(graph);
   const onNodeSelectRef = useRef(onNodeSelect);
+  const [cyCore, setCyCore] = useState<cytoscape.Core | null>(null);
+  const [viewportTick, setViewportTick] = useState(0);
+  const [zoomPct, setZoomPct] = useState(100);
+  const rafQueuedRef = useRef(false);
+  const cards = nodeCards ?? chrome === 'canvas';
   const graphSignature = graph
     ? JSON.stringify({
         nodes: graph.nodes.map((node) => [node.id, node.kind, node.label, node.status, node.source.kind, node.source.id]),
@@ -307,22 +577,36 @@ export function WorkflowGraph({
         cyRef.current.destroy();
         cyRef.current = null;
       }
+      setCyCore(null);
       return;
     }
 
-    const elements = styledElements(graph);
+    const queueViewportSync = () => {
+      if (rafQueuedRef.current) return;
+      rafQueuedRef.current = true;
+      requestAnimationFrame(() => {
+        rafQueuedRef.current = false;
+        const cy = cyRef.current;
+        if (!cy) return;
+        setZoomPct(Math.round(cy.zoom() * 100));
+        setViewportTick((tick) => tick + 1);
+      });
+    };
+
+    const elements = styledElements(graph, cards);
     let cy = cyRef.current;
     if (!cy) {
       cy = cytoscape({
         container,
         elements,
-        style: stylesheet(),
+        style: stylesheet(cards),
         layout: buildLayout(layout),
         minZoom: 0.45,
         maxZoom: 2.2,
         wheelSensitivity: 0.2,
       });
       cyRef.current = cy;
+      setCyCore(cy);
 
       const handleTap = (event: cytoscape.EventObject) => {
         const node = graphRef.current ? workflowGraphNodeForSelection(graphRef.current, event.target.id()) : null;
@@ -337,7 +621,10 @@ export function WorkflowGraph({
       cy.on('tap', handleBackgroundTap);
       cy.on('mouseover', 'node', handleHoverIn);
       cy.on('mouseout', 'node', handleHoverOut);
+      cy.on('pan zoom', queueViewportSync);
+      cy.on('position', queueViewportSync);
       cy.fit(undefined, GRAPH_FIT_PADDING);
+      queueViewportSync();
     } else {
       // In-place live update: viewport preserved, no fit after first mount.
       const pan = cy.pan();
@@ -355,7 +642,7 @@ export function WorkflowGraph({
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
     // selectedNodeId intentionally excluded: selection syncs via the dedicated effect below.
-  }, [graphSignature, layout]);
+  }, [graphSignature, layout, cards]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -378,9 +665,82 @@ export function WorkflowGraph({
       level: cy.zoom() * factor,
       renderedPosition: { x: (extent.x1 + extent.x2) / 2, y: (extent.y1 + extent.y2) / 2 },
     });
+    setZoomPct(Math.round((cy.zoom() ?? 1) * 100));
+    setViewportTick((tick) => tick + 1);
   };
 
   const canvasStyle = height === undefined ? undefined : { height: typeof height === 'number' ? `${height}px` : height };
+
+  // Positions read during render drive the HTML overlay + minimap.
+  void viewportTick;
+
+  const taskNodes = cards && graph ? graph.nodes.filter((node) => node.kind === 'task') : [];
+  const dependsCount = (nodeId: string): number =>
+    graph?.edges.filter((edge) => edge.kind === 'depends_on' && edge.target === nodeId).length ?? 0;
+
+  const cardsOverlay =
+    cards && graph && cyCore ? (
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {taskNodes.map((node) => {
+          let rendered: { x: number; y: number } | null = null;
+          try {
+            const element = cyCore.getElementById(node.id);
+            if (element.nonempty()) rendered = element.renderedPosition();
+          } catch {
+            rendered = null;
+          }
+          if (!rendered) return null;
+          return (
+            <NodeCard
+              key={node.id}
+              node={node}
+              meta={`${node.kind} · ${dependsCount(node.id)} dep`}
+              selected={selectedNodeId === node.id}
+              dimmed={Boolean(selectedNodeId) && selectedNodeId !== node.id}
+              position={rendered}
+              onSelect={(selected) => {
+                const full = graphRef.current ? workflowGraphNodeForSelection(graphRef.current, selected.id) : null;
+                onNodeSelectRef.current?.(full);
+              }}
+            />
+          );
+        })}
+      </div>
+    ) : null;
+
+  const minimap = chrome === 'canvas' && graph && cyCore ? <GraphMinimap graph={graph} cy={cyCore} /> : null;
+
+  const zoomPill = (
+    <div
+      className="absolute bottom-3 left-3 flex items-center gap-1 rounded-[10px] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]/90 p-1 backdrop-blur"
+      role="group"
+      aria-label="Graph zoom controls"
+    >
+      <button
+        type="button"
+        className="workflow-graph-control"
+        disabled={!graph}
+        onClick={() => zoomBy(1 / 1.25)}
+        aria-label="Zoom out"
+      >
+        −
+      </button>
+      <span className="min-w-12 px-1 text-center font-mono text-[10px] text-[var(--vestara-text-muted)]" aria-live="polite">
+        {zoomPct}%
+      </span>
+      <button type="button" className="workflow-graph-control" disabled={!graph} onClick={() => zoomBy(1.25)} aria-label="Zoom in">
+        +
+      </button>
+      <button
+        type="button"
+        className="workflow-graph-control"
+        disabled={!graph}
+        onClick={() => cyRef.current?.fit(undefined, GRAPH_FIT_PADDING)}
+      >
+        Fit view
+      </button>
+    </div>
+  );
 
   const content = error ? (
     <div className="workflow-graph-empty">{error}</div>
@@ -394,18 +754,15 @@ export function WorkflowGraph({
   ) : graph.nodes.length === 0 ? (
     <div className="workflow-graph-empty">No workflow graph data is available.</div>
   ) : (
-    <div ref={containerRef} className="workflow-graph-canvas" role="img" aria-label="Workflow graph" style={canvasStyle} />
+    <div ref={containerRef} className="workflow-graph-canvas relative" role="img" aria-label="Workflow graph" style={canvasStyle}>
+      {chrome === 'canvas' && cardsOverlay}
+    </div>
   );
 
   const toolbar = (showLegend || showControls) && (
     <div className="workflow-graph-toolbar">
       {showLegend ? (
-        <div className="workflow-graph-legend" aria-label="Workflow graph legend">
-          <span><i className="workflow-legend-swatch workflow-legend-plan" />Plan</span>
-          <span><i className="workflow-legend-swatch workflow-legend-task" />Task</span>
-          <span><i className="workflow-legend-line workflow-legend-contains" />Contains</span>
-          <span><i className="workflow-legend-line workflow-legend-dependency" />Depends on</span>
-        </div>
+        <GraphLegend />
       ) : (
         <span />
       )}
@@ -432,6 +789,21 @@ export function WorkflowGraph({
           {toolbar}
           {content}
         </div>
+      </div>
+    );
+  }
+
+  if (chrome === 'canvas') {
+    return (
+      <div className={`relative min-h-0 overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] ${className}`}>
+        {showLegend && (
+          <div className="absolute left-3 top-3 z-10 rounded-[10px] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]/90 px-3 py-2 backdrop-blur">
+            <GraphLegend />
+          </div>
+        )}
+        {content}
+        {showControls && zoomPill}
+        {minimap}
       </div>
     );
   }

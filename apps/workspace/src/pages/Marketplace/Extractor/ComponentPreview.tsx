@@ -83,21 +83,100 @@ function ToastPreview({ component }: PreviewProps) {
   );
 }
 
-function TabBarPreview(_props: PreviewProps) {
+function TabBarPreview({ path }: PreviewProps) {
+  // Mirrors the real TabBar API (tabs / active / onActive / onClose):
+  // active file derived from the open tab path, with teal dot + close ×.
+  const tabs = ['FileIcon.tsx', 'TreeNode.tsx', 'TabBar.tsx'];
+  const activeFile = path.split('/').pop() ?? tabs[0];
   return (
-    <div className="flex gap-1">
-      {['FileIcon.tsx', 'TreeNode.tsx'].map((t, i) => (
-        <span
-          key={t}
-          className={`rounded-md border px-2 py-1 font-mono text-xs ${
-            i === 0
-              ? 'border-[var(--vestara-accent-border-active)] text-[var(--vestara-text-primary)]'
-              : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)]'
-          }`}
-        >
-          {t}
-        </span>
-      ))}
+    <div className="flex gap-1 overflow-x-auto">
+      {tabs.map((t) => {
+        const isActive = t === activeFile || (t === tabs[0] && !tabs.includes(activeFile));
+        return (
+          <span
+            key={t}
+            className={`flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs ${
+              isActive
+                ? 'border-[var(--vestara-accent-border-active)] text-[var(--vestara-text-primary)]'
+                : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)]'
+            }`}
+          >
+            <span aria-hidden="true">▤</span>
+            <span className="max-w-40 truncate">{t}</span>
+            {isActive && (
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-[var(--vestara-accent-border-active)]"
+                aria-label="active"
+              />
+            )}
+            <span aria-hidden="true">×</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function TreeNodePreview({ component }: PreviewProps) {
+  // Mirrors the real TreeNode API (node / depth / activePath / expandedPaths):
+  // 14px depth indent, chevron, and active teal row.
+  const depth = Number(propDefault(component, 'depth') ?? 1);
+  return (
+    <div className="w-full max-w-[320px] space-y-0.5">
+      <div className="flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs text-[var(--vestara-text-muted)]">
+        <span aria-hidden="true">▾</span>
+        <span>components/</span>
+      </div>
+      {[0, 1].map((i) => {
+        const isActive = i === 0;
+        return (
+          <div
+            key={i}
+            className={`flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs ${
+              isActive
+                ? 'bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-primary)]'
+                : 'text-[var(--vestara-text-secondary)]'
+            }`}
+            style={{ paddingLeft: `${8 + (depth + i) * 14}px` }}
+          >
+            <span aria-hidden="true">{isActive ? '▸' : '·'}</span>
+            <span className="truncate">{i === 0 ? component.file : 'TreeNode.tsx'}</span>
+            {isActive && (
+              <span className="ml-auto shrink-0 text-[var(--vestara-text-muted)]">active</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CommandPalettePreview({ component }: PreviewProps) {
+  // Mirrors the real CommandPalette API (open / query / results / onSelect):
+  // backdrop-blur modal, indexed results, ESC to close.
+  const query = propDefault(component, 'query') ?? '';
+  return (
+    <div className="w-full max-w-[360px] rounded-xl border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-2 shadow-[var(--vestara-elevation-md)]">
+      <div className="rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 font-mono text-xs text-[var(--vestara-text-muted)]">
+        {query || 'Type a command…'}
+      </div>
+      <div className="mt-1 space-y-0.5">
+        {['FileIcon.tsx', 'TreeNode.tsx', 'TabBar.tsx'].map((r, i) => (
+          <div
+            key={r}
+            className={`flex items-center gap-2 rounded-md px-2 py-1.5 font-mono text-xs ${
+              i === 0
+                ? 'bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-primary)]'
+                : 'text-[var(--vestara-text-secondary)]'
+            }`}
+          >
+            <span aria-hidden="true">▤</span>
+            <span className="truncate">{r}</span>
+            <span className="ml-auto shrink-0 text-[var(--vestara-text-muted)]">ui</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-1 px-2 font-mono text-xs text-[var(--vestara-text-disabled)]">ESC to close</p>
     </div>
   );
 }
@@ -208,10 +287,20 @@ function CodeViewerPreview({ component }: PreviewProps) {
   );
 }
 
+const CATEGORY_TOKEN: Record<string, string> = {
+  ui: 'text-[var(--vestara-status-success)]',
+  code: 'text-[var(--vestara-status-info)]',
+  docs: 'text-[var(--vestara-status-warning)]',
+};
+
 function FallbackPreview({ component }: PreviewProps) {
+  const token = CATEGORY_TOKEN[component.category] ?? 'text-[var(--vestara-text-muted)]';
   return (
     <div>
-      <div className="text-sm font-medium text-[var(--vestara-text-primary)]">{component.name}</div>
+      <div className="flex items-center gap-2">
+        <span className={`font-mono text-xs uppercase ${token}`}>{component.category}</span>
+        <span className="text-sm font-medium text-[var(--vestara-text-primary)]">{component.name}</span>
+      </div>
       <p className="mt-1 text-xs text-[var(--vestara-text-secondary)]">{component.description}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {component.props.map((p) => (
@@ -243,6 +332,10 @@ export default function ComponentPreview({ component, path, modified }: PreviewP
       return <ToastPreview {...props} />;
     case 'TabBar':
       return <TabBarPreview {...props} />;
+    case 'TreeNode':
+      return <TreeNodePreview {...props} />;
+    case 'CommandPalette':
+      return <CommandPalettePreview {...props} />;
     case 'Breadcrumb':
       return <BreadcrumbPreview {...props} />;
     case 'DetailCard':

@@ -43,8 +43,8 @@ export function TerminalInspector({
       {session && (
         <>
           {/* SESSION section */}
-          <div className="border-b border-[var(--vestara-accent-border-border)] pb-2 mb-2">
-            <h3 className="text-[var(--vestara-text-sm)] font-medium text-[var(--vestara-text)] mb-1">
+          <div className="border-b border-[var(--vestara-accent-border)] pb-2 mb-2">
+            <h3 className="text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text)] mb-1">
               Session
             </h3>
             <div className="grid grid-cols-2 gap-1 text-[var(--vestara-text-2)] text-xs">
@@ -80,8 +80,8 @@ export function TerminalInspector({
 
           {/* WORKING DIRECTORY section */}
           {session.cwd && (
-            <div className="border-b border-[var(--vestara-accent-border-border)] pb-2 mb-2">
-              <h3 className="text-[var(--vestara-text-sm)] font-medium text-[var(--vestara-text)] mb-1">
+            <div className="border-b border-[var(--vestara-accent-border)] pb-2 mb-2">
+              <h3 className="text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text)] mb-1">
                 Working Directory
               </h3>
               <p className="text-[var(--vestara-text-2)] overflow-break-word whitespace-pre-wrap">{session.cwd}</p>
@@ -90,8 +90,8 @@ export function TerminalInspector({
 
           {/* CONNECTION section */}
           {session.status === 'connected' || session.status === 'connecting' && (
-            <div className="border-b border-[var(--vestara-accent-border-border)] pb-2 mb-2">
-              <h3 className="text-[var(--vestara-text-sm)] font-medium text-[var(--vestara-text)] mb-1">
+            <div className="border-b border-[var(--vestara-accent-border)] pb-2 mb-2">
+              <h3 className="text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text)] mb-1">
                 Connection
               </h3>
               <div className="grid grid-cols-2 gap-1 text-[var(--vestara-text-2)] text-xs">
@@ -109,8 +109,8 @@ export function TerminalInspector({
 
           {/* ENVIRONMENT section - only safe metadata */}
           {session.processStatus === 'running' && (
-            <div className="border-b border-[var(--vestara-accent-border-border)] pb-2 mb-2">
-              <h3 className="text-[var(--vestara-text-sm)] font-medium text-[var(--vestara-text)] mb-1">
+            <div className="border-b border-[var(--vestara-accent-border)] pb-2 mb-2">
+              <h3 className="text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text)] mb-1">
                 Environment
               </h3>
               <p className="text-[var(--vestara-text-2)] text-xs italic">
@@ -121,7 +121,7 @@ export function TerminalInspector({
 
           {/* QUICK ACTIONS section */}
           <div>
-            <h3 className="text-[var(--vestara-text-sm)] font-medium text-[var(--vestara-text)] mb-1">
+            <h3 className="text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text)] mb-1">
               Quick Actions
             </h3>
             <div className="grid grid-cols-2 gap-1 text-[var(--vestara-text-2)] text-xs">

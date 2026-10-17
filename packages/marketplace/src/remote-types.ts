@@ -30,6 +30,18 @@ export interface RemoteRegistryIndexAsset {
   readonly versions: readonly RemoteRegistryIndexVersion[];
   /** Optional download location for a package archive at the latest version. */
   readonly downloadUrl?: string;
+  /**
+   * Optional registry-declared social/commercial statistics. These are
+   * provenance-backed (served by the remote index) — the local registry never
+   * fabricates them. All fields optional; absent fields render as empty.
+   */
+  readonly stats?: RemoteRegistryIndexStats;
+}
+
+export interface RemoteRegistryIndexStats {
+  readonly downloads?: number;
+  readonly rating?: number;
+  readonly reviews?: number;
 }
 
 export interface RemoteRegistryIndexVersion {

@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge, Button } from '@vestara/ui';
 import type { CapabilityCatalog, CapabilityCatalogEntry } from '../../lib/catalog.js';
 import { catalogClient } from '../../lib/catalog.js';
@@ -261,6 +262,15 @@ function CapabilityDrawer({ cap, onClose }: { cap: CapabilityCatalogEntry; onClo
                   {health.icon} {cap.health}
                 </span>
               </div>
+              <div className="mt-3">
+                <Link
+                  to={`/marketplace/discover?capability=${encodeURIComponent(cap.id)}`}
+                  className="mpg-link"
+                  title={`Find Marketplace assets matching ${cap.name}`}
+                >
+                  Find in Marketplace →
+                </Link>
+              </div>
             </section>
           )}
 
@@ -290,7 +300,13 @@ function CapabilityDrawer({ cap, onClose }: { cap: CapabilityCatalogEntry; onClo
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {cap.packages.map((pkg) => (
-                  <Badge key={pkg} variant="default" size="md">{pkg}</Badge>
+                  <Link
+                    key={pkg}
+                    to={`/marketplace/discover?q=${encodeURIComponent(pkg)}`}
+                    title={`Search Marketplace for ${pkg}`}
+                  >
+                    <Badge variant="default" size="md">{pkg}</Badge>
+                  </Link>
                 ))}
               </div>
             </section>

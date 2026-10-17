@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 export function StartupCanvas({ children }: { children: ReactNode }) {
   return (
     <div className="st-canvas-artwork min-h-screen w-full overflow-hidden text-[var(--st-title)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[var(--vestara-spacing-24)] flex-col px-[var(--vestara-spacing-page)] py-[var(--vestara-spacing-section)]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[var(--vestara-page-max-width)] flex-col px-[var(--vestara-spacing-page)] py-[var(--vestara-spacing-section)]">
         {children}
       </div>
     </div>

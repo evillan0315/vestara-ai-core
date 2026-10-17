@@ -92,9 +92,11 @@ export const EXTRACTOR_COMPONENT_FIXTURES: readonly ExtractedComponent[] = [
     p('value', 'string', '—', 'Controlled value'),
     p('placeholder', 'string', 'Search...', 'Placeholder text'),
   ]),
-  component('tabbar', 'Ta', 'TabBar', 'VS Code-style open-file tabs.', 'ui', 2.8, [
+  component('tabbar', 'Ta', 'TabBar', 'VS Code-style open-file tabs with active dot and close.', 'ui', 2.8, [
     p('tabs', 'Tab[]', '—', 'Open tabs'),
     p('active', 'string', '—', 'Active path'),
+    p('onActive', '(path) => void', '—', 'Select tab'),
+    p('onClose', '(path) => void', '—', 'Close tab'),
   ]),
   component('breadcrumb', 'Bc', 'Breadcrumb', 'Path trail with highlighted segment.', 'ui', 1.9, [
     p('path', 'string', '—', 'Full file path'),

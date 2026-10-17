@@ -99,7 +99,29 @@ describe('accent contracts', () => {
       displayName: 'Demo',
     });
     expect(display.accent).toBe('var(--vestara-marketplace-primary)');
-    expect(display.rating).toBeGreaterThanOrEqual(4.2);
-    expect(display.rating).toBeLessThanOrEqual(4.9);
+    expect(display.glyph).toBe('D');
+  });
+
+  it('live assets omit social stats when the registry declares none (never fabricated)', () => {
+    const display = displayForLiveAsset({
+      publisherId: 'vestara',
+      packageName: 'demo',
+      displayName: 'Demo',
+    });
+    expect(display.rating).toBeUndefined();
+    expect(display.reviews).toBeUndefined();
+    expect(display.installs).toBeUndefined();
+  });
+
+  it('live assets surface registry-declared stats when present', () => {
+    const display = displayForLiveAsset({
+      publisherId: 'vestara',
+      packageName: 'demo',
+      displayName: 'Demo',
+      stats: { downloads: 12_340, rating: 4.7, reviews: 42 },
+    });
+    expect(display.rating).toBe(4.7);
+    expect(display.reviews).toBe(42);
+    expect(display.installs).toBe('12.3K');
   });
 });

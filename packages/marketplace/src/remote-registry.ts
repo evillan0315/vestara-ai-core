@@ -1,6 +1,11 @@
 import type { VestaraPackageManifest } from '@vestara/extension-contracts';
 import { satisfies } from '@vestara/extension-runtime';
-import type { MarketplaceAsset, MarketplaceAssetVersion, MarketplaceAssetVersionSummary } from './asset';
+import type {
+  MarketplaceAsset,
+  MarketplaceAssetStats,
+  MarketplaceAssetVersion,
+  MarketplaceAssetVersionSummary,
+} from './asset';
 import type { MarketplaceCategory } from './catalog';
 import { errorMessage, MarketplaceRegistryError } from './errors';
 import type {
@@ -277,6 +282,7 @@ function buildRemoteCache(registryId: string, json: Record<string, unknown>): Re
     const latestVersion = latestStableVersion(richVersions.map((v) => v.version)) ?? richVersions[0].version;
     const latestSummary = richVersions.find((v) => v.version === latestVersion);
     const now = new Date().toISOString();
+    const stats = remoteStats(raw.stats);
 
     for (const v of richVersions) {
       versionsByKey.set(versionKey(packageName, v.version), {
@@ -327,6 +333,7 @@ function buildRemoteCache(registryId: string, json: Record<string, unknown>): Re
         checksumVerified: latestSummary?.checksumVerified ?? false,
         runtimeVerified: false,
       },
+      ...(stats ? { stats } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -350,6 +357,11 @@ type RemoteIndexAssetLike = {
   documentationUrl?: string;
   visibility?: 'public' | 'organization' | 'private' | 'local';
   latestVersion?: string;
+  stats?: {
+    downloads?: unknown;
+    rating?: unknown;
+    reviews?: unknown;
+  };
   versions?: Array<{
     version?: unknown;
     publishedAt?: unknown;
@@ -359,6 +371,23 @@ type RemoteIndexAssetLike = {
     downloadUrl?: unknown;
   }>;
 };
+
+/**
+ * Normalize registry-declared stats. Returns `undefined` when the index carries
+ * no numeric stat, so absent fields render as empty rather than fabricated.
+ */
+function remoteStats(
+  raw: { downloads?: unknown; rating?: unknown; reviews?: unknown } | undefined,
+): MarketplaceAssetStats | undefined {
+  if (!raw) return undefined;
+  const number = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  const downloads = number(raw.downloads);
+  const rating = number(raw.rating);
+  const reviews = number(raw.reviews);
+  if (downloads === undefined && rating === undefined && reviews === undefined) return undefined;
+  return { downloads, rating, reviews };
+}
 
 function assetKey(publisherId: string, packageName: string): string {
   return `${publisherId}/${packageName}`;

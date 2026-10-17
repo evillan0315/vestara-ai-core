@@ -148,3 +148,44 @@ export {
 
 export type { CodeBlockProps, PropRow, PropTableProps } from './data-display.js';
 export { CodeBlock, PropTable } from './data-display.js';
+
+// ─── Workspace chrome (drawers, modal, cards) ────────────────────
+
+export type {
+  DrawerMenuAction,
+  DrawerMenuProps,
+  DrawerPosition,
+  DrawerProps,
+  DrawerSize,
+  ModalProps,
+  OperationalPanelProps,
+  OperationalPanelTone,
+  ProgressBarProps,
+  ProgressBarSize,
+  StatCardProps,
+} from './workspace-chrome.js';
+export { Drawer, DrawerMenu, Modal, OperationalPanel, ProgressBar, StatCard } from './workspace-chrome.js';
+
+// ─── Terminal drawer ───────────────────────────────────────────
+
+export type {
+  CollapsedBarProps,
+  SplitViewProps,
+  SuggestCommand,
+  TerminalDrawerProps,
+  TerminalHistoryEntry,
+  TerminalPaneProps,
+  TerminalSession,
+  TerminalSessionStatus,
+  TerminalStatus,
+  TerminalSuggestProps,
+  TerminalTabsProps,
+} from './terminal.js';
+export {
+  CollapsedBar,
+  SplitView,
+  TerminalDrawer,
+  TerminalPane,
+  TerminalSuggest,
+  TerminalTabs,
+} from './terminal.js';

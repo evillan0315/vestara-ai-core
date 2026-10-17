@@ -12,6 +12,21 @@ export interface MarketplaceSearchQuery {
   readonly filters?: MarketplaceFilters;
   /** When provided, assets incompatible with this runtime are excluded. */
   readonly compatibleWith?: RuntimeCompatibilityContext;
+  /**
+   * Catalog-level capability hints. An asset matches when any hint appears in
+   * its display text (name/summary/description/tags/type/publisher). This is a
+   * proxy — full manifest capabilities require version materialization — so
+   * hints narrow rather than certify.
+   */
+  readonly capabilities?: readonly string[];
+  /** Package names to exclude from results (resolved by the service from install state). */
+  readonly excludePackageNames?: readonly string[];
+  /**
+   * Service-level flag: exclude installed packages. Resolved by
+   * `MarketplaceService.search` into `excludePackageNames`; ignored by
+   * `searchAssets` directly.
+   */
+  readonly excludeInstalled?: boolean;
   readonly limit?: number;
   readonly offset?: number;
   readonly sort?: MarketplaceSort;
@@ -41,6 +56,20 @@ interface ScoredHit {
 }
 
 const TEXT_FIELDS = ['displayName', 'summary', 'description', 'tags', 'publisherId', 'type', 'packageName'] as const;
+
+/**
+ * Catalog-level capability proxy: true when the hint appears anywhere in the
+ * asset's display text. Shared by search filtering and suggestion scoring so
+ * both stay consistent about what "matches a capability" means without
+ * materializing manifests.
+ */
+export function assetMatchesCapability(asset: MarketplaceAsset, capability: string): boolean {
+  const needle = capability.trim().toLowerCase();
+  if (!needle) return false;
+  const haystack =
+    `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.description ?? ''} ${asset.type} ${asset.tags.join(' ')}`.toLowerCase();
+  return haystack.includes(needle);
+}
 
 function scoreAsset(asset: MarketplaceAsset, query: string): ScoredHit {
   const needle = query.trim().toLowerCase();
@@ -81,8 +110,13 @@ export function searchAssets(
   assets: readonly MarketplaceAsset[],
   query: MarketplaceSearchQuery,
 ): MarketplaceSearchHit[] {
+  const excluded = new Set((query.excludePackageNames ?? []).map((name) => name.toLowerCase()));
+  const capabilities = (query.capabilities ?? []).map((value) => value.trim()).filter(Boolean);
   const filtered = applyFilters(assets, query.filters).filter(
-    (asset) => !query.compatibleWith || isCompatible(asset.versions[0]?.compatibility, query.compatibleWith),
+    (asset) =>
+      (!query.compatibleWith || isCompatible(asset.versions[0]?.compatibility, query.compatibleWith)) &&
+      (excluded.size === 0 || !excluded.has(asset.packageName.toLowerCase())) &&
+      (capabilities.length === 0 || capabilities.some((capability) => assetMatchesCapability(asset, capability))),
   );
   const needle = query.query?.trim() ?? '';
   const scored = filtered.map((asset) => scoreAsset(asset, needle));

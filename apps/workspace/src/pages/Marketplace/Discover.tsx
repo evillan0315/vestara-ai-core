@@ -14,9 +14,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '@vestara/ui';
-import type { InstalledMarketplaceAsset, MarketplaceAsset, MarketplaceUpdateCandidate } from '../../lib/marketplace.js';
+import type {
+  InstalledMarketplaceAsset,
+  MarketplaceAsset,
+  MarketplaceSuggestion,
+  MarketplaceUpdateCandidate,
+} from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
   ALL_ITEMS_FIXTURES,
@@ -82,7 +87,8 @@ export default function Discover() {
     },
     [navigate],
   );
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [category, setCategory] = useState('all');
   const [sort, setSort] = useState<MarketplaceSortId>('relevant');
   const [categories, setCategories] = useState<Array<{ name: string; assetCount: number }>>([]);
@@ -93,6 +99,7 @@ export default function Discover() {
   const [installStates, setInstallStates] = useState<Record<string, InstallState>>({});
   const [notice, setNotice] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
   const [registryErrors, setRegistryErrors] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<MarketplaceSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,14 +144,46 @@ export default function Discover() {
       .catch(() => {});
   }, []);
 
+  // Deep links (Capabilities inventory, asset details) land here with
+  // ?q= and/or ?capability= — sync them into local state and suggestions.
+  const urlQuery = searchParams.get('q') ?? '';
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
+
+  const capabilityHints = useMemo(
+    () =>
+      [...searchParams.getAll('capability'), ...searchParams.getAll('capabilities')]
+        .map((value) => value.trim())
+        .filter(Boolean),
+    [searchParams],
+  );
+
+  const clearCapabilityHints = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('capability');
+    next.delete('capabilities');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    marketplaceClient
+      .suggest({ limit: 6, capability: capabilityHints.length > 0 ? capabilityHints : undefined })
+      .then((result) => setSuggestions(result.suggestions))
+      .catch(() => {});
+  }, [capabilityHints]);
+
   const displayByPackage = useMemo(() => {
     const map = new Map<string, DiscoverDisplayMeta>();
     for (const fixture of DISCOVER_FIXTURES) map.set(fixture.asset.packageName, fixture.display);
     for (const asset of assets) {
       if (!map.has(asset.packageName)) map.set(asset.packageName, displayForLiveAsset(asset));
     }
+    for (const suggestion of suggestions) {
+      if (!map.has(suggestion.asset.packageName)) map.set(suggestion.asset.packageName, displayForLiveAsset(suggestion.asset));
+    }
     return map;
-  }, [assets]);
+  }, [assets, suggestions]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -224,7 +263,7 @@ export default function Discover() {
     [],
   );
 
-  const renderCard = (asset: MarketplaceAsset, i: number, isFeatured = false) => {
+  const renderCard = (asset: MarketplaceAsset, i: number, isFeatured = false, reasons?: readonly string[]) => {
     const installedEntry = installed.get(asset.packageName);
     const update = updates.get(asset.packageName);
     const display = displayByPackage.get(asset.packageName);
@@ -265,6 +304,14 @@ export default function Discover() {
                 incompatible
               </Badge>
             )}
+            {reasons && reasons.length > 0 && (
+              <span
+                className="w-full truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+                title={reasons.join(' • ')}
+              >
+                Why: {reasons.slice(0, 2).join(' • ')}
+              </span>
+            )}
           </>
         }
       />
@@ -281,6 +328,17 @@ export default function Discover() {
         <InsightBanner severity="warning" description={registryErrors.map((e) => <div key={e}>⚠ {e}</div>)} />
       )}
       {notice && <InsightBanner severity={notice.severity} description={notice.text} />}
+      {capabilityHints.length > 0 && (
+        <InsightBanner
+          severity="info"
+          description={`Workspace suggestions filtered by capability: ${capabilityHints.join(', ')}`}
+          action={
+            <button type="button" onClick={clearCapabilityHints} className="mpg-link">
+              Clear
+            </button>
+          }
+        />
+      )}
       {error && usingFixtures && assets.length > 0 ? (
         <InsightBanner severity="warning" description={`Live registry unavailable (${error}) — showing reference examples.`} />
       ) : (
@@ -318,6 +376,23 @@ export default function Discover() {
               <MarketplaceEmptyState message="No assets found. Try a different search or category." />
             ) : (
               <>
+                {isDefaultView && suggestions.length > 0 && (
+                  <MarketplaceSection
+                    title="Suggested for this workspace"
+                    action={
+                      <Link to="/marketplace/capabilities" className="mpg-link">
+                        Why these?
+                      </Link>
+                    }
+                  >
+                    <div className="mpg-all-grid">
+                      {suggestions
+                        .filter((s) => !installed.has(s.asset.packageName))
+                        .slice(0, 3)
+                        .map((s, i) => renderCard(s.asset, i, false, s.reasons))}
+                    </div>
+                  </MarketplaceSection>
+                )}
                 {featured.length > 0 && (
                   <MarketplaceSection
                     title="Featured"

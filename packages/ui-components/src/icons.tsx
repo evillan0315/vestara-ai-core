@@ -181,12 +181,41 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
     ['rect', { width: 18, height: 11, x: 3, y: 11, rx: 2, ry: 2 }],
     ['path', { d: 'M7 11V7a5 5 0 0 1 10 0v4' }],
   ],
+  List: [
+    ['path', { d: 'M3 12h.01' }],
+    ['path', { d: 'M3 18h.01' }],
+    ['path', { d: 'M3 6h.01' }],
+    ['path', { d: 'M8 12h13' }],
+    ['path', { d: 'M8 18h13' }],
+    ['path', { d: 'M8 6h13' }],
+  ],
+  Maximize2: [
+    ['polyline', { points: '15 3 21 3 21 9' }],
+    ['polyline', { points: '9 21 3 21 3 15' }],
+    ['line', { x1: 21, x2: 14, y1: 3, y2: 10 }],
+    ['line', { x1: 3, x2: 10, y1: 21, y2: 14 }],
+  ],
   Menu: [
     ['line', { x1: 4, x2: 20, y1: 12, y2: 12 }],
     ['line', { x1: 4, x2: 20, y1: 6, y2: 6 }],
     ['line', { x1: 4, x2: 20, y1: 18, y2: 18 }],
   ],
   MessageSquare: [['path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' }]],
+  Minimize2: [
+    ['polyline', { points: '4 14 10 14 10 20' }],
+    ['polyline', { points: '20 10 14 10 14 4' }],
+    ['line', { x1: 14, x2: 21, y1: 10, y2: 3 }],
+    ['line', { x1: 3, x2: 10, y1: 21, y2: 14 }],
+  ],
+  PanelBottom: [
+    ['rect', { width: 18, height: 18, x: 3, y: 3, rx: 2 }],
+    ['path', { d: 'M3 15h18' }],
+  ],
+  PanelBottomOpen: [
+    ['rect', { width: 18, height: 18, x: 3, y: 3, rx: 2 }],
+    ['path', { d: 'M3 15h18' }],
+    ['path', { d: 'm9 10 3-3 3 3' }],
+  ],
   PenLine: [
     ['path', { d: 'M12 20h9' }],
     [
@@ -274,6 +303,12 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
     ['path', { d: 'M4 17v2' }],
     ['path', { d: 'M5 18H3' }],
   ],
+  Split: [
+    ['path', { d: 'M16 3h5v5' }],
+    ['path', { d: 'M8 3H3v5' }],
+    ['path', { d: 'M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3' }],
+    ['path', { d: 'm15 9 6-6' }],
+  ],
   Terminal: [
     ['polyline', { points: '4 17 10 11 4 5' }],
     ['line', { x1: 12, x2: 20, y1: 19, y2: 19 }],
@@ -310,6 +345,15 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
         d: 'M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z',
       },
     ],
+  ],
+  SizeNormal: [['rect', { width: 12, height: 12, x: 6, y: 6, rx: 1 }]],
+  SizeMedium: [['rect', { width: 18, height: 12, x: 3, y: 6, rx: 1 }]],
+  SizeLarge: [['rect', { width: 18, height: 18, x: 3, y: 3, rx: 1 }]],
+  SizeFull: [
+    ['path', { d: 'M8 3H5a2 2 0 0 0-2 2v3' }],
+    ['path', { d: 'M21 8V5a2 2 0 0 0-2-2h-3' }],
+    ['path', { d: 'M3 16v3a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M16 21h3a2 2 0 0 0 2-2v-3' }],
   ],
 };
 
@@ -382,8 +426,13 @@ export const KeyRound = makeIcon('KeyRound');
 export const Layers = makeIcon('Layers');
 export const Link2 = makeIcon('Link2');
 export const Lock = makeIcon('Lock');
+export const List = makeIcon('List');
+export const Maximize2 = makeIcon('Maximize2');
 export const Menu = makeIcon('Menu');
 export const MessageSquare = makeIcon('MessageSquare');
+export const Minimize2 = makeIcon('Minimize2');
+export const PanelBottom = makeIcon('PanelBottom');
+export const PanelBottomOpen = makeIcon('PanelBottomOpen');
 export const PenLine = makeIcon('PenLine');
 export const Pin = makeIcon('Pin');
 export const Plus = makeIcon('Plus');
@@ -394,7 +443,12 @@ export const Server = makeIcon('Server');
 export const Settings = makeIcon('Settings');
 export const Shield = makeIcon('Shield');
 export const ShieldCheck = makeIcon('ShieldCheck');
+export const SizeFull = makeIcon('SizeFull');
+export const SizeLarge = makeIcon('SizeLarge');
+export const SizeMedium = makeIcon('SizeMedium');
+export const SizeNormal = makeIcon('SizeNormal');
 export const Sparkles = makeIcon('Sparkles');
+export const Split = makeIcon('Split');
 export const Terminal = makeIcon('Terminal');
 export const Trash2 = makeIcon('Trash2');
 export const TriangleAlert = makeIcon('TriangleAlert');
@@ -432,8 +486,13 @@ export const ICONS = {
   Layers,
   Link2,
   Lock,
+  List,
+  Maximize2,
   Menu,
   MessageSquare,
+  Minimize2,
+  PanelBottom,
+  PanelBottomOpen,
   PenLine,
   Pin,
   Plus,
@@ -444,7 +503,12 @@ export const ICONS = {
   Settings,
   Shield,
   ShieldCheck,
+  SizeFull,
+  SizeLarge,
+  SizeMedium,
+  SizeNormal,
   Sparkles,
+  Split,
   Terminal,
   Trash2,
   TriangleAlert,

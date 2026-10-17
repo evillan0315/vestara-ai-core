@@ -245,11 +245,16 @@ export interface AvatarBoxProps {
   onColorChange: (index: number) => void;
 }
 
+/**
+ * Avatar colourways — categorical identity hues only. Both stops resolve to
+ * canonical tokens (accent + marketplace categoricals) so the picker follows
+ * the active theme mode instead of shipping fixed hex literals.
+ */
 const AVATAR_GRADIENTS: readonly string[] = [
-  'from-[var(--vestara-accent-os-cyan)] to-[#7A5CFA]',
-  'from-[#FF5A8A] to-[var(--vestara-status-os-warning)]',
+  'from-[var(--vestara-accent-os-cyan)] to-[var(--vestara-marketplace-agent)]',
+  'from-[var(--vestara-marketplace-theme)] to-[var(--vestara-status-os-warning)]',
   'from-[var(--vestara-status-os-success)] to-[var(--vestara-accent-os-cyan)]',
-  'from-[#FF7A00] to-[#FF00A8]',
+  'from-[var(--vestara-marketplace-command)] to-[var(--vestara-marketplace-theme)]',
 ];
 
 export function AvatarBox({ name, colorIndex, onColorChange }: AvatarBoxProps) {

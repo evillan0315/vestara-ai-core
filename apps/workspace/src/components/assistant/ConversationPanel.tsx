@@ -45,7 +45,14 @@ import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { ProviderModelSelector } from '../ui/ProviderModelSelector';
 import { AssistantResponseActions } from './AssistantResponseActions';
 import { ComposerSuggestionMenu } from '../composer/ComposerSuggestionMenu';
+import { ComposerAutoComplete } from '../composer/ComposerAutoComplete';
 import { parseComposerSuggestionCommand } from '../composer/composerSuggestion';
+import {
+  applyAutoComplete,
+  detectAutoComplete,
+  dismissAutoComplete,
+  type AutoCompleteCommand,
+} from '../composer/composerAutoComplete';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ToolObservationRenderer } from './ToolObservationRenderer';
@@ -589,6 +596,7 @@ const ComposeInput = memo(function ComposeInput({
   surfaceContext?: import('@vestara/types').SurfaceContext;
 }) {
   const [input, setInput] = useState('');
+  const [autoCompleteIndex, setAutoCompleteIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const seenKeyRef = useRef(conversationKey);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -658,14 +666,58 @@ const ComposeInput = memo(function ComposeInput({
     });
   }, [input, loading, onSend]);
 
+  // Auto-complete detection
+  const autoComplete = useMemo(() => detectAutoComplete(input), [input]);
+
+  useEffect(() => {
+    setAutoCompleteIndex(0);
+  }, [autoComplete]);
+
+  const handleAutoCompleteSelect = useCallback(
+    (command: AutoCompleteCommand): void => {
+      if (!autoComplete) return;
+      setInput(applyAutoComplete(input, autoComplete, command));
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [autoComplete, input],
+  );
+
+  const handleAutoCompleteDismiss = useCallback(() => {
+    if (!autoComplete) return;
+    setInput(dismissAutoComplete(input, autoComplete));
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [autoComplete, input]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (autoComplete && autoComplete.commands.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setAutoCompleteIndex((i) => (i + 1) % autoComplete.commands.length);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setAutoCompleteIndex((i) => (i - 1 + autoComplete.commands.length) % autoComplete.commands.length);
+          return;
+        }
+        if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+          e.preventDefault();
+          handleAutoCompleteSelect(autoComplete.commands[autoCompleteIndex]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleAutoCompleteDismiss();
+          return;
+        }
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend],
+    [autoComplete, autoCompleteIndex, handleAutoCompleteSelect, handleAutoCompleteDismiss, handleSend],
   );
 
   const canSend = input.trim().length > 0 && !loading;
@@ -726,6 +778,16 @@ const ComposeInput = memo(function ComposeInput({
             textareaRef.current?.focus();
           }}
         />
+        {autoComplete && (
+          <ComposerAutoComplete
+            draft={input}
+            state={autoComplete}
+            selectedIndex={autoCompleteIndex}
+            onSelect={handleAutoCompleteSelect}
+            onDismiss={handleAutoCompleteDismiss}
+            onNavigate={setAutoCompleteIndex}
+          />
+        )}
         <textarea
           ref={textareaRef}
           value={input}

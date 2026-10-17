@@ -8,7 +8,13 @@
  * (UI-UX governance §6).
  */
 
-export type UiComponentGroup = 'file-workspace' | 'chat-assistant' | 'auth-onboarding' | 'data-display';
+export type UiComponentGroup =
+  | 'file-workspace'
+  | 'chat-assistant'
+  | 'auth-onboarding'
+  | 'data-display'
+  | 'terminal-drawer'
+  | 'workspace-chrome';
 
 export interface UiComponentEntry {
   /** Stable id / exported symbol name. */
@@ -40,6 +46,16 @@ export const UI_COMPONENT_GROUPS: readonly { id: UiComponentGroup; label: string
     id: 'data-display',
     label: 'Data Display',
     description: 'Code and reference tables: code blocks and prop tables.',
+  },
+  {
+    id: 'terminal-drawer',
+    label: 'Terminal Drawer',
+    description: 'Bottom drawer terminal: shell, session tabs, panes, splits, autocomplete.',
+  },
+  {
+    id: 'workspace-chrome',
+    label: 'Workspace Chrome',
+    description: 'Global overlay and card surfaces: drawer, modal, operational panel, stats.',
   },
 ];
 
@@ -365,6 +381,94 @@ export const UI_COMPONENT_CATALOG: readonly UiComponentEntry[] = [
     group: 'data-display',
     category: 'docs',
     description: 'Reference table of component props.',
+  },
+
+  // ── Terminal drawer (6) ──
+  {
+    id: 'TerminalDrawer',
+    name: 'TerminalDrawer',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Bottom drawer shell with a drag handle, snap heights, and session controls.',
+  },
+  {
+    id: 'TerminalTabs',
+    name: 'TerminalTabs',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Session tabs with status dots, hover-reveal close, and a new-tab action.',
+  },
+  {
+    id: 'TerminalPane',
+    name: 'TerminalPane',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Prompt line, collapsible history, autocomplete input, and a cwd/exit/git status bar.',
+  },
+  {
+    id: 'SplitView',
+    name: 'SplitView',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Resizable two-pane split with a hover-glow divider and clamped ratio.',
+  },
+  {
+    id: 'TerminalSuggest',
+    name: 'TerminalSuggest',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Command autocomplete dropdown with icons, descriptions, and keyboard hints.',
+  },
+  {
+    id: 'CollapsedBar',
+    name: 'CollapsedBar',
+    group: 'terminal-drawer',
+    category: 'ui',
+    description: 'Minimal 36px collapsed bar with session count and last-command status.',
+  },
+
+  // ── Workspace chrome (6) ──
+  {
+    id: 'Drawer',
+    name: 'Drawer',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Resizable slide-over panel: size presets, drag resize, portal, persistence.',
+  },
+  {
+    id: 'DrawerMenu',
+    name: 'DrawerMenu',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Compact header ⋮ menu with keyboard navigation and checked items.',
+  },
+  {
+    id: 'Modal',
+    name: 'Modal',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Focus-trapped modal shell with accent bar, Escape and backdrop close.',
+  },
+  {
+    id: 'OperationalPanel',
+    name: 'OperationalPanel',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Icon/title/description/actions card with accent or info tone.',
+  },
+  {
+    id: 'StatCard',
+    name: 'StatCard',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Label/value/sub metric card with an accent edge.',
+  },
+  {
+    id: 'ProgressBar',
+    name: 'ProgressBar',
+    group: 'workspace-chrome',
+    category: 'ui',
+    description: 'Thin progress bar with status-tone fill by completion band.',
   },
 ];
 

@@ -121,6 +121,33 @@ export {
   useShell,
 } from './components/Shell.js';
 
+// ─── Workspace Shell (extracted: assets/templates/html/Vestara-Shell-Layout.html) ─
+
+export {
+  WORKSPACE_NAV_SECTIONS,
+  WORKSPACE_RAIL_PRIMARY_IDS,
+  WORKSPACE_RAIL_SECONDARY_IDS,
+} from './components/WorkspaceShell.fixtures.js';
+export type {
+  WorkspaceActivityRailProps,
+  WorkspaceHeroProps,
+  WorkspaceHeroStat,
+  WorkspaceInspectorProps,
+  WorkspaceNavSection,
+  WorkspaceRailItem,
+  WorkspaceSecondaryNavProps,
+  WorkspaceShellProps,
+  WorkspaceTopBarProps,
+} from './components/WorkspaceShell.js';
+export {
+  VestaraShell,
+  WorkspaceActivityRail,
+  WorkspaceHero,
+  WorkspaceInspector,
+  WorkspaceSecondaryNav,
+  WorkspaceTopBar,
+} from './components/WorkspaceShell.js';
+
 // ─── Panes ─────────────────────────────────────────────────────
 
 export type {
