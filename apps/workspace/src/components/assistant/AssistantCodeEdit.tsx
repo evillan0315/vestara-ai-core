@@ -155,15 +155,15 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
       {/* Header: operation · filename (primary) · counts · lifecycle · actions */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {detail.state === 'running' ? (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg)">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-accent-bg)">
             <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" aria-hidden="true" />
           </span>
         ) : detail.state === 'completed' ? (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         ) : (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         )}
@@ -202,7 +202,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
             <span
               data-testid="code-edit-truncated"
               title="The runtime diff exceeded the projection bound"
-              className="mr-1 rounded bg-(accent-bg) px-1 py-0.5 text-(--vestara-font-size-caption) leading-none text-(--vestara-accent-text)/90"
+              className="mr-1 rounded bg-(--vestara-accent-bg) px-1 py-0.5 text-(--vestara-font-size-caption) leading-none text-(--vestara-accent-text)/90"
             >
               Diff preview truncated
             </span>
@@ -298,11 +298,11 @@ function DiffLine({ line, oldLineNum, newLineNum }: { line: string; oldLineNum?:
       data-kind={kind}
       className={`flex min-w-max leading-[1.6] text-(--vestara-font-size-label) font-mono whitespace-pre ${
         kind === 'add'
-          ? 'bg-(--vestara-status-success)/[0.08] text-(--vestara-status-success)/90 border-l-2 border-(status-success-border)'
+          ? 'bg-(--vestara-status-success)/[0.08] text-(--vestara-status-success)/90 border-l-2 border-(--vestara-status-success-border)'
           : kind === 'delete'
-            ? 'bg-(--vestara-status-error)/[0.06] text-(--vestara-status-error)/80 border-l-2 border-(status-error-border)'
+            ? 'bg-(--vestara-status-error)/[0.06] text-(--vestara-status-error)/80 border-l-2 border-(--vestara-status-error-border)'
             : kind === 'hunk'
-              ? 'bg-(--vestara-surface-interactive)/50 text-(--vestara-accent-text)/80 border-l-2 border-(accent-border) font-semibold'
+              ? 'bg-(--vestara-surface-interactive)/50 text-(--vestara-accent-text)/80 border-l-2 border-(--vestara-accent-border) font-semibold'
               : 'text-(--vestara-text-muted) border-l-2 border-transparent'
       }`}
     >

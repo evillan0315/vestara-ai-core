@@ -146,7 +146,7 @@ export function AssistantResponseActions({ content, failed = false }: AssistantR
         </button>
       )}
       {feedback === 'copied' && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-(status-success-bg) border border-(status-success-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/90 assistant-copy-flash" role="status">
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-success-bg) border border-(--vestara-status-success-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/90 assistant-copy-flash" role="status">
           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -154,7 +154,7 @@ export function AssistantResponseActions({ content, failed = false }: AssistantR
         </span>
       )}
       {feedback === 'copied-share' && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-(status-success-bg) border border-(status-success-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/90 assistant-copy-flash" role="status">
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-success-bg) border border-(--vestara-status-success-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/90 assistant-copy-flash" role="status">
           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -162,7 +162,7 @@ export function AssistantResponseActions({ content, failed = false }: AssistantR
         </span>
       )}
       {feedback === 'copy-failed' && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) border border-(status-error-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-error)/90" role="status">
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-error-bg) border border-(--vestara-status-error-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-error)/90" role="status">
           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -170,7 +170,7 @@ export function AssistantResponseActions({ content, failed = false }: AssistantR
         </span>
       )}
       {feedback === 'share-failed' && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) border border-(accent-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-accent-text)/90" role="status">
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-accent-text)/90" role="status">
           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9.5 16.5H2.5z" />
           </svg>

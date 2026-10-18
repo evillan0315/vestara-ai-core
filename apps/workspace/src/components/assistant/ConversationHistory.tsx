@@ -179,7 +179,7 @@ export const ConversationHistory = memo(function ConversationHistory({
           onClick={onNewConversation}
           aria-label="New conversation"
           title="New conversation"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-accent-text)/90 transition-all hover:bg-(accent-bg) hover:text-(--vestara-accent-text) active:scale-95 cursor-pointer"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-accent-text)/90 transition-all hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent-text) active:scale-95 cursor-pointer"
         >
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -196,7 +196,7 @@ export const ConversationHistory = memo(function ConversationHistory({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search conversations..."
           aria-label="Search conversations"
-          className="w-full rounded-xl bg-(--vestara-surface-interactive)/60 border border-(--vestara-border-default)/50 px-3 py-2 text-(--vestara-font-size-body-small) text-(--vestara-text-primary) placeholder-(--vestara-text-disabled) shadow-(--vestara-elevation-inset) focus:outline-none focus:border-(accent-border) focus:ring-1 focus:ring-(--vestara-accent)/15 transition-all"
+          className="w-full rounded-xl bg-(--vestara-surface-interactive)/60 border border-(--vestara-border-default)/50 px-3 py-2 text-(--vestara-font-size-body-small) text-(--vestara-text-primary) placeholder-(--vestara-text-disabled) shadow-(--vestara-elevation-inset) focus:outline-none focus:border-(--vestara-accent-border) focus:ring-1 focus:ring-(--vestara-accent)/15 transition-all"
         />
       </div>
 
@@ -234,13 +234,13 @@ export const ConversationHistory = memo(function ConversationHistory({
                         <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                           <span>{session.createdAt ? formatTime(session.createdAt) : ''}</span>
                           {session.status === 'active' && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
                               <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) animate-pulse" aria-hidden="true" />
                               busy
                             </span>
                           )}
                           {session.status === 'failed' && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                               ! error
                             </span>
                           )}
@@ -312,12 +312,12 @@ export const ConversationHistory = memo(function ConversationHistory({
                       aria-label={`Open conversation: ${item.displayTitle}`}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-(accent-bg) border border-(accent-border) shadow-[0_0_12px_-4px_color-mix(in_srgb,var(--vestara-accent)_30%,transparent)]'
+                          ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border) shadow-[0_0_12px_-4px_color-mix(in_srgb,var(--vestara-accent)_30%,transparent)]'
                           : 'border border-transparent hover:bg-(--vestara-surface-interactive)/60 hover:border-(--vestara-border-default)/30'
                       }`}
                     >
                       {isActive && (
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg) text-(--vestara-font-size-caption) text-(--vestara-accent-text)" aria-hidden="true">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-accent-bg) text-(--vestara-font-size-caption) text-(--vestara-accent-text)" aria-hidden="true">
                           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
@@ -330,7 +330,7 @@ export const ConversationHistory = memo(function ConversationHistory({
                         <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                           <span>{formatTime(item.updatedAt)}</span>
                           {showGenerating && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
                               <span
                                 className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse"
                                 aria-hidden="true"
@@ -339,7 +339,7 @@ export const ConversationHistory = memo(function ConversationHistory({
                             </span>
                           )}
                           {showFailed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                               ! failed
                             </span>
                           )}
@@ -369,7 +369,7 @@ export const ConversationHistory = memo(function ConversationHistory({
               onClick={onLoadMoreConversations}
               disabled={loadingMoreConversations}
               data-testid="load-more-conversations"
-              className="w-full rounded-lg border border-(--vestara-border-default)/50 bg-(--vestara-surface-shell)/60 px-3 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-secondary) transition-colors hover:border-(accent-border) hover:text-(--vestara-text-primary) disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full rounded-lg border border-(--vestara-border-default)/50 bg-(--vestara-surface-shell)/60 px-3 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-secondary) transition-colors hover:border-(--vestara-accent-border) hover:text-(--vestara-text-primary) disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loadingMoreConversations ? 'Loading…' : 'Load more'}
             </button>
@@ -425,13 +425,13 @@ export const ConversationHistory = memo(function ConversationHistory({
                           <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                             <span>{session.updatedAt ? formatTime(session.updatedAt) : ''}</span>
                             {session.status === 'active' && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
                                 <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" aria-hidden="true" />
                                 busy
                               </span>
                             )}
                             {session.status === 'failed' && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                                 ! error
                               </span>
                             )}

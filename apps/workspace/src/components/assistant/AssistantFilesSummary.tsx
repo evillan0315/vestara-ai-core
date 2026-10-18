@@ -19,9 +19,9 @@ function filenameOf(file: string): string {
 function OperationBadge({ operation }: { operation?: EditExecutionDetail['operation'] }) {
   if (!operation || operation === 'modified') return null;
   const styles: Record<string, string> = {
-    added: 'bg-(status-success-bg) text-(--vestara-status-success)',
-    deleted: 'bg-(status-error-bg) text-(--vestara-status-error)',
-    renamed: 'bg-(accent-bg) text-(--vestara-accent-text)',
+    added: 'bg-(--vestara-status-success-bg) text-(--vestara-status-success)',
+    deleted: 'bg-(--vestara-status-error-bg) text-(--vestara-status-error)',
+    renamed: 'bg-(--vestara-accent-bg) text-(--vestara-accent-text)',
   };
   const labels: Record<string, string> = {
     added: 'A',

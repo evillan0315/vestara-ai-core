@@ -103,9 +103,9 @@ export function AssistantTodoChecklist({ detail }: AssistantTodoChecklistProps) 
                 aria-label={`${stateLabel}: ${todo.title}`}
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-md ${
                   isCompleted
-                    ? 'bg-(status-success-bg) text-(--vestara-status-success)'
+                    ? 'bg-(--vestara-status-success-bg) text-(--vestara-status-success)'
                     : isActive
-                      ? 'bg-(accent-bg) text-(--vestara-accent-text)'
+                      ? 'bg-(--vestara-accent-bg) text-(--vestara-accent-text)'
                       : 'bg-(--vestara-surface-interactive)/60 text-(--vestara-text-disabled)'
                 }`}
               >

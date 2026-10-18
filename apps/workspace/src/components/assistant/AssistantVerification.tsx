@@ -37,8 +37,8 @@ function verdictColor(verdict?: string): string {
 
 function verdictBg(verdict?: string): string {
   switch (verdict) {
-    case 'passed': return 'bg-(status-success-bg)';
-    case 'failed': return 'bg-(status-error-bg)';
+    case 'passed': return 'bg-(--vestara-status-success-bg)';
+    case 'failed': return 'bg-(--vestara-status-error-bg)';
     case 'unknown': return 'bg-(--vestara-surface-interactive)/60';
     default: return 'bg-(--vestara-surface-interactive)/60';
   }
@@ -73,11 +73,11 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {/* Lifecycle indicator — verification state is terminal ('completed' | 'failed'). */}
         {isPassed ? (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
+          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         ) : isFailed ? (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
+          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         ) : (
@@ -109,7 +109,7 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
           {hasEvidence ? (
             <span
               data-testid="verification-evidence"
-              className="rounded bg-(status-success-bg) px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/80"
+              className="rounded bg-(--vestara-status-success-bg) px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/80"
             >
               Evidence
             </span>

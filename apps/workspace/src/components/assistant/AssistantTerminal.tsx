@@ -136,18 +136,18 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {/* Lifecycle indicator */}
         {isRunning ? (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg)">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-accent-bg)">
             <svg className="h-3 w-3 text-(--vestara-accent-text) animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           </span>
         ) : isFailed ? (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         ) : (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         )}
@@ -182,9 +182,9 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
               data-testid="terminal-exit-code"
               className={`rounded px-1.5 py-0.5 text-(--vestara-font-size-caption) font-mono font-medium tabular-nums ${
                 exitCodeOk
-                  ? 'bg-(status-success-bg) text-(--vestara-status-success)/90'
+                  ? 'bg-(--vestara-status-success-bg) text-(--vestara-status-success)/90'
                   : exitCodeFail
-                    ? 'bg-(status-error-bg) text-(--vestara-status-error)/90'
+                    ? 'bg-(--vestara-status-error-bg) text-(--vestara-status-error)/90'
                     : 'bg-(--vestara-surface-interactive)/60 text-(--vestara-text-muted)'
               }`}
             >
