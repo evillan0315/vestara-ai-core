@@ -15,13 +15,15 @@
  * The test uses the real OpenCodeRuntimeProvider (no mocking) with a bounded
  * deterministic task to minimize model behavior as a variable.
  *
- * Repository authority: /home/user/projects/vestara/vestara-ai-core
- * NOT .vestara — if .vestara appears as the OpenCode project directory, FAIL FAST.
+ * Repository authority: the checkout this file lives in (derived from
+ * import.meta.url), NOT .vestara — if .vestara appears as the OpenCode project
+ * directory, FAIL FAST.
  */
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import type { AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
@@ -32,7 +34,12 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 // ─── Constants ────────────────────────────────────────────────
 
-const REPOSITORY_DIR = '/home/user/projects/vestara/vestara-ai-core';
+// Derived from this file's own location rather than hardcoded. The previous
+// absolute path named a DIFFERENT checkout on one developer's machine, so the
+// suite passed locally by reading that checkout's runtime state while failing
+// on every CI run — a green local result said nothing about CI. This file lives
+// at <repo>/packages/workflow-orchestrator/__tests__/e2e/, so four levels up.
+const REPOSITORY_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const VESTARA_DIR = path.join(REPOSITORY_DIR, '.vestara');
 const E2E_RUN_ID = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const E2E_WORKFLOW_ID = `wf-${E2E_RUN_ID}`;
@@ -185,13 +192,22 @@ function createStubProvider(): AIProvider {
 describe('ARX-015 E2E CHARACTERIZATION — Repository Authority', () => {
   it('verifies repository directory is NOT .vestara', () => {
     expect(REPOSITORY_DIR).not.toContain('.vestara');
-    expect(REPOSITORY_DIR).toBe('/home/user/projects/vestara/vestara-ai-core');
+    // The previous assertion compared REPOSITORY_DIR to the same literal it was
+    // assigned from, so it could not fail. Assert the relationship instead.
+    expect(REPOSITORY_DIR).not.toBe(VESTARA_DIR);
+    expect(path.dirname(VESTARA_DIR)).toBe(REPOSITORY_DIR);
   });
 
-  it('verifies .vestara directory exists within the repository (not as the repository)', () => {
-    expect(fs.existsSync(VESTARA_DIR)).toBe(true);
-    expect(VESTARA_DIR).toBe(path.join(REPOSITORY_DIR, '.vestara'));
-  });
+  // `.vestara/` is gitignored runtime state (.gitignore:24), so a clean CI
+  // checkout legitimately has none. Assert it only where it exists rather than
+  // requiring a working tree that has run the app.
+  it.skipIf(!fs.existsSync(VESTARA_DIR))(
+    'verifies .vestara directory exists within the repository (not as the repository)',
+    () => {
+      expect(fs.existsSync(VESTARA_DIR)).toBe(true);
+      expect(VESTARA_DIR).toBe(path.join(REPOSITORY_DIR, '.vestara'));
+    },
+  );
 });
 
 describe('ARX-015 E2E CHARACTERIZATION — Agent Definition Snapshot', () => {
