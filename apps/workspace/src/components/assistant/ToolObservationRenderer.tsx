@@ -62,7 +62,7 @@ function StatusIcon({ status }: { status: ToolObservation['status'] }) {
   if (status === 'running') {
     return (
       <span
-        className="block h-2 w-2 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.7)] motion-reduce:animate-none animate-pulse"
+        className="block h-2 w-2 rounded-full bg-gradient-to-br from-(--vestara-accent-light) to-(--vestara-accent) shadow-[0_0_8px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] motion-reduce:animate-none animate-pulse"
         aria-hidden="true"
       />
     );
@@ -70,7 +70,7 @@ function StatusIcon({ status }: { status: ToolObservation['status'] }) {
   if (status === 'completed') {
     return (
       <svg
-        className="h-3.5 w-3.5 text-emerald-400/90"
+        className="h-3.5 w-3.5 text-(--vestara-status-success)/90"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -83,7 +83,7 @@ function StatusIcon({ status }: { status: ToolObservation['status'] }) {
   }
   return (
     <svg
-      className="h-3.5 w-3.5 text-red-400/90"
+      className="h-3.5 w-3.5 text-(--vestara-status-error)/90"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -157,7 +157,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
       data-testid="tool-observation"
       data-kind="read"
       data-state={obs.status}
-      className="min-w-0 rounded-lg border border-zinc-800/70 bg-zinc-900/40"
+      className="min-w-0 rounded-lg border border-(--vestara-border-subtle)/70 bg-(--vestara-surface-shell)/40"
     >
       <button
         type="button"
@@ -165,31 +165,31 @@ const ReadObservationCard = memo(function ReadObservationCard({
         aria-expanded={expanded}
         aria-label={`${expanded ? 'Collapse' : 'Expand'} read observation for ${file}`}
         data-testid="read-observation-toggle"
-        className="flex w-full min-w-0 items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-zinc-800/40 cursor-pointer"
+        className="flex w-full min-w-0 items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-(--vestara-surface-interactive)/40 cursor-pointer"
       >
         <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
           <StatusIcon status={obs.status} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[12px] font-medium text-zinc-200">Read</span>
-            <span className="truncate text-[12px] text-zinc-400 font-mono">{collapsedLabel}</span>
+            <span className="text-[12px] font-medium text-(--vestara-text-primary)">Read</span>
+            <span className="truncate text-[12px] text-(--vestara-text-secondary) font-mono">{collapsedLabel}</span>
             {isRequestContext && (
-              <span className="shrink-0 rounded-full border border-zinc-700/60 px-1.5 py-px text-[9px] text-zinc-500">
+              <span className="shrink-0 rounded-full border border-(--vestara-border-default)/60 px-1.5 py-px text-[9px] text-(--vestara-text-muted)">
                 Request context
               </span>
             )}
           </span>
           {obs.status === 'completed' && (
-            <span className="mt-0.5 block truncate text-[11px] text-zinc-600 font-mono">{file}</span>
+            <span className="mt-0.5 block truncate text-[11px] text-(--vestara-text-disabled) font-mono">{file}</span>
           )}
-          {rangeText && <span className="mt-0.5 block text-[11px] text-zinc-600">{rangeText}</span>}
+          {rangeText && <span className="mt-0.5 block text-[11px] text-(--vestara-text-disabled)">{rangeText}</span>}
           {obs.status === 'failed' && detail.error && (
-            <span className="mt-0.5 block text-[11px] leading-snug text-red-400/70 break-words">{detail.error}</span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</span>
           )}
         </span>
         <svg
-          className={`mt-1 h-3 w-3 shrink-0 text-zinc-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`mt-1 h-3 w-3 shrink-0 text-(--vestara-text-disabled) transition-transform ${expanded ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -201,35 +201,35 @@ const ReadObservationCard = memo(function ReadObservationCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-zinc-800/70 px-2.5 py-2" data-testid="read-observation-content">
+        <div className="border-t border-(--vestara-border-subtle)/70 px-2.5 py-2" data-testid="read-observation-content">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="text-[12px] font-semibold text-zinc-200">Read</span>
+            <span className="text-[12px] font-semibold text-(--vestara-text-primary)">Read</span>
             <span
               className={`rounded-full px-1.5 py-px text-[9px] font-medium ${
                 obs.status === 'completed'
-                  ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300/90'
+                  ? 'border border-(--vestara-status-success)/25 bg-(--vestara-status-success)/10 text-(--vestara-status-success)/90'
                   : obs.status === 'failed'
-                    ? 'border border-red-500/25 bg-red-500/10 text-red-300/90'
-                    : 'border border-amber-500/25 bg-amber-500/10 text-amber-300/90'
+                    ? 'border border-(--vestara-status-error)/25 bg-(--vestara-status-error)/10 text-(--vestara-status-error)/90'
+                    : 'border border-(--vestara-accent)/25 bg-(--vestara-accent)/10 text-(--vestara-accent-text)/90'
               }`}
             >
               {stateLabel}
             </span>
           </div>
-          <div className="mt-1 truncate text-[11px] text-zinc-400 font-mono" title={file}>
+          <div className="mt-1 truncate text-[11px] text-(--vestara-text-secondary) font-mono" title={file}>
             {file}
           </div>
-          {rangeText && <div className="mt-0.5 text-[11px] text-zinc-500">{rangeText}</div>}
+          {rangeText && <div className="mt-0.5 text-[11px] text-(--vestara-text-muted)">{rangeText}</div>}
           {rows && rows.length > 0 && (
-            <div className="mt-2 overflow-x-auto rounded-md border border-zinc-800/70 bg-zinc-950/60">
+            <div className="mt-2 overflow-x-auto rounded-md border border-(--vestara-border-subtle)/70 bg-(--vestara-surface-canvas)/60">
               <table className="w-full border-collapse text-left">
                 <tbody>
                   {rows.map((row, index) => (
-                    <tr key={index} className="border-b border-zinc-800/40 last:border-0">
-                      <td className="w-10 shrink-0 select-none px-2 py-px text-right align-top font-mono text-[11px] text-zinc-600">
+                    <tr key={index} className="border-b border-(--vestara-border-subtle)/40 last:border-0">
+                      <td className="w-10 shrink-0 select-none px-2 py-px text-right align-top font-mono text-[11px] text-(--vestara-text-disabled)">
                         {row.n}
                       </td>
-                      <td className="whitespace-pre-wrap break-words px-2 py-px align-top font-mono text-[11px] text-zinc-300">
+                      <td className="whitespace-pre-wrap break-words px-2 py-px align-top font-mono text-[11px] text-(--vestara-text-primary)">
                         {row.text}
                       </td>
                     </tr>
@@ -239,13 +239,13 @@ const ReadObservationCard = memo(function ReadObservationCard({
             </div>
           )}
           {rows && rows.length === 0 && (
-            <div className="mt-2 text-[11px] text-zinc-600">Empty file.</div>
+            <div className="mt-2 text-[11px] text-(--vestara-text-disabled)">Empty file.</div>
           )}
           {obs.status === 'completed' && detail.contentTruncated && (
-            <div className="mt-1.5 text-[11px] text-zinc-500">Observation truncated</div>
+            <div className="mt-1.5 text-[11px] text-(--vestara-text-muted)">Observation truncated</div>
           )}
           {obs.status === 'failed' && detail.error && (
-            <div className="mt-1.5 text-[11px] leading-snug text-red-400/70 break-words">{detail.error}</div>
+            <div className="mt-1.5 text-[11px] leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</div>
           )}
           <div className="mt-2 flex items-center gap-2">
             {rows && (
@@ -254,7 +254,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
                 onClick={handleCopy}
                 data-testid="read-observation-copy"
                 aria-label="Copy persisted observation content"
-                className="rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 cursor-pointer"
+                className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-[11px] font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -265,7 +265,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
               data-testid="read-observation-open"
               aria-label={`Open current file ${file}`}
               title="Open the current workspace file (historical content above is unchanged)"
-              className="rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 cursor-pointer"
+              className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-[11px] font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
             >
               Open File
             </button>
@@ -291,17 +291,17 @@ const GenericObservationCard = memo(function GenericObservationCard({ obs }: { o
         <StatusIcon status={obs.status} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12px] text-zinc-400">
+        <div className="truncate text-[12px] text-(--vestara-text-secondary)">
           {label}
-          <span className="ml-1.5 font-mono text-[10px] text-zinc-600">{obs.toolName}</span>
+          <span className="ml-1.5 font-mono text-[10px] text-(--vestara-text-disabled)">{obs.toolName}</span>
         </div>
         {obs.status === 'completed' && obs.content && (
-          <div className="mt-0.5 text-[11px] leading-snug text-zinc-600 break-words line-clamp-2 font-mono">
+          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono">
             {obs.content}
           </div>
         )}
         {obs.status === 'failed' && (
-          <div className="mt-0.5 text-[11px] leading-snug text-red-400/60 break-words">
+          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-status-error)/60 break-words">
             {obs.error ?? obs.content ?? 'failed'}
           </div>
         )}

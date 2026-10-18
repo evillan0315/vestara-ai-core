@@ -158,7 +158,7 @@ export function FloatingPanel({
             onClick={onClose}
             aria-label="Minimize assistant"
             title="Minimize"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
           >
             <svg
               className="h-3 w-3"

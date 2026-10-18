@@ -138,7 +138,7 @@ function AssistantLauncher({
       aria-label={panelOpen ? 'Close assistant' : 'Open assistant'}
       aria-expanded={panelOpen}
       title={`${panelOpen ? 'Close Vestara Assistant' : 'Ask Vestara (Ctrl+J)'} · Drag to move, arrow keys nudge`}
-      className={`group flex h-12 w-12 touch-none select-none items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_rgba(0,0,0,0.6)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+      className={`group flex h-12 w-12 touch-none select-none items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_var(--vestara-surface-overlay)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
       style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
       {/* Soft halo glow */}
@@ -154,7 +154,7 @@ function AssistantLauncher({
           </svg>
         ) : (
           <svg
-            className="h-5 w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+            className="h-5 w-5 drop-shadow-[0_1px_2px_var(--vestara-surface-overlay)]"
             fill="currentColor"
             viewBox="0 0 24 24"
             aria-hidden="true"
@@ -169,7 +169,7 @@ function AssistantLauncher({
           aria-hidden="true"
           className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-(--vestara-surface)"
         >
-          <span className="h-2.5 w-2.5 rounded-full bg-(--vestara-status-success) ring-2 ring-(--vestara-surface) shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-(--vestara-status-success) ring-2 ring-(--vestara-surface) shadow-[0_0_8px_var(--vestara-status-success)]" />
         </span>
       )}
       {/* Hover tooltip */}

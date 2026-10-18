@@ -108,7 +108,7 @@ export function toolDisplayLabel(category: ToolCategory, rawName: string): strin
 // ─── Icons (restrained, monochrome) ─────────────────────────────
 
 function CategoryIcon({ category }: { category: ToolCategory }) {
-  const cls = 'w-3.5 h-3.5 text-zinc-500 shrink-0';
+  const cls = 'w-3.5 h-3.5 text-(--vestara-text-muted) shrink-0';
   const common = {
     className: cls,
     fill: 'none',
@@ -205,17 +205,17 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
       data-tool={operation.name}
       data-state={state}
       data-category={category}
-      className="group flex items-start gap-2.5 py-1.5 min-w-0 rounded-md px-1.5 -mx-1.5 transition-colors hover:bg-zinc-800/40"
+      className="group flex items-start gap-2.5 py-1.5 min-w-0 rounded-md px-1.5 -mx-1.5 transition-colors hover:bg-(--vestara-surface-interactive)/40"
     >
       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
         {state === 'running' ? (
-          <span className="block h-2 w-2 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.7)] motion-reduce:animate-none animate-pulse" />
+          <span className="block h-2 w-2 rounded-full bg-gradient-to-br from-(--vestara-accent-light) to-(--vestara-accent) shadow-[0_0_8px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] motion-reduce:animate-none animate-pulse" />
         ) : state === 'completed' ? (
-          <svg className="h-3.5 w-3.5 text-emerald-400/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="h-3.5 w-3.5 text-(--vestara-status-success)/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (
-          <svg className="h-3.5 w-3.5 text-red-400/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="h-3.5 w-3.5 text-(--vestara-status-error)/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         )}
@@ -223,11 +223,11 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
       <CategoryIcon category={category} />
       <div className="min-w-0 flex-1">
         <div
-          className={`text-[12px] leading-snug truncate ${state === 'failed' ? 'text-red-300/90' : state === 'running' ? 'text-zinc-200 font-medium' : 'text-zinc-400'}`}
+          className={`text-[12px] leading-snug truncate ${state === 'failed' ? 'text-(--vestara-status-error)/90' : state === 'running' ? 'text-(--vestara-text-primary) font-medium' : 'text-(--vestara-text-secondary)'}`}
         >
           {label}
           {state === 'running' && (
-            <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400/80 motion-reduce:animate-none animate-pulse">
+            <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-(--vestara-accent-text)/80 motion-reduce:animate-none animate-pulse">
               <span>●</span><span>●</span><span>●</span>
             </span>
           )}
@@ -235,13 +235,13 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
         {state !== 'running' && preview && (
           <div
             data-testid="assistant-tool-preview"
-            className="mt-0.5 text-[11px] leading-snug text-zinc-600 break-words line-clamp-2 font-mono"
+            className="mt-0.5 text-[11px] leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono"
           >
             {preview}
           </div>
         )}
         {state === 'failed' && !preview && (
-          <div className="mt-0.5 text-[11px] leading-snug text-red-400/60">failed</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-status-error)/60">failed</div>
         )}
       </div>
     </div>
@@ -322,10 +322,10 @@ export function AssistantExecutionTimeline({
         onClick={onToggle}
         aria-expanded={expanded}
         aria-label={expanded ? `Hide ${visibleCount} ${visibleNoun}` : `Show ${visibleCount} ${visibleNoun}`}
-        className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] font-medium text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+        className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] font-medium text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive)/60 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
       >
         <svg
-          className={`h-3 w-3 shrink-0 text-zinc-500 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+          className={`h-3 w-3 shrink-0 text-(--vestara-text-muted) transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -339,7 +339,7 @@ export function AssistantExecutionTimeline({
         </span>
       </button>
       {expanded && (
-        <div className="mt-1 ml-2.5 border-l-2 border-zinc-800/80 pl-3 min-w-0 space-y-1">
+        <div className="mt-1 ml-2.5 border-l-2 border-(--vestara-border-subtle)/80 pl-3 min-w-0 space-y-1">
           {taskSnapshot && taskSnapshot.kind === 'task-snapshot' && (
             <div className="mb-1">
               <AssistantTodoChecklist detail={taskSnapshot} />

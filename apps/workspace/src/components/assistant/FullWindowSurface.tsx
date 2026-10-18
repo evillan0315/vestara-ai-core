@@ -124,7 +124,7 @@ export function FullWindowSurface({
         {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-(--vestara-border-subtle) bg-(--vestara-surface-canvas)/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_10px_rgba(245,158,11,0.4)]">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-(--vestara-accent-light) via-(--vestara-accent) to-(--vestara-accent-dark) shadow-[0_0_10px_color-mix(in_srgb,var(--vestara-accent)_40%,transparent)]">
               <svg className="h-3 w-3 text-(--vestara-surface-canvas)" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
