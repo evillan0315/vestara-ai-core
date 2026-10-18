@@ -49,6 +49,16 @@ jobs:
 
       - run: pnpm lint:check
 
+      # apps/workspace is excluded from Biome and skipped by build-order.sh, so
+      # nothing else gates its styling. Catches Tailwind v4 token utilities that
+      # silently emit no CSS (`bg-(accent-bg)` without the `--`, `bg-((--x))`,
+      # `border(--x)`) and references to `--vestara-*` tokens that do not exist.
+      # The compiled-CSS phase self-skips here — ci.yml does not run a Vite
+      # build, so there is no dist/assets to probe; it runs locally and where a
+      # build is present.
+      - name: Design-token utility check
+        run: pnpm check:token-utilities
+
       # Serialize the fast suite: unconstrained parallel forks were observed
       # killing the step (`cancelled` after a few files, no vitest output) —
       # consistent with worker-process memory pressure. If this still dies at

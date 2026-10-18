@@ -9,6 +9,7 @@
     "build:references": "node scripts/workspace-architecture.mjs --generate && tsc -b tsconfig.references.json",
     "dependencies:check": "node scripts/workspace-architecture.mjs --check",
     "check:source-artifacts": "node scripts/check-source-artifacts.mjs",
+    "check:token-utilities": "node scripts/check-token-utilities.mjs",
     "agents:sync": "node scripts/agents-sync.mjs",
     "agents:check": "node scripts/agents-sync.mjs --check",
     "references:generate": "node scripts/workspace-architecture.mjs --generate",

@@ -43,6 +43,12 @@ jobs:
       - name: Build workspace UI
         run: pnpm --filter @vestara/workspace-ui build
 
+      # Placed after the UI build so the compiled-CSS phase runs too: every
+      # token utility actually used across apps/workspace must appear in the
+      # emitted stylesheet. Catches utilities that silently emit no CSS.
+      - name: Design-token utility check
+        run: pnpm check:token-utilities
+
       - name: Run screenshot tests
         env:
           # Keep CI scoped to routes with committed baselines. OpenVidu/Meet is
