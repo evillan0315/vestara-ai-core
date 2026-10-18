@@ -93,11 +93,11 @@ export function FloatingPanel({
               Vestara Assistant
             </span>
             {conversationTitle ? (
-              <span className="mt-0.5 truncate text-[10px] text-(--vestara-text-muted) max-w-[180px]" title={conversationTitle}>
+              <span className="mt-0.5 truncate text-(--vestara-font-size-caption) text-(--vestara-text-muted) max-w-[180px]" title={conversationTitle}>
                 {conversationTitle}
               </span>
             ) : (
-              <span className="mt-0.5 flex items-center gap-1 text-[10px] text-(--vestara-text-muted)">
+              <span className="mt-0.5 flex items-center gap-1 text-(--vestara-font-size-caption) text-(--vestara-text-muted)">
                 <StatusIndicator variant="live" size="xs" ariaLabel="Online" />
                 Online · Ready to help
               </span>

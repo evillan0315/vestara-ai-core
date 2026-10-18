@@ -61,12 +61,12 @@ export function AssistantTodoChecklist({ detail }: AssistantTodoChecklistProps) 
       data-testid="assistant-todo-checklist"
       role="group"
       aria-label={`Tasks — ${completedCount} of ${todos.length} completed`}
-      className="min-w-0 rounded-xl border border-zinc-800/70 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 overflow-hidden"
+      className="min-w-0 rounded-xl border border-(--vestara-border-default)/70 bg-gradient-to-b from-(--vestara-surface-shell)/80 to-(--vestara-surface-shell)/40 overflow-hidden"
     >
       {/* Progress bar */}
-      <div className="h-0.5 w-full bg-zinc-800/60">
+      <div className="h-0.5 w-full bg-(--vestara-surface-interactive)/60">
         <div
-          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500 ease-out"
+          className="h-full bg-gradient-to-r from-(--vestara-accent-light) to-(--vestara-accent) transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
           role="progressbar"
           aria-valuenow={completedCount}
@@ -75,12 +75,12 @@ export function AssistantTodoChecklist({ detail }: AssistantTodoChecklistProps) 
         />
       </div>
       <div className="flex items-center justify-between px-3 pt-2 pb-1">
-        <span className="text-[11px] font-semibold tracking-tight text-zinc-300" aria-hidden="true">
+        <span className="text-(--vestara-font-size-label) font-semibold tracking-tight text-(--vestara-text-primary)" aria-hidden="true">
           Tasks
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800/70 px-2 py-0.5 text-[10px] font-medium text-zinc-400 tabular-nums">
-          <span className="text-amber-400/90">{completedCount}</span>
-          <span className="text-zinc-600">/</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-surface-interactive)/70 px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-text-secondary) tabular-nums">
+          <span className="text-(--vestara-accent-text)/90">{completedCount}</span>
+          <span className="text-(--vestara-text-disabled)">/</span>
           <span>{todos.length}</span>
         </span>
       </div>
@@ -96,17 +96,17 @@ export function AssistantTodoChecklist({ detail }: AssistantTodoChecklistProps) 
               data-testid="todo-item"
               data-status={todo.status}
               data-visual-state={state}
-              className="flex min-w-0 items-center gap-2 text-[12px] leading-snug"
+              className="flex min-w-0 items-center gap-2 text-(--vestara-font-size-body-small) leading-snug"
             >
               {/* Status indicator */}
               <span
                 aria-label={`${stateLabel}: ${todo.title}`}
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-md ${
                   isCompleted
-                    ? 'bg-emerald-500/15 text-emerald-400'
+                    ? 'bg-(status-success-bg) text-(--vestara-status-success)'
                     : isActive
-                      ? 'bg-amber-500/15 text-amber-400'
-                      : 'bg-zinc-800/60 text-zinc-600'
+                      ? 'bg-(accent-bg) text-(--vestara-accent-text)'
+                      : 'bg-(--vestara-surface-interactive)/60 text-(--vestara-text-disabled)'
                 }`}
               >
                 {isCompleted ? (
@@ -114,18 +114,18 @@ export function AssistantTodoChecklist({ detail }: AssistantTodoChecklistProps) 
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 ) : isActive ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" />
                 ) : (
-                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-surface-interactive-hover)" />
                 )}
               </span>
               <span
                 className={`min-w-0 break-words ${
                   isCompleted
-                    ? 'text-zinc-500 line-through decoration-zinc-700'
+                    ? 'text-(--vestara-text-muted) line-through decoration-(--vestara-text-disabled)'
                     : isActive
-                      ? 'text-zinc-100 font-medium'
-                      : 'text-zinc-400'
+                      ? 'text-(--vestara-text-primary) font-medium'
+                      : 'text-(--vestara-text-secondary)'
                 }`}
               >
                 {todo.title}

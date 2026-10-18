@@ -169,17 +169,17 @@ export const ConversationHistory = memo(function ConversationHistory({
       className={
         isRail
           ? 'flex h-full min-h-0 flex-col overflow-hidden'
-          : 'absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-xl assistant-history-enter'
+          : 'absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-(--vestara-border-default)/60 bg-(--vestara-surface-canvas)/95 shadow-[var(--vestara-elevation-floating),0_0_0_1px_color-mix(in_srgb,var(--vestara-text-primary)_5%,transparent)] backdrop-blur-xl assistant-history-enter'
       }
     >
       <div className="flex shrink-0 items-center justify-between px-3 pt-2.5 pb-1">
-        <span className="text-[11px] font-semibold tracking-tight text-zinc-300">Conversations</span>
+        <span className="text-(--vestara-font-size-label) font-semibold tracking-tight text-(--vestara-text-primary)">Conversations</span>
         <button
           type="button"
           onClick={onNewConversation}
           aria-label="New conversation"
           title="New conversation"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-amber-300/90 transition-all hover:bg-amber-500/10 hover:text-amber-200 active:scale-95 cursor-pointer"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-accent-text)/90 transition-all hover:bg-(accent-bg) hover:text-(--vestara-accent-text) active:scale-95 cursor-pointer"
         >
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -196,14 +196,14 @@ export const ConversationHistory = memo(function ConversationHistory({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search conversations..."
           aria-label="Search conversations"
-          className="w-full rounded-xl bg-zinc-800/60 border border-zinc-700/50 px-3 py-2 text-[12px] text-zinc-200 placeholder-zinc-600 shadow-[inset_0_1px_4px_rgba(0,0,0,0.3)] focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/15 transition-all"
+          className="w-full rounded-xl bg-(--vestara-surface-interactive)/60 border border-(--vestara-border-default)/50 px-3 py-2 text-(--vestara-font-size-body-small) text-(--vestara-text-primary) placeholder-(--vestara-text-disabled) shadow-(--vestara-elevation-inset) focus:outline-none focus:border-(accent-border) focus:ring-1 focus:ring-(--vestara-accent)/15 transition-all"
         />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" data-testid="conversation-history-list">
         {items.length === 0 && runtimeSessions && runtimeSessions.length > 0 && (
           <div>
-            <div className="px-2 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+            <div className="px-2 pt-2.5 pb-1 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wider text-(--vestara-text-disabled)">
               Runtime Sessions
             </div>
             <ul className="space-y-0.5">
@@ -218,36 +218,36 @@ export const ConversationHistory = memo(function ConversationHistory({
                       aria-label={`${canResume ? 'Open' : 'Session busy'}: ${session.title}`}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all ${
                         canResume
-                          ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                          ? 'cursor-pointer hover:bg-(--vestara-surface-interactive)/60 hover:border-(--vestara-border-default)/30 border border-transparent'
                           : 'cursor-not-allowed opacity-50 border border-transparent'
                       }`}
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-zinc-800/60 text-[10px] text-zinc-500" aria-hidden="true">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-surface-interactive)/60 text-(--vestara-font-size-caption) text-(--vestara-text-muted)" aria-hidden="true">
                         <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] text-zinc-300">
+                        <span className="block truncate text-(--vestara-font-size-body-small) text-(--vestara-text-primary)">
                           {session.title}
                         </span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
+                        <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                           <span>{session.createdAt ? formatTime(session.createdAt) : ''}</span>
                           {session.status === 'active' && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
+                              <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) animate-pulse" aria-hidden="true" />
                               busy
                             </span>
                           )}
                           {session.status === 'failed' && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                               ! error
                             </span>
                           )}
                         </span>
                       </span>
                       {canResume && (
-                        <span className="shrink-0 text-[10px] font-medium text-amber-400/70">
+                        <span className="shrink-0 text-(--vestara-font-size-caption) font-medium text-(--vestara-accent-text)/70">
                           Open
                         </span>
                       )}
@@ -262,33 +262,33 @@ export const ConversationHistory = memo(function ConversationHistory({
         {items.length === 0 && (!runtimeSessions || runtimeSessions.length === 0) && (
           <div className="px-2 py-8 text-center">
             <div className="mb-2 flex justify-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/60">
-                <svg className="h-4 w-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-(--vestara-surface-interactive)/60">
+                <svg className="h-4 w-4 text-(--vestara-text-disabled)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
               </div>
             </div>
-            <p className="text-[12px] font-medium text-zinc-400">No conversations yet</p>
-            <p className="mt-1 text-[11px] text-zinc-600">Start a new conversation below.</p>
+            <p className="text-(--vestara-font-size-body-small) font-medium text-(--vestara-text-secondary)">No conversations yet</p>
+            <p className="mt-1 text-(--vestara-font-size-label) text-(--vestara-text-disabled)">Start a new conversation below.</p>
           </div>
         )}
 
         {items.length > 0 && filtered.length === 0 && (
           <div className="px-2 py-8 text-center" data-testid="history-no-results">
             <div className="mb-2 flex justify-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/60">
-                <svg className="h-4 w-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-(--vestara-surface-interactive)/60">
+                <svg className="h-4 w-4 text-(--vestara-text-disabled)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
-            <p className="text-[12px] font-medium text-zinc-400">No conversations found</p>
+            <p className="text-(--vestara-font-size-body-small) font-medium text-(--vestara-text-secondary)">No conversations found</p>
           </div>
         )}
 
         {groups.map(({ group, items: groupItems }) => (
           <div key={group}>
-            <div className="px-2 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+            <div className="px-2 pt-2.5 pb-1 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wider text-(--vestara-text-disabled)">
               {group}
             </div>
             <ul className="space-y-0.5">
@@ -312,40 +312,40 @@ export const ConversationHistory = memo(function ConversationHistory({
                       aria-label={`Open conversation: ${item.displayTitle}`}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-amber-500/10 border border-amber-500/25 shadow-[0_0_12px_-4px_rgba(245,158,11,0.3)]'
-                          : 'border border-transparent hover:bg-zinc-800/60 hover:border-zinc-700/30'
+                          ? 'bg-(accent-bg) border border-(accent-border) shadow-[0_0_12px_-4px_color-mix(in_srgb,var(--vestara-accent)_30%,transparent)]'
+                          : 'border border-transparent hover:bg-(--vestara-surface-interactive)/60 hover:border-(--vestara-border-default)/30'
                       }`}
                     >
                       {isActive && (
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-[10px] text-amber-300" aria-hidden="true">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg) text-(--vestara-font-size-caption) text-(--vestara-accent-text)" aria-hidden="true">
                           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         </span>
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className={`block truncate text-[12px] ${isActive ? 'text-zinc-50 font-medium' : 'text-zinc-300'}`}>
+                        <span className={`block truncate text-(--vestara-font-size-body-small) ${isActive ? 'text-(--vestara-text-primary) font-medium' : 'text-(--vestara-text-primary)'}`}>
                           {item.displayTitle}
                         </span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
+                        <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                           <span>{formatTime(item.updatedAt)}</span>
                           {showGenerating && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
                               <span
-                                className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse"
+                                className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse"
                                 aria-hidden="true"
                               />
                               generating
                             </span>
                           )}
                           {showFailed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                               ! failed
                             </span>
                           )}
                           {/* GA-STATE-001: runtime status indicator */}
                           {!showGenerating && !showFailed && hasRuntimeStatus && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500">
+                            <span className="inline-flex items-center gap-1 text-(--vestara-font-size-caption) text-(--vestara-text-muted)">
                               <StatusIndicator variant={statusVariant} size="xs" ariaLabel={`Status: ${statusLabel}`} />
                               <span>{statusLabel}</span>
                             </span>
@@ -369,7 +369,7 @@ export const ConversationHistory = memo(function ConversationHistory({
               onClick={onLoadMoreConversations}
               disabled={loadingMoreConversations}
               data-testid="load-more-conversations"
-              className="w-full rounded-lg border border-zinc-700/50 bg-zinc-900/60 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:border-amber-500/40 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full rounded-lg border border-(--vestara-border-default)/50 bg-(--vestara-surface-shell)/60 px-3 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-secondary) transition-colors hover:border-(accent-border) hover:text-(--vestara-text-primary) disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loadingMoreConversations ? 'Loading…' : 'Load more'}
             </button>
@@ -393,7 +393,7 @@ export const ConversationHistory = memo(function ConversationHistory({
           if (rootSessions.length === 0) return null;
           return (
             <div>
-              <div className="px-2 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              <div className="px-2 pt-2.5 pb-1 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wider text-(--vestara-text-disabled)">
                 Runtime Sessions
               </div>
               <ul className="space-y-0.5">
@@ -409,36 +409,36 @@ export const ConversationHistory = memo(function ConversationHistory({
                         aria-label={`${canResume ? 'Resume' : 'Session busy'}: ${session.title}`}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all ${
                           canResume
-                            ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                            ? 'cursor-pointer hover:bg-(--vestara-surface-interactive)/60 hover:border-(--vestara-border-default)/30 border border-transparent'
                             : 'cursor-not-allowed opacity-50 border border-transparent'
                         }`}
                       >
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-zinc-800/60 text-[10px] text-zinc-500" aria-hidden="true">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-surface-interactive)/60 text-(--vestara-font-size-caption) text-(--vestara-text-muted)" aria-hidden="true">
                           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12px] text-zinc-300">
+                          <span className="block truncate text-(--vestara-font-size-body-small) text-(--vestara-text-primary)">
                             {session.title}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
+                          <span className="mt-0.5 flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
                             <span>{session.updatedAt ? formatTime(session.updatedAt) : ''}</span>
                             {session.status === 'active' && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+                              <span className="inline-flex items-center gap-1 rounded-full bg-(accent-bg) px-1.5 py-0.5 text-(--vestara-accent-text)/90 font-medium">
+                                <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" aria-hidden="true" />
                                 busy
                               </span>
                             )}
                             {session.status === 'failed' && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-(status-error-bg) px-1.5 py-0.5 text-(--vestara-status-error)/90 font-medium">
                                 ! error
                               </span>
                             )}
                           </span>
                         </span>
                         {canResume && (
-                          <span className="shrink-0 text-[9px] font-medium text-amber-400/70">
+                          <span className="shrink-0 text-(--vestara-font-size-micro) font-medium text-(--vestara-accent-text)/70">
                             Resume
                           </span>
                         )}
@@ -447,11 +447,11 @@ export const ConversationHistory = memo(function ConversationHistory({
                       {children.length > 0 && (
                         <ul className="ml-4 space-y-0.5">
                           {children.map((child) => (
-                            <li key={child.id} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-zinc-600">
-                              <span className="text-zinc-700" aria-hidden="true">└</span>
+                            <li key={child.id} className="flex items-center gap-1.5 px-2 py-1 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
+                              <span className="text-(--vestara-text-disabled)" aria-hidden="true">└</span>
                               <span className="truncate">{child.title}</span>
                               {child.status === 'active' && (
-                                <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                                <span className="h-1 w-1 rounded-full bg-(--vestara-accent) animate-pulse" aria-hidden="true" />
                               )}
                             </li>
                           ))}

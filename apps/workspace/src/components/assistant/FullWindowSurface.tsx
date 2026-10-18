@@ -61,7 +61,7 @@ function FilesSummaryCard({ files }: { files: string[] }) {
       </div>
       <div className="space-y-1">
         {files.slice(0, 5).map((file) => (
-          <div key={file} className="flex items-center gap-2 text-[11px] text-(--vestara-text-muted)">
+          <div key={file} className="flex items-center gap-2 text-(--vestara-font-size-label) text-(--vestara-text-muted)">
             <span className="w-1.5 h-1.5 rounded-full bg-(--vestara-accent)" />
             <span className="truncate">{file}</span>
             <button
@@ -74,7 +74,7 @@ function FilesSummaryCard({ files }: { files: string[] }) {
           </div>
         ))}
         {files.length > 5 && (
-          <div className="text-[11px] text-(--vestara-text-disabled)">
+          <div className="text-(--vestara-font-size-label) text-(--vestara-text-disabled)">
             +{files.length - 5} more files
           </div>
         )}
@@ -132,7 +132,7 @@ export function FullWindowSurface({
             <span className="text-sm font-semibold text-(--vestara-text-primary)">
               Vestara Assistant
             </span>
-            <span className="text-[10px] text-(--vestara-text-muted)">
+            <span className="text-(--vestara-font-size-caption) text-(--vestara-text-muted)">
               · {assistant.selectedConversation?.title ?? 'New Conversation'}
             </span>
           </div>

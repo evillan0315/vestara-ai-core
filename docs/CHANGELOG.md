@@ -62,15 +62,52 @@ next-review: 2026-10-04
   than relying on the `.env.*` glob, which carries `!.env.example` /
   `!.env.local.example` negations.
 - **Assistant surface migrated to Vestara design tokens (F-02 of
-  `GA-ASSISTANT-SURFACE-REVIEW-001`)** — seven components no longer carry
-  literal color utilities (see `MILESTONES.md` for the file list and the
-  remaining-scope note).
+  `GA-ASSISTANT-SURFACE-REVIEW-001`)** — all 17 components no longer carry
+  literal colour utilities, raw `rgba()` literals, or arbitrary `text-[Npx]`
+  sizes. Seven files landed earlier (`27860ef`); the remaining ten and every
+  type size land here. The surface now references 50 distinct
+  `var(--vestara-*)` tokens and zero literals.
+- **`FONT_SIZE` scale (`VES-DESIGN-007`)** — `packages/ui-tokens` gains the
+  size axis of `TYPOGRAPHY` as a first-class token group
+  (`micro`/`caption`/`label`/`bodySmall`/`code`/`body`/`titleSmall`/
+  `sectionTitle`/`pageTitle`/`display`), emitted as `--vestara-font-size-*`.
+  Existing steps reference `TYPOGRAPHY` directly (no duplicated literals);
+  `micro` (9px) and `titleSmall` (17px) are new. Names deliberately avoid the
+  legacy `xs`/`sm`/`base`/`lg`/`2xl` overrides in the workspace stylesheet,
+  which other surfaces already consume at different values.
+- **`ELEVATION` detached-surface recipes (`VES-DESIGN-007`)** — adds
+  `floating`, `floatingUp`, and `inset` for overlays, rising docks, and
+  recessed inputs, replacing raw `rgba()` shadow literals.
+
+### Corrected
+
+- **`border-subtle` applied to the zinc-800 border family (`27860ef`)** —
+  `border-zinc-800/{40,60,70,80}` had been mapped to
+  `border-(--vestara-border-subtle)/NN`. That token resolves to
+  `var(--vestara-accent-border)` = `rgba(245,158,11,0.3)`, so the migration
+  changed **both** the hue (neutral grey → amber) and the effective alpha
+  (0.7 → 0.21, because the opacity modifier compounds with the token's own
+  alpha). Ten sites in three files now map to
+  `border-(--vestara-border-default)/NN`, which preserves the neutral hue with
+  the intended alpha and matches the mapping used for the rest of the surface.
+- **Compounded opacity on pre-alpha background/border tokens** — the
+  `*-bg`/`*-border` status and accent tokens already carry an alpha, so
+  `bg-(--vestara-accent-bg)/15` resolved to ~0.015 rather than the intended
+  0.15. 42 sites had the redundant modifier dropped.
 
 ### Verification
 
 - `pnpm lint:check`, `pnpm build`, `pnpm agents:check`, `pnpm vds:validate`
   pass. `npx vitest run apps/api/__tests__ packages/conversation/__tests__` →
   36 files / 248 tests pass, including the new GA-EXEC-003 case.
+- Token/migration pass: `pnpm lint:check`, `pnpm vds:validate`, and the full
+  consumer sweep (`apps/api`, `packages/conversation`, `packages/workspace`,
+  `packages/ui-tokens`, `packages/design-system`, `packages/ui-components`,
+  `packages/tui`, assistant surface) → **49 files / 322 tests pass**.
+  `npx vite build` succeeds and the built bundle defines every new token with
+  the expected value (`0.5625rem`/`0.625rem`/`0.6875rem`/`0.75rem`/`0.8125rem`/
+  `1.0625rem`). `npx tsc --noEmit` on the workspace reports only the two
+  pre-existing `composerAutoComplete.test.ts` errors.
 - `.env` integrity: 19 kept + 165 archived distinct keys, union 184, zero
   overlap, every original value byte-identical, zero empty values, and **zero
   names declared in the curated env registry appear in the archive**.

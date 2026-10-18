@@ -97,20 +97,20 @@ export function ExecutionControlsPopover({
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-full mb-2 right-0 z-[100] w-72 rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl"
+      className="absolute bottom-full mb-2 right-0 z-[100] w-72 rounded-xl border border-(--vestara-border-default)/60 bg-(--vestara-surface-canvas)/95 shadow-(--vestara-elevation-floating) backdrop-blur-xl"
       role="dialog"
       aria-label="Execution controls"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800/60 px-3 py-2">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+      <div className="flex items-center justify-between border-b border-(--vestara-border-default)/60 px-3 py-2">
+        <span className="text-(--vestara-font-size-label) font-medium uppercase tracking-wider text-(--vestara-text-secondary)">
           Execution Limits
         </span>
         {isCustom && (
           <button
             type="button"
             onClick={onReset}
-            className="text-[10px] text-amber-400/80 hover:text-amber-300 transition-colors cursor-pointer"
+            className="text-(--vestara-font-size-caption) text-(--vestara-accent-text)/80 hover:text-(--vestara-accent-text) transition-colors cursor-pointer"
           >
             Reset
           </button>
@@ -145,19 +145,19 @@ export function ExecutionControlsPopover({
       </div>
 
       {/* Provider-owned limits (read-only) */}
-      <div className="border-t border-zinc-800/60 px-3 py-2">
-        <div className="text-[10px] text-zinc-600 space-y-1">
+      <div className="border-t border-(--vestara-border-default)/60 px-3 py-2">
+        <div className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) space-y-1">
           <div className="flex justify-between">
             <span>Context window</span>
-            <span className="text-zinc-500">128K tokens (provider)</span>
+            <span className="text-(--vestara-text-muted)">128K tokens (provider)</span>
           </div>
           <div className="flex justify-between">
             <span>Max output</span>
-            <span className="text-zinc-500">8,192 tokens (provider)</span>
+            <span className="text-(--vestara-text-muted)">8,192 tokens (provider)</span>
           </div>
           <div className="flex justify-between">
             <span>Iterations</span>
-            <span className="text-zinc-500">OpenCode-controlled</span>
+            <span className="text-(--vestara-text-muted)">OpenCode-controlled</span>
           </div>
         </div>
       </div>
@@ -199,10 +199,10 @@ function SliderControl({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[11px] text-zinc-400">{label}</label>
+        <label className="text-(--vestara-font-size-label) text-(--vestara-text-secondary)">{label}</label>
         <span
-          className={`text-[11px] font-mono ${
-            isDefault || isUnlimited ? 'text-zinc-600' : 'text-amber-400'
+          className={`text-(--vestara-font-size-label) font-mono ${
+            isDefault || isUnlimited ? 'text-(--vestara-text-disabled)' : 'text-(--vestara-accent-text)'
           }`}
         >
           {format(value)}
@@ -215,7 +215,7 @@ function SliderControl({
         step={step}
         value={value}
         onChange={handleChange}
-        className="w-full h-1 appearance-none rounded-full bg-zinc-800 accent-amber-500 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400 [&::-webkit-slider-thumb]:shadow-[0_0_6px_rgba(245,158,11,0.5)]"
+        className="w-full h-1 appearance-none rounded-full bg-(--vestara-surface-interactive) accent-(--vestara-accent) cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-(--vestara-accent) [&::-webkit-slider-thumb]:shadow-[0_0_6px_color-mix(in_srgb,var(--vestara-accent)_50%,transparent)]"
         aria-label={label}
       />
     </div>

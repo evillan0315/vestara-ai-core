@@ -105,8 +105,8 @@ export function LauncherDock({
       style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-        <span className="text-[11px] font-semibold tracking-tight text-(--vestara-text-secondary)">Recent</span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-2 py-0.5 text-[9px] font-medium text-(--vestara-accent)">
+        <span className="text-(--vestara-font-size-label) font-semibold tracking-tight text-(--vestara-text-secondary)">Recent</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-2 py-0.5 text-(--vestara-font-size-micro) font-medium text-(--vestara-accent)">
           <svg className="h-2 w-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -115,7 +115,7 @@ export function LauncherDock({
       </div>
 
       {visible.length === 0 ? (
-        <div className="px-3 pb-3 pt-1 text-[11px] text-(--vestara-text-muted)" data-testid="launcher-dock-empty">
+        <div className="px-3 pb-3 pt-1 text-(--vestara-font-size-label) text-(--vestara-text-muted)" data-testid="launcher-dock-empty">
           No conversations yet.
         </div>
       ) : (
@@ -146,13 +146,13 @@ export function LauncherDock({
                     </span>
                   )}
                   <span
-                    className={`min-w-0 flex-1 truncate text-[12px] ${
+                    className={`min-w-0 flex-1 truncate text-(--vestara-font-size-body-small) ${
                       isActive ? 'font-medium text-(--vestara-text)' : 'text-(--vestara-text-secondary)'
                     }`}
                   >
                     {item.title}
                   </span>
-                  <span className="shrink-0 text-[10px] tabular-nums text-(--vestara-text-muted)">
+                  <span className="shrink-0 text-(--vestara-font-size-caption) tabular-nums text-(--vestara-text-muted)">
                     {relativeTime(item.updatedAt)}
                   </span>
                 </button>
@@ -183,17 +183,17 @@ export function LauncherDock({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-(--vestara-text-secondary)">
+                  <span className="min-w-0 flex-1 truncate text-(--vestara-font-size-body-small) text-(--vestara-text-secondary)">
                     {session.title}
                   </span>
-                  <span className="shrink-0 text-[10px] tabular-nums text-(--vestara-text-muted)">
+                  <span className="shrink-0 text-(--vestara-font-size-caption) tabular-nums text-(--vestara-text-muted)">
                     {session.updatedAt ? relativeTime(session.updatedAt) : ''}
                   </span>
                 </button>
                 {children.length > 0 && (
                   <ul className="ml-5 space-y-0">
                     {children.map((child) => (
-                      <li key={child.id} className="flex items-center gap-1 px-2 py-0.5 text-[9px] text-(--vestara-text-muted)">
+                      <li key={child.id} className="flex items-center gap-1 px-2 py-0.5 text-(--vestara-font-size-micro) text-(--vestara-text-muted)">
                         <span aria-hidden="true">└</span>
                         <span className="truncate">{child.title}</span>
                       </li>

@@ -176,10 +176,10 @@ function AssistantLauncher({
       {!panelOpen && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-14 right-0 hidden whitespace-nowrap rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) px-3 py-1.5 text-[11px] font-medium text-(--vestara-text) shadow-xl backdrop-blur group-hover:block"
+          className="pointer-events-none absolute bottom-14 right-0 hidden whitespace-nowrap rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) px-3 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text) shadow-xl backdrop-blur group-hover:block"
         >
           Ask Vestara
-          <span className="ml-1.5 rounded-md bg-(--vestara-surface-interactive) px-1.5 py-0.5 font-mono text-[10px] text-(--vestara-text-muted)">Ctrl J</span>
+          <span className="ml-1.5 rounded-md bg-(--vestara-surface-interactive) px-1.5 py-0.5 font-mono text-(--vestara-font-size-caption) text-(--vestara-text-muted)">Ctrl J</span>
         </span>
       )}
     </button>

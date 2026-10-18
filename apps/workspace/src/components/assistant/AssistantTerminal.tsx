@@ -130,24 +130,24 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
     <div
       data-testid="assistant-terminal"
       data-state={detail.state}
-      className="min-w-0 rounded-xl border border-zinc-800/70 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 overflow-hidden"
+      className="min-w-0 rounded-xl border border-(--vestara-border-default)/70 bg-gradient-to-b from-(--vestara-surface-shell)/80 to-(--vestara-surface-shell)/40 overflow-hidden"
     >
       {/* Header: lifecycle + command + actions */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {/* Lifecycle indicator */}
         {isRunning ? (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
-            <svg className="h-3 w-3 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg)">
+            <svg className="h-3 w-3 text-(--vestara-accent-text) animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           </span>
         ) : isFailed ? (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-red-500/15 text-[10px] leading-none text-red-400" aria-hidden="true">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         ) : (
-          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] leading-none text-emerald-400" aria-hidden="true">
+          <span data-testid="terminal-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         )}
@@ -158,20 +158,20 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Collapse' : 'Expand'} terminal output`}
-          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
           data-testid="terminal-toggle"
         >
-          <span aria-hidden="true" className="text-[10px] text-zinc-600 shrink-0">
+          <span aria-hidden="true" className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) shrink-0">
             {expanded ? '▾' : '▸'}
           </span>
-          <span className="text-[12px] leading-snug text-zinc-400 shrink-0">Bash</span>
+          <span className="text-(--vestara-font-size-body-small) leading-snug text-(--vestara-text-secondary) shrink-0">Bash</span>
           {detail.command ? (
-            <span className="min-w-0 text-[12px] leading-snug truncate text-zinc-200 font-mono">
-              <span className="text-zinc-500 select-none">$</span>{' '}
+            <span className="min-w-0 text-(--vestara-font-size-body-small) leading-snug truncate text-(--vestara-text-primary) font-mono">
+              <span className="text-(--vestara-text-muted) select-none">$</span>{' '}
               {detail.command}
             </span>
           ) : (
-            <span className="text-[12px] leading-snug text-zinc-500 italic">command</span>
+            <span className="text-(--vestara-font-size-body-small) leading-snug text-(--vestara-text-muted) italic">command</span>
           )}
         </button>
 
@@ -180,19 +180,19 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
           {hasExitCode && (
             <span
               data-testid="terminal-exit-code"
-              className={`rounded px-1.5 py-0.5 text-[10px] font-mono font-medium tabular-nums ${
+              className={`rounded px-1.5 py-0.5 text-(--vestara-font-size-caption) font-mono font-medium tabular-nums ${
                 exitCodeOk
-                  ? 'bg-emerald-500/10 text-emerald-400/90'
+                  ? 'bg-(status-success-bg) text-(--vestara-status-success)/90'
                   : exitCodeFail
-                    ? 'bg-red-500/10 text-red-400/90'
-                    : 'bg-zinc-800/60 text-zinc-500'
+                    ? 'bg-(status-error-bg) text-(--vestara-status-error)/90'
+                    : 'bg-(--vestara-surface-interactive)/60 text-(--vestara-text-muted)'
               }`}
             >
               exit {detail.exitCode}
             </span>
           )}
           {hasDuration && (
-            <span data-testid="terminal-duration" className="text-[10px] text-zinc-600 tabular-nums">
+            <span data-testid="terminal-duration" className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) tabular-nums">
               {formatDuration(detail.durationMs!)}
             </span>
           )}
@@ -200,7 +200,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
             <span
               data-testid="terminal-elapsed"
               title="Client-observed elapsed — the authoritative duration replaces it on completion"
-              className="text-[10px] text-amber-400/80 tabular-nums"
+              className="text-(--vestara-font-size-caption) text-(--vestara-accent-text)/80 tabular-nums"
             >
               {formatDuration(elapsedMs)}
             </span>
@@ -214,7 +214,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
           <span
             data-testid="terminal-cwd"
             title={detail.cwd}
-            className="min-w-0 truncate text-[10px] leading-none text-zinc-600 font-mono"
+            className="min-w-0 truncate text-(--vestara-font-size-caption) leading-none text-(--vestara-text-disabled) font-mono"
           >
             {detail.cwd}
           </span>
@@ -225,7 +225,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
           running unless the user scrolled up; Copy never bubbles into a
           panel drag handler. */}
       {hasOutput && expanded && (
-        <div data-testid="terminal-output" className="border-t border-zinc-800/70">
+        <div data-testid="terminal-output" className="border-t border-(--vestara-border-default)/70">
           <div className="flex items-center justify-end px-3 pt-1.5">
             <button
               type="button"
@@ -234,13 +234,13 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
               onMouseDown={(e) => e.stopPropagation()}
               aria-label="Copy terminal output"
               title="Copy output"
-              className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-zinc-700/40 cursor-pointer"
+              className="text-(--vestara-font-size-caption) text-(--vestara-text-muted) hover:text-(--vestara-text-primary) transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-(--vestara-surface-interactive-hover)/40 cursor-pointer"
             >
               {copyFailed ? 'Copy failed' : copied ? 'Copied' : 'Copy'}
             </button>
           </div>
           <div ref={outputRef} onScroll={handleScroll} className="px-3 pb-2 max-h-64 overflow-y-auto">
-            <pre className="text-[11px] leading-relaxed text-zinc-400 font-mono whitespace-pre-wrap break-words">
+            <pre className="text-(--vestara-font-size-label) leading-relaxed text-(--vestara-text-secondary) font-mono whitespace-pre-wrap break-words">
               {detail.outputPreview}
             </pre>
           </div>
@@ -250,7 +250,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
       {/* Collapsed output hint */}
       {hasOutput && !expanded && (
         <div className="px-3 pb-2 -mt-0.5">
-          <span className="text-[10px] text-zinc-600 italic">
+          <span className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) italic">
             {detail.outputPreview!.split('\n').length} lines of output
           </span>
         </div>
@@ -259,7 +259,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
       {/* Running state indicator */}
       {isRunning && !hasOutput && (
         <div className="px-3 pb-2 -mt-0.5">
-          <span className="inline-flex items-center gap-1.5 text-[10px] text-amber-400/80 motion-reduce:animate-none animate-pulse">
+          <span className="inline-flex items-center gap-1.5 text-(--vestara-font-size-caption) text-(--vestara-accent-text)/80 motion-reduce:animate-none animate-pulse">
             <span>●</span><span>●</span><span>●</span>
           </span>
         </div>

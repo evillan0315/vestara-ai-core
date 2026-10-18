@@ -170,10 +170,10 @@ function AssistantLabel({
           <path d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </div>
-      <span className="text-[11px] text-(--vestara-text-primary) font-semibold tracking-tight truncate min-w-0">
+      <span className="text-(--vestara-font-size-label) text-(--vestara-text-primary) font-semibold tracking-tight truncate min-w-0">
         Vestara Assistant
         {label ? (
-          <span className="ml-1.5 rounded-full border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/70 px-1.5 py-px text-[10px] text-(--vestara-text-secondary) font-medium font-mono align-middle">
+          <span className="ml-1.5 rounded-full border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/70 px-1.5 py-px text-(--vestara-font-size-caption) text-(--vestara-text-secondary) font-medium font-mono align-middle">
             {label}
           </span>
         ) : null}
@@ -214,16 +214,16 @@ const MessageBubble = memo(function MessageBubble({
       <div className="flex justify-end assistant-message-enter" data-testid="human-message">
         <div className="max-w-[85%] min-w-0 overflow-hidden">
           <div className="flex justify-end mb-1 px-1">
-            <span className="text-[10px] text-(--vestara-text-muted) font-medium">You</span>
+            <span className="text-(--vestara-font-size-caption) text-(--vestara-text-muted) font-medium">You</span>
           </div>
           <div
-            className="px-3.5 py-2.5 text-[13px] leading-relaxed rounded-2xl rounded-br-md bg-gradient-to-b from-(--vestara-surface-interactive)/80 to-(--vestara-surface-interactive)/40 border border-(--vestara-border-default)/40 shadow-[0_2px_12px_-4px_var(--vestara-surface-overlay)] text-(--vestara-text-primary)"
+            className="px-3.5 py-2.5 text-(--vestara-font-size-code) leading-relaxed rounded-2xl rounded-br-md bg-gradient-to-b from-(--vestara-surface-interactive)/80 to-(--vestara-surface-interactive)/40 border border-(--vestara-border-default)/40 shadow-[0_2px_12px_-4px_var(--vestara-surface-overlay)] text-(--vestara-text-primary)"
             data-testid="human-message-surface"
           >
             <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</span>
           </div>
           <div className="flex justify-end mt-0.5 px-1">
-            <span className="text-[9px] text-(--vestara-text-disabled)">{formatTime(message.createdAt)}</span>
+            <span className="text-(--vestara-font-size-micro) text-(--vestara-text-disabled)">{formatTime(message.createdAt)}</span>
           </div>
         </div>
       </div>
@@ -235,7 +235,7 @@ const MessageBubble = memo(function MessageBubble({
       <div className="max-w-full min-w-0 flex-1 overflow-hidden">
         <AssistantLabel message={message} />
         <div
-          className="min-w-0 max-w-full overflow-hidden break-words text-[13px] leading-relaxed text-(--vestara-text-primary)"
+          className="min-w-0 max-w-full overflow-hidden break-words text-(--vestara-font-size-code) leading-relaxed text-(--vestara-text-primary)"
           data-testid="assistant-response-canvas"
         >
           <MarkdownRenderer content={message.content} />
@@ -273,11 +273,11 @@ function OptimisticHumanBubble({
     <div className="flex justify-end assistant-message-enter" data-testid="human-message" data-optimistic={turn.delivery}>
       <div className="max-w-[85%] min-w-0 overflow-hidden">
         <div className="flex justify-end mb-1 px-1">
-          <span className="text-[10px] text-(--vestara-text-muted) font-medium">You</span>
+          <span className="text-(--vestara-font-size-caption) text-(--vestara-text-muted) font-medium">You</span>
         </div>
         <div
           data-testid="human-message-surface"
-          className={`px-3.5 py-2.5 text-[13px] leading-relaxed rounded-2xl rounded-br-md shadow-[0_2px_12px_-4px_var(--vestara-surface-overlay)] text-(--vestara-text-primary) ${
+          className={`px-3.5 py-2.5 text-(--vestara-font-size-code) leading-relaxed rounded-2xl rounded-br-md shadow-[0_2px_12px_-4px_var(--vestara-surface-overlay)] text-(--vestara-text-primary) ${
             failed
               ? 'bg-(--vestara-status-error)/10 border border-(--vestara-status-error)/30'
               : 'bg-gradient-to-b from-(--vestara-surface-interactive)/80 to-(--vestara-surface-interactive)/40 border border-(--vestara-border-default)/40'
@@ -287,19 +287,19 @@ function OptimisticHumanBubble({
         </div>
         {failed ? (
           <div className="flex justify-end items-center gap-2 mt-1 px-1" role="alert">
-            <span className="text-[10px] text-(--vestara-status-error)/80">Failed to send</span>
+            <span className="text-(--vestara-font-size-caption) text-(--vestara-status-error)/80">Failed to send</span>
             <button
               type="button"
               onClick={() => onRetry(turn.clientTurnId)}
               aria-label="Retry sending message"
-              className="text-[10px] px-2 py-0.5 rounded-md bg-(--vestara-surface-interactive) border border-(--vestara-border-default) text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive-hover) hover:text-(--vestara-text-primary) transition-colors cursor-pointer"
+              className="text-(--vestara-font-size-caption) px-2 py-0.5 rounded-md bg-(--vestara-surface-interactive) border border-(--vestara-border-default) text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive-hover) hover:text-(--vestara-text-primary) transition-colors cursor-pointer"
             >
               Retry
             </button>
           </div>
         ) : (
           <div className="flex justify-end mt-0.5 px-1">
-            <span className="text-[9px] text-(--vestara-text-disabled)">{formatTime(turn.createdAt)}</span>
+            <span className="text-(--vestara-font-size-micro) text-(--vestara-text-disabled)">{formatTime(turn.createdAt)}</span>
           </div>
         )}
       </div>
@@ -386,7 +386,7 @@ function ActiveTurn({
         >
           <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-(--vestara-accent)/25 bg-(--vestara-accent)/7 px-2.5 py-1 shadow-[0_0_16px_-6px_color-mix(in_srgb,var(--vestara-accent)_50%,transparent)]">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" aria-hidden="true" />
-            <span className={`truncate text-[11px] font-medium ${isThinking ? 'text-(--vestara-accent-text)' : 'text-(--vestara-text-secondary)'}`}>
+            <span className={`truncate text-(--vestara-font-size-label) font-medium ${isThinking ? 'text-(--vestara-accent-text)' : 'text-(--vestara-text-secondary)'}`}>
               {status || 'Thinking…'}
             </span>
           </span>
@@ -408,7 +408,7 @@ function ActiveTurn({
         )}
         {isThinking && !hasOps ? (
           // Thinking state: identity + status row only, no response chrome.
-          <div className="px-0.5 py-1 text-[13px] text-(--vestara-text-muted)" data-testid="active-turn-thinking">
+          <div className="px-0.5 py-1 text-(--vestara-font-size-code) text-(--vestara-text-muted)" data-testid="active-turn-thinking">
             <span className="assistant-thinking-dots inline-flex items-center gap-1" aria-hidden="true">
               <span />
               <span />
@@ -420,14 +420,14 @@ function ActiveTurn({
           // GA-UX-CLEANUP: Task narration suppressed — structured execution
           // state (checklist + timeline) already shows what's happening.
           // Show minimal status instead of redundant prose.
-          <div className="px-0.5 py-1 text-[11px] text-(--vestara-text-muted)" data-testid="active-turn-suppressed">
+          <div className="px-0.5 py-1 text-(--vestara-font-size-label) text-(--vestara-text-muted)" data-testid="active-turn-suppressed">
             <span className="animate-pulse text-(--vestara-accent-text)/70">▌</span>
             <span className="sr-only">{status || 'Executing tasks…'}</span>
           </div>
         ) : (
           !isThinking && (
             <div
-              className="min-w-0 max-w-full overflow-hidden break-words text-[13px] leading-relaxed text-(--vestara-text-primary)"
+              className="min-w-0 max-w-full overflow-hidden break-words text-(--vestara-font-size-code) leading-relaxed text-(--vestara-text-primary)"
               aria-live="off"
               data-testid="active-turn-text"
             >
@@ -476,7 +476,7 @@ const PendingInteractions = memo(function PendingInteractions({
   const openQuestions = (questions ?? []).filter((q) => q.kind === 'question' && q.questionState === 'requested');
   if (pending.length === 0 && openQuestions.length === 0) return null;
   return (
-    <div className="shrink-0 border-t border-(--vestara-border-subtle)/70 bg-(--vestara-surface-canvas)/95 px-3 py-2 space-y-2 backdrop-blur">
+    <div className="shrink-0 border-t border-(--vestara-border-default)/70 bg-(--vestara-surface-canvas)/95 px-3 py-2 space-y-2 backdrop-blur">
       {pending.map((permission) => {
         const action = permission.kind === 'permission' ? permission.action : 'unknown';
         const resources = permission.kind === 'permission' ? permission.resources : [];
@@ -486,14 +486,14 @@ const PendingInteractions = memo(function PendingInteractions({
             data-testid="pending-permission"
             className="rounded-xl border border-(--vestara-accent)/30 bg-gradient-to-b from-(--vestara-accent)/8 to-(--vestara-accent)/3 px-3 py-2.5 shadow-[0_4px_20px_-8px_color-mix(in_srgb,var(--vestara-accent)_50%,transparent)]"
           >
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-(--vestara-text-primary) mb-1">
+            <div className="flex items-center gap-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary) mb-1">
               <svg className="h-3.5 w-3.5 shrink-0 text-(--vestara-accent-text)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               Vestara Assistant wants to run: <span className="text-(--vestara-accent-text) font-semibold">{action}</span>
             </div>
             {resources.length > 0 && (
-              <div className="text-[9px] text-(--vestara-text-disabled) mb-1.5 break-words">
+              <div className="text-(--vestara-font-size-micro) text-(--vestara-text-disabled) mb-1.5 break-words">
                 {resources.slice(0, 3).join(', ')}
                 {resources.length > 3 ? ` +${resources.length - 3} more` : ''}
               </div>
@@ -503,7 +503,7 @@ const PendingInteractions = memo(function PendingInteractions({
                 type="button"
                 data-testid="permission-allow-once"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-once')}
-                className="rounded-lg border border-(--vestara-border-default) bg-(--vestara-surface-interactive)/70 px-2.5 py-1 text-[11px] font-medium text-(--vestara-text-primary) transition-all hover:bg-(--vestara-surface-interactive-hover) hover:border-(--vestara-border-strong) active:scale-95 cursor-pointer"
+                className="rounded-lg border border-(--vestara-border-default) bg-(--vestara-surface-interactive)/70 px-2.5 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary) transition-all hover:bg-(--vestara-surface-interactive-hover) hover:border-(--vestara-border-strong) active:scale-95 cursor-pointer"
               >
                 Allow once
               </button>
@@ -511,7 +511,7 @@ const PendingInteractions = memo(function PendingInteractions({
                 type="button"
                 data-testid="permission-allow-session"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-session')}
-                className="rounded-lg bg-gradient-to-b from-(--vestara-accent-light) to-(--vestara-accent) px-2.5 py-1 text-[11px] font-semibold text-(--vestara-on-accent) shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] ring-1 ring-(--vestara-text-primary)/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                className="rounded-lg bg-gradient-to-b from-(--vestara-accent-light) to-(--vestara-accent) px-2.5 py-1 text-(--vestara-font-size-label) font-semibold text-(--vestara-on-accent) shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] ring-1 ring-(--vestara-text-primary)/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
               >
                 Allow for session
               </button>
@@ -519,7 +519,7 @@ const PendingInteractions = memo(function PendingInteractions({
                 type="button"
                 data-testid="permission-deny"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'deny')}
-                className="rounded-lg border border-(--vestara-status-error)/30 bg-(--vestara-status-error)/10 px-2.5 py-1 text-[11px] font-medium text-(--vestara-status-error) transition-all hover:bg-(--vestara-status-error)/20 active:scale-95 cursor-pointer"
+                className="rounded-lg border border-(--vestara-status-error)/30 bg-(--vestara-status-error)/10 px-2.5 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-status-error) transition-all hover:bg-(--vestara-status-error)/20 active:scale-95 cursor-pointer"
               >
                 Deny
               </button>
@@ -536,7 +536,7 @@ const PendingInteractions = memo(function PendingInteractions({
             data-testid="pending-question"
             className="rounded-lg border border-(--vestara-status-info)/25 bg-(--vestara-status-info)/5 px-3 py-2"
           >
-            <div className="text-[11px] text-(--vestara-text-primary) mb-1.5">
+            <div className="text-(--vestara-font-size-label) text-(--vestara-text-primary) mb-1.5">
               {info?.question ?? 'The Assistant is asking a question.'}
             </div>
             {info && optionCount > 0 && (
@@ -549,7 +549,7 @@ const PendingInteractions = memo(function PendingInteractions({
                     onClick={() =>
                       void onQuestionAnswer(conversationId, question.operationId, [[option.label]])
                     }
-                    className="rounded border border-(--vestara-status-info)/30 bg-(--vestara-status-info)/10 px-2 py-0.5 text-[10px] text-(--vestara-status-info) hover:bg-(--vestara-status-info)/20 transition-colors cursor-pointer"
+                    className="rounded border border-(--vestara-status-info)/30 bg-(--vestara-status-info)/10 px-2 py-0.5 text-(--vestara-font-size-caption) text-(--vestara-status-info) hover:bg-(--vestara-status-info)/20 transition-colors cursor-pointer"
                   >
                     {option.label}
                   </button>
@@ -558,7 +558,7 @@ const PendingInteractions = memo(function PendingInteractions({
                   type="button"
                   data-testid="question-dismiss"
                   onClick={() => void onQuestionAnswer(conversationId, question.operationId, [])}
-                  className="rounded border border-(--vestara-border-default) bg-(--vestara-surface-interactive)/60 px-2 py-0.5 text-[10px] text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive-hover) transition-colors cursor-pointer"
+                  className="rounded border border-(--vestara-border-default) bg-(--vestara-surface-interactive)/60 px-2 py-0.5 text-(--vestara-font-size-caption) text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive-hover) transition-colors cursor-pointer"
                 >
                   Dismiss
                 </button>
@@ -795,20 +795,20 @@ const ComposeInput = memo(function ComposeInput({
           Removing the prefix (or ×) returns to chat. */}
       {isShellMode && shellIntent && (
         <div className="mb-2 flex items-center gap-2" data-testid="shell-mode-pill">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-(--vestara-accent)/30 bg-(--vestara-accent)/8 px-2.5 py-1 text-[10px] font-semibold text-(--vestara-accent-text)">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-(--vestara-accent)/30 bg-(--vestara-accent)/8 px-2.5 py-1 text-(--vestara-font-size-caption) font-semibold text-(--vestara-accent-text)">
             <span className="font-mono" aria-hidden="true">$</span>
             Shell
             {workspaceName && workspaceName !== 'unknown' && (
               <span className="font-mono font-normal text-(--vestara-accent-text)/70">· {workspaceName}</span>
             )}
           </span>
-          <span className="truncate text-[10px] text-(--vestara-text-muted)">runs via the bash tool — permission applies</span>
+          <span className="truncate text-(--vestara-font-size-caption) text-(--vestara-text-muted)">runs via the bash tool — permission applies</span>
           <button
             type="button"
             onClick={exitShellMode}
             aria-label="Exit shell mode, keep text as chat"
             title="Exit shell mode"
-            className="ml-auto shrink-0 rounded-md px-2 py-1 text-[11px] text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-surface-interactive)/70 hover:text-(--vestara-text-primary) cursor-pointer"
+            className="ml-auto shrink-0 rounded-md px-2 py-1 text-(--vestara-font-size-label) text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-surface-interactive)/70 hover:text-(--vestara-text-primary) cursor-pointer"
           >
             ×
           </button>
@@ -855,7 +855,7 @@ const ComposeInput = memo(function ComposeInput({
           spellCheck
           autoCorrect="on"
           autoCapitalize="sentences"
-          className={`w-full resize-none bg-transparent py-3 text-[13px] leading-relaxed text-(--vestara-text-primary) placeholder-(--vestara-text-disabled) focus:outline-none min-h-[44px] max-h-[120px] ${isShellMode ? 'pl-9 pr-12 font-mono' : 'pl-4 pr-12'}`}
+          className={`w-full resize-none bg-transparent py-3 text-(--vestara-font-size-code) leading-relaxed text-(--vestara-text-primary) placeholder-(--vestara-text-disabled) focus:outline-none min-h-[44px] max-h-[120px] ${isShellMode ? 'pl-9 pr-12 font-mono' : 'pl-4 pr-12'}`}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
@@ -863,7 +863,7 @@ const ComposeInput = memo(function ComposeInput({
           }}
         />
         {isShellMode && (
-          <span className="pointer-events-none absolute left-3.5 top-3.5 font-mono text-[13px] text-(--vestara-accent-text)/80" aria-hidden="true">
+          <span className="pointer-events-none absolute left-3.5 top-3.5 font-mono text-(--vestara-font-size-code) text-(--vestara-accent-text)/80" aria-hidden="true">
             $
           </span>
         )}
@@ -998,7 +998,7 @@ const ComposeInput = memo(function ComposeInput({
                   role="menuitem"
                   disabled={item.disabled}
                   onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-(--vestara-text-secondary) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive)/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-(--vestara-font-size-body-small) text-(--vestara-text-secondary) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive)/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
@@ -1071,7 +1071,7 @@ const ComposeInput = memo(function ComposeInput({
  */
 function DegradedBanner({ error, apiDown }: { error: string; apiDown: boolean }) {
   return (
-    <div className="mx-3 mb-2 rounded-xl bg-(--vestara-accent)/10 border border-(--vestara-accent)/25 px-3 py-2 text-[11px] text-(--vestara-accent-text)/90 shadow-[0_4px_16px_-8px_color-mix(in_srgb,var(--vestara-accent)_40%,transparent)] backdrop-blur">
+    <div className="mx-3 mb-2 rounded-xl bg-(--vestara-accent)/10 border border-(--vestara-accent)/25 px-3 py-2 text-(--vestara-font-size-label) text-(--vestara-accent-text)/90 shadow-[0_4px_16px_-8px_color-mix(in_srgb,var(--vestara-accent)_40%,transparent)] backdrop-blur">
       <div className="flex items-center gap-1.5">
         <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9.5 16.5H2.5z" />
@@ -1080,7 +1080,7 @@ function DegradedBanner({ error, apiDown }: { error: string; apiDown: boolean })
           {apiDown ? 'Backend unavailable — messages may not send' : 'Assistant response failed'}
         </span>
       </div>
-      <p className="mt-1 truncate text-[10px] text-(--vestara-accent-text)/60">{error}</p>
+      <p className="mt-1 truncate text-(--vestara-font-size-caption) text-(--vestara-accent-text)/60">{error}</p>
     </div>
   );
 }
@@ -1156,13 +1156,13 @@ function EmptyState({ onCreateConversation }: { onCreateConversation: () => void
         </svg>
       </div>
       <h3 className="text-sm font-semibold tracking-tight text-(--vestara-text-primary) mb-1">Start a conversation</h3>
-      <p className="text-[11px] leading-relaxed text-(--vestara-text-muted) mb-4 max-w-[220px]">
+      <p className="text-(--vestara-font-size-label) leading-relaxed text-(--vestara-text-muted) mb-4 max-w-[220px]">
         Ask about your workspace, get help with tasks, or explore your project.
       </p>
       <button
         type="button"
         onClick={onCreateConversation}
-        className="rounded-xl bg-gradient-to-b from-(--vestara-accent-light) to-(--vestara-accent) px-4 py-2 text-[12px] font-semibold text-(--vestara-on-accent) shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] ring-1 ring-(--vestara-text-primary)/25 transition-all hover:brightness-110 hover:shadow-[0_8px_24px_-6px_color-mix(in_srgb,var(--vestara-accent)_80%,transparent)] active:scale-95 cursor-pointer"
+        className="rounded-xl bg-gradient-to-b from-(--vestara-accent-light) to-(--vestara-accent) px-4 py-2 text-(--vestara-font-size-body-small) font-semibold text-(--vestara-on-accent) shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--vestara-accent)_70%,transparent)] ring-1 ring-(--vestara-text-primary)/25 transition-all hover:brightness-110 hover:shadow-[0_8px_24px_-6px_color-mix(in_srgb,var(--vestara-accent)_80%,transparent)] active:scale-95 cursor-pointer"
       >
         New conversation
       </button>
@@ -1172,15 +1172,15 @@ function EmptyState({ onCreateConversation }: { onCreateConversation: () => void
 
 function SurfaceContextBadge({ surface }: { surface: { routeId: string | null; path: string; title: string | null; section: string | null } }) {
   return (
-    <div className="flex items-center gap-1.5 border-b border-(--vestara-border-subtle)/60 bg-gradient-to-r from-(--vestara-status-success)/7 via-(--vestara-surface-shell)/40 to-transparent px-3 py-1.5">
+    <div className="flex items-center gap-1.5 border-b border-(--vestara-border-default)/60 bg-gradient-to-r from-(--vestara-status-success)/7 via-(--vestara-surface-shell)/40 to-transparent px-3 py-1.5">
       <div className="h-1.5 w-1.5 rounded-full bg-(--vestara-status-success) shadow-[0_0_6px_var(--vestara-status-success)]" />
       <svg className="h-3 w-3 shrink-0 text-(--vestara-text-disabled)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
       </svg>
-      <span className="truncate text-[10px] font-medium tracking-wide text-(--vestara-text-muted)">
+      <span className="truncate text-(--vestara-font-size-caption) font-medium tracking-wide text-(--vestara-text-muted)">
         {surface.section ?? 'Workspace'} <span className="text-(--vestara-text-disabled)">/</span> {surface.title ?? surface.path}
       </span>
-      <span className="ml-auto hidden shrink-0 rounded-full border border-(--vestara-status-success)/20 bg-(--vestara-status-success)/10 px-1.5 py-px text-[9px] font-medium text-(--vestara-status-success)/90">
+      <span className="ml-auto hidden shrink-0 rounded-full border border-(--vestara-status-success)/20 bg-(--vestara-status-success)/10 px-1.5 py-px text-(--vestara-font-size-micro) font-medium text-(--vestara-status-success)/90">
         In context
       </span>
     </div>
@@ -1248,8 +1248,8 @@ function SuggestionEmptyState({
               <path d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h2 className="text-[17px] font-semibold tracking-tight text-(--vestara-text-primary)">How can I help?</h2>
-          <p className="mt-1.5 max-w-[320px] text-[12px] leading-relaxed text-(--vestara-text-muted)">{contextCard.description}</p>
+          <h2 className="text-(--vestara-font-size-title-small) font-semibold tracking-tight text-(--vestara-text-primary)">How can I help?</h2>
+          <p className="mt-1.5 max-w-[320px] text-(--vestara-font-size-body-small) leading-relaxed text-(--vestara-text-muted)">{contextCard.description}</p>
         </div>
 
         {/* Selected context indicator */}
@@ -1258,8 +1258,8 @@ function SuggestionEmptyState({
             className="flex w-full items-center gap-2 rounded-xl border border-(--vestara-status-info)/20 bg-(--vestara-status-info)/6 px-3 py-2"
             data-testid="assistant-selected-context"
           >
-            <span className="rounded-full bg-(--vestara-status-info)/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-(--vestara-status-info)">Selected</span>
-            <span className="truncate text-[11px] font-medium text-(--vestara-text-primary)">
+            <span className="rounded-full bg-(--vestara-status-info)/15 px-1.5 py-px text-(--vestara-font-size-micro) font-semibold uppercase tracking-wide text-(--vestara-status-info)">Selected</span>
+            <span className="truncate text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary)">
               {selected.kind} · {selected.label ?? selected.id}
             </span>
           </div>
@@ -1267,21 +1267,21 @@ function SuggestionEmptyState({
 
         {/* Current Context card */}
         <div
-          className="w-full rounded-2xl border border-(--vestara-border-subtle)/60 bg-gradient-to-b from-(--vestara-surface-shell)/70 to-(--vestara-surface-shell)/30 p-4 text-left shadow-[0_4px_24px_-8px_var(--vestara-surface-overlay)] backdrop-blur"
+          className="w-full rounded-2xl border border-(--vestara-border-default)/60 bg-gradient-to-b from-(--vestara-surface-shell)/70 to-(--vestara-surface-shell)/30 p-4 text-left shadow-[0_4px_24px_-8px_var(--vestara-surface-overlay)] backdrop-blur"
           data-testid="assistant-context-card"
         >
-          <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-(--vestara-text-disabled)">Current Context</div>
+          <div className="text-(--vestara-font-size-micro) font-semibold uppercase tracking-[0.16em] text-(--vestara-text-disabled)">Current Context</div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-(--vestara-accent-text)/80">{contextCard.eyebrow}</span>
+            <span className="text-(--vestara-font-size-label) font-semibold uppercase tracking-wide text-(--vestara-accent-text)/80">{contextCard.eyebrow}</span>
           </div>
-          <div className="mt-1 text-[13px] font-semibold tracking-tight text-(--vestara-text-primary)">{contextCard.title}</div>
-          <p className="mt-1 text-[11px] leading-relaxed text-(--vestara-text-muted)">{contextCard.description}</p>
-          <div className="mt-2 truncate text-[10px] font-mono text-(--vestara-text-disabled)">{contextCard.path}</div>
+          <div className="mt-1 text-(--vestara-font-size-code) font-semibold tracking-tight text-(--vestara-text-primary)">{contextCard.title}</div>
+          <p className="mt-1 text-(--vestara-font-size-label) leading-relaxed text-(--vestara-text-muted)">{contextCard.description}</p>
+          <div className="mt-2 truncate text-(--vestara-font-size-caption) font-mono text-(--vestara-text-disabled)">{contextCard.path}</div>
         </div>
 
         {/* Suggested for this page */}
         <div className="w-full">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-(--vestara-text-muted)">
+          <div className="mb-2 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wide text-(--vestara-text-muted)">
             {selected?.id ? 'Suggested for selection' : 'Suggested for this page'}
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1292,7 +1292,7 @@ function SuggestionEmptyState({
                 onClick={() => onSuggest(s.prompt)}
                 data-testid="assistant-suggestion-context"
                 title={s.prompt}
-                className="group flex items-center gap-2 rounded-xl border border-(--vestara-border-default)/50 bg-(--vestara-surface-shell)/70 px-3 py-2.5 text-left text-[12px] font-medium text-(--vestara-text-primary) shadow-[0_2px_8px_-2px_var(--vestara-surface-overlay)] transition-all hover:border-(--vestara-accent)/40 hover:bg-(--vestara-surface-interactive)/80 hover:text-(--vestara-text-primary) hover:shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--vestara-accent)_25%,transparent)]"
+                className="group flex items-center gap-2 rounded-xl border border-(--vestara-border-default)/50 bg-(--vestara-surface-shell)/70 px-3 py-2.5 text-left text-(--vestara-font-size-body-small) font-medium text-(--vestara-text-primary) shadow-[0_2px_8px_-2px_var(--vestara-surface-overlay)] transition-all hover:border-(--vestara-accent)/40 hover:bg-(--vestara-surface-interactive)/80 hover:text-(--vestara-text-primary) hover:shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--vestara-accent)_25%,transparent)]"
               >
                 <span className="flex-1 leading-tight">{s.label}</span>
                 <svg
@@ -1313,7 +1313,7 @@ function SuggestionEmptyState({
         {/* May need attention — progressive, authoritative only */}
         {attention.length > 0 && (
           <div className="w-full" data-testid="assistant-attention-section">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-(--vestara-accent-text)/70">May need attention</div>
+            <div className="mb-2 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wide text-(--vestara-accent-text)/70">May need attention</div>
             <div className="flex flex-col gap-2">
               {attention.map((s) => (
                 <button
@@ -1322,7 +1322,7 @@ function SuggestionEmptyState({
                   onClick={() => onSuggest(s.prompt)}
                   data-testid="assistant-suggestion-health"
                   title={s.label}
-                  className="group flex items-center gap-2 rounded-xl border border-(--vestara-accent)/30 bg-(--vestara-accent)/8 px-3 py-2.5 text-left text-[12px] font-medium text-(--vestara-accent-text) shadow-[0_2px_8px_-2px_var(--vestara-surface-overlay)] transition-all hover:border-(--vestara-accent)/50 hover:bg-(--vestara-accent)/12 hover:text-(--vestara-text-primary)"
+                  className="group flex items-center gap-2 rounded-xl border border-(--vestara-accent)/30 bg-(--vestara-accent)/8 px-3 py-2.5 text-left text-(--vestara-font-size-body-small) font-medium text-(--vestara-accent-text) shadow-[0_2px_8px_-2px_var(--vestara-surface-overlay)] transition-all hover:border-(--vestara-accent)/50 hover:bg-(--vestara-accent)/12 hover:text-(--vestara-text-primary)"
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--vestara-accent) motion-safe:animate-pulse" aria-hidden="true" />
                   <span className="flex-1 leading-tight">{s.label}</span>
@@ -1397,7 +1397,7 @@ function SuggestionEmptyState({
 
         {/* Quick actions */}
         <div className="w-full">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-(--vestara-text-disabled)">Quick actions</div>
+          <div className="mb-2 text-(--vestara-font-size-caption) font-semibold uppercase tracking-wide text-(--vestara-text-disabled)">Quick actions</div>
           <div className="flex flex-wrap gap-2">
             {quickActions.map((s) => (
               <button
@@ -1406,7 +1406,7 @@ function SuggestionEmptyState({
                 onClick={() => onSuggest(s.prompt)}
                 data-testid="assistant-suggestion-quick"
                 title={s.prompt}
-                className="rounded-full border border-(--vestara-border-default)/50 bg-(--vestara-surface-interactive)/50 px-3 py-1.5 text-[11px] font-medium text-(--vestara-text-secondary) transition-colors hover:border-(--vestara-border-strong) hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary)"
+                className="rounded-full border border-(--vestara-border-default)/50 bg-(--vestara-surface-interactive)/50 px-3 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-secondary) transition-colors hover:border-(--vestara-border-strong) hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary)"
               >
                 {s.label}
               </button>
@@ -1788,7 +1788,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
               onClick={handleLoadOlderMessages}
               disabled={assistant.loadingOlderMessages}
               data-testid="load-older-messages"
-              className="rounded-full border border-(--vestara-border-default)/60 bg-(--vestara-surface-shell)/70 px-3 py-1 text-[10px] font-medium text-(--vestara-text-secondary) transition-colors hover:border-(--vestara-accent)/40 hover:text-(--vestara-text-primary) disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="rounded-full border border-(--vestara-border-default)/60 bg-(--vestara-surface-shell)/70 px-3 py-1 text-(--vestara-font-size-caption) font-medium text-(--vestara-text-secondary) transition-colors hover:border-(--vestara-accent)/40 hover:text-(--vestara-text-primary) disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {assistant.loadingOlderMessages
                 ? 'Loading older messages…'
@@ -1866,7 +1866,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* GA-UI-006: conversation picker row — hidden in expanded mode (the
           sidebar rail replaces it). */}
       {!expanded && (
-        <div className="shrink-0 border-b border-(--vestara-border-subtle)/60 bg-(--vestara-surface-shell)/30 px-3 py-1.5 min-w-0 backdrop-blur">
+        <div className="shrink-0 border-b border-(--vestara-border-default)/60 bg-(--vestara-surface-shell)/30 px-3 py-1.5 min-w-0 backdrop-blur">
           <button
             ref={pickerRef}
             type="button"
@@ -1884,7 +1884,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             <svg className="h-3.5 w-3.5 shrink-0 text-(--vestara-text-disabled)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-tight text-(--vestara-text-primary)">{currentTitle}</span>
+            <span className="min-w-0 flex-1 truncate text-(--vestara-font-size-label) font-semibold tracking-tight text-(--vestara-text-primary)">{currentTitle}</span>
             {/* GA-STATE-001: runtime status indicator for selected conversation */}
             {selectedSummary?.runtimeSessionId && (() => {
               const runtimeStatus = resolveSessionRuntimeStatus(sessionStatusMap, selectedSummary.runtimeSessionId);
@@ -1894,7 +1894,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
               const label = activeTurnState === 'generating' ? 'Working' : activeTurnState === 'failed' ? 'Failed'
                 : runtimeStatus === 'active' ? 'Active' : runtimeStatus === 'idle' ? 'Idle' : runtimeStatus === 'failed' ? 'Failed' : '';
               return (
-                <span className="inline-flex items-center gap-1 text-[10px] text-(--vestara-text-muted) shrink-0">
+                <span className="inline-flex items-center gap-1 text-(--vestara-font-size-caption) text-(--vestara-text-muted) shrink-0">
                   <StatusIndicator variant={variant} size="xs" ariaLabel={`Status: ${label}`} />
                   <span>{label}</span>
                 </span>
@@ -1913,14 +1913,14 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           </button>
           {assistant.selectedSessionId ? (
             <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1">
-              <span className="truncate text-[10px] text-[var(--vestara-text-secondary)]">
+              <span className="truncate text-(--vestara-font-size-caption) text-[var(--vestara-text-secondary)]">
                 Viewing runtime transcript (read-only)
               </span>
               <button
                 type="button"
                 onClick={handleBackToConversation}
                 data-testid="back-to-conversation"
-                className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)] hover:underline"
+                className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-[var(--vestara-accent-text)] hover:underline"
               >
                 Back to conversation
               </button>
@@ -1928,14 +1928,14 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           ) : (
             selectedSummary?.runtimeSessionId && (
               <div className="mt-1 flex items-center justify-between gap-2 px-2">
-                <span className="truncate text-[10px] text-[var(--vestara-text-secondary)]">
+                <span className="truncate text-(--vestara-font-size-caption) text-[var(--vestara-text-secondary)]">
                   Full tool transcript lives in the runtime session
                 </span>
                 <button
                   type="button"
                   onClick={() => handleLoadSession(selectedSummary.runtimeSessionId as string)}
                   data-testid="view-runtime-transcript"
-                  className="shrink-0 cursor-pointer rounded-md border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)]"
+                  className="shrink-0 cursor-pointer rounded-md border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-[var(--vestara-accent-text)]"
                 >
                   View transcript
                 </button>
@@ -1989,7 +1989,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* Loading indicator */}
       {assistant.listLoading && !hasMessages && optimisticTurns.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-2 text-[11px] text-(--vestara-text-muted)">
+          <div className="flex items-center gap-2 text-(--vestara-font-size-label) text-(--vestara-text-muted)">
             <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -2009,7 +2009,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* Loading skeleton for message fetch */}
       {showLoading && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-          <div className="flex items-center gap-2 text-[11px] text-(--vestara-text-muted)">
+          <div className="flex items-center gap-2 text-(--vestara-font-size-label) text-(--vestara-text-muted)">
             <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -2028,11 +2028,11 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* Error state for failed message fetch */}
       {showError && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
-          <div className="text-[11px] text-(--vestara-status-error)">{assistant.messagesError}</div>
+          <div className="text-(--vestara-font-size-label) text-(--vestara-status-error)">{assistant.messagesError}</div>
           <button
             type="button"
             onClick={() => assistant.selectedId && void assistant.loadMessages(assistant.selectedId)}
-            className="text-[10px] text-(--vestara-accent-text) hover:underline cursor-pointer"
+            className="text-(--vestara-font-size-caption) text-(--vestara-accent-text) hover:underline cursor-pointer"
           >
             Retry
           </button>
@@ -2061,7 +2061,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
                 onClick={jumpToLatest}
                 aria-label="Scroll to latest response"
                 data-testid="scroll-to-latest"
-                className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-(--vestara-accent)/30 bg-(--vestara-surface-shell)/95 px-3.5 py-1.5 text-[11px] font-medium text-(--vestara-text-primary) shadow-[0_8px_24px_-8px_var(--vestara-surface-overlay),0_0_16px_-8px_color-mix(in_srgb,var(--vestara-accent)_50%,transparent)] backdrop-blur transition-all hover:border-(--vestara-accent)/50 hover:text-(--vestara-text-primary) hover:scale-105 active:scale-95 cursor-pointer"
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-(--vestara-accent)/30 bg-(--vestara-surface-shell)/95 px-3.5 py-1.5 text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary) shadow-[0_8px_24px_-8px_var(--vestara-surface-overlay),0_0_16px_-8px_color-mix(in_srgb,var(--vestara-accent)_50%,transparent)] backdrop-blur transition-all hover:border-(--vestara-accent)/50 hover:text-(--vestara-text-primary) hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <span aria-hidden="true" className="text-(--vestara-accent-text)">↓</span> New response
               </button>
@@ -2133,7 +2133,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   return (
     <div className="flex h-full min-h-0" data-testid="assistant-expanded">
       <aside
-        className="hidden w-[300px] shrink-0 flex-col border-r border-(--vestara-border-subtle)/60 bg-(--vestara-surface-canvas)/60 backdrop-blur-sm md:flex min-h-0"
+        className="hidden w-[300px] shrink-0 flex-col border-r border-(--vestara-border-default)/60 bg-(--vestara-surface-canvas)/60 backdrop-blur-sm md:flex min-h-0"
         data-testid="assistant-sidebar"
       >
         <div className="min-h-0 flex-1 overflow-hidden">

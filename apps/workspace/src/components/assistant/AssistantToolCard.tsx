@@ -223,11 +223,11 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
       <CategoryIcon category={category} />
       <div className="min-w-0 flex-1">
         <div
-          className={`text-[12px] leading-snug truncate ${state === 'failed' ? 'text-(--vestara-status-error)/90' : state === 'running' ? 'text-(--vestara-text-primary) font-medium' : 'text-(--vestara-text-secondary)'}`}
+          className={`text-(--vestara-font-size-body-small) leading-snug truncate ${state === 'failed' ? 'text-(--vestara-status-error)/90' : state === 'running' ? 'text-(--vestara-text-primary) font-medium' : 'text-(--vestara-text-secondary)'}`}
         >
           {label}
           {state === 'running' && (
-            <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-(--vestara-accent-text)/80 motion-reduce:animate-none animate-pulse">
+            <span className="inline-flex items-center gap-0.5 ml-1.5 text-(--vestara-font-size-caption) text-(--vestara-accent-text)/80 motion-reduce:animate-none animate-pulse">
               <span>●</span><span>●</span><span>●</span>
             </span>
           )}
@@ -235,13 +235,13 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
         {state !== 'running' && preview && (
           <div
             data-testid="assistant-tool-preview"
-            className="mt-0.5 text-[11px] leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono"
+            className="mt-0.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono"
           >
             {preview}
           </div>
         )}
         {state === 'failed' && !preview && (
-          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-status-error)/60">failed</div>
+          <div className="mt-0.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-status-error)/60">failed</div>
         )}
       </div>
     </div>
@@ -322,7 +322,7 @@ export function AssistantExecutionTimeline({
         onClick={onToggle}
         aria-expanded={expanded}
         aria-label={expanded ? `Hide ${visibleCount} ${visibleNoun}` : `Show ${visibleCount} ${visibleNoun}`}
-        className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] font-medium text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive)/60 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
+        className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-(--vestara-font-size-label) font-medium text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive)/60 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
       >
         <svg
           className={`h-3 w-3 shrink-0 text-(--vestara-text-muted) transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
@@ -339,7 +339,7 @@ export function AssistantExecutionTimeline({
         </span>
       </button>
       {expanded && (
-        <div className="mt-1 ml-2.5 border-l-2 border-(--vestara-border-subtle)/80 pl-3 min-w-0 space-y-1">
+        <div className="mt-1 ml-2.5 border-l-2 border-(--vestara-border-default)/80 pl-3 min-w-0 space-y-1">
           {taskSnapshot && taskSnapshot.kind === 'task-snapshot' && (
             <div className="mb-1">
               <AssistantTodoChecklist detail={taskSnapshot} />

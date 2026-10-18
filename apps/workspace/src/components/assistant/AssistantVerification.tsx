@@ -28,19 +28,19 @@ function verdictLabel(verdict?: string): string {
 
 function verdictColor(verdict?: string): string {
   switch (verdict) {
-    case 'passed': return 'text-emerald-400';
-    case 'failed': return 'text-red-400';
-    case 'unknown': return 'text-zinc-400';
-    default: return 'text-zinc-400';
+    case 'passed': return 'text-(--vestara-status-success)';
+    case 'failed': return 'text-(--vestara-status-error)';
+    case 'unknown': return 'text-(--vestara-text-secondary)';
+    default: return 'text-(--vestara-text-secondary)';
   }
 }
 
 function verdictBg(verdict?: string): string {
   switch (verdict) {
-    case 'passed': return 'bg-emerald-500/15';
-    case 'failed': return 'bg-red-500/15';
-    case 'unknown': return 'bg-zinc-800/60';
-    default: return 'bg-zinc-800/60';
+    case 'passed': return 'bg-(status-success-bg)';
+    case 'failed': return 'bg-(status-error-bg)';
+    case 'unknown': return 'bg-(--vestara-surface-interactive)/60';
+    default: return 'bg-(--vestara-surface-interactive)/60';
   }
 }
 
@@ -67,21 +67,21 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
       data-testid="assistant-verification"
       data-state={detail.state}
       data-verdict={detail.verdict ?? 'unknown'}
-      className="min-w-0 rounded-xl border border-zinc-800/70 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 overflow-hidden"
+      className="min-w-0 rounded-xl border border-(--vestara-border-default)/70 bg-gradient-to-b from-(--vestara-surface-shell)/80 to-(--vestara-surface-shell)/40 overflow-hidden"
     >
       {/* Header: lifecycle + verdict + actions */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {/* Lifecycle indicator — verification state is terminal ('completed' | 'failed'). */}
         {isPassed ? (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] leading-none text-emerald-400" aria-hidden="true">
+          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         ) : isFailed ? (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-red-500/15 text-[10px] leading-none text-red-400" aria-hidden="true">
+          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         ) : (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-zinc-800/60 text-[10px] leading-none text-zinc-500" aria-hidden="true">
+          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(--vestara-surface-interactive)/60 text-(--vestara-font-size-caption) leading-none text-(--vestara-text-muted)" aria-hidden="true">
             ?
           </span>
         )}
@@ -92,16 +92,16 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Collapse' : 'Expand'} verification details`}
-          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
           data-testid="verification-toggle"
         >
-          <span aria-hidden="true" className="text-[10px] text-zinc-600 shrink-0">
+          <span aria-hidden="true" className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) shrink-0">
             {expanded ? '▾' : '▸'}
           </span>
-          <span className={`text-[12px] leading-snug font-medium shrink-0 ${verdictColor(detail.verdict)}`}>
+          <span className={`text-(--vestara-font-size-body-small) leading-snug font-medium shrink-0 ${verdictColor(detail.verdict)}`}>
             {verdictLabel(detail.verdict)}
           </span>
-          <span className="text-[12px] leading-snug text-zinc-500">Verification</span>
+          <span className="text-(--vestara-font-size-body-small) leading-snug text-(--vestara-text-muted)">Verification</span>
         </button>
 
         {/* Evidence badge */}
@@ -109,14 +109,14 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
           {hasEvidence ? (
             <span
               data-testid="verification-evidence"
-              className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400/80"
+              className="rounded bg-(status-success-bg) px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-status-success)/80"
             >
               Evidence
             </span>
           ) : (
             <span
               data-testid="verification-evidence"
-              className="rounded bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600"
+              className="rounded bg-(--vestara-surface-interactive)/60 px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-text-disabled)"
             >
               No evidence
             </span>
@@ -126,19 +126,19 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
 
       {/* Expanded details */}
       {expanded && (
-        <div data-testid="verification-details" className="border-t border-zinc-800/70 px-3 py-2">
-          <div className="space-y-1 text-[11px] text-zinc-500">
+        <div data-testid="verification-details" className="border-t border-(--vestara-border-default)/70 px-3 py-2">
+          <div className="space-y-1 text-(--vestara-font-size-label) text-(--vestara-text-muted)">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-600">State:</span>
-              <span className={isFailed ? 'text-red-400' : 'text-zinc-300'}>{detail.state}</span>
+              <span className="text-(--vestara-text-disabled)">State:</span>
+              <span className={isFailed ? 'text-(--vestara-status-error)' : 'text-(--vestara-text-primary)'}>{detail.state}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-zinc-600">Verdict:</span>
+              <span className="text-(--vestara-text-disabled)">Verdict:</span>
               <span className={verdictColor(detail.verdict)}>{detail.verdict ?? 'unknown'}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-zinc-600">Evidence:</span>
-              <span className="text-zinc-300">{detail.evidence}</span>
+              <span className="text-(--vestara-text-disabled)">Evidence:</span>
+              <span className="text-(--vestara-text-primary)">{detail.evidence}</span>
             </div>
           </div>
         </div>

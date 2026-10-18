@@ -6767,3 +6767,113 @@ running opencode server (pid 290140) does **not** receive this file, but that is
 not proof of intent. `/proc/<pid>/environ` was checked and is **not** a valid
 consumption signal for `--env-file` keys (0/186 present).
 
+---
+
+## VES-DESIGN-007 — Font-Size and Detached-Elevation Token Scales ✅ 2026-10-18
+
+**Problem**: F-02 (`27860ef`) could only migrate *colour* out of the assistant
+surface. Every type size had to stay an arbitrary `text-[Npx]` because the
+`TYPOGRAPHY` steps existed **only as TS constants and were never emitted as CSS
+variables** — and the only `--vestara-font-size-*` variables in the app were a
+legacy set (`xs` 10.75px, `sm` 12.25px, `base` 14.25px, `lg` 16.25px) that other
+surfaces already consume at different values. Reusing those names would have
+silently re-scaled existing UI.
+
+**Change**
+
+- `FONT_SIZE` added to `packages/ui-tokens/src/tokens.ts` as the size axis of
+  `TYPOGRAPHY`: `micro` (9px), `caption` (10px), `label` (11px), `bodySmall`
+  (12px), `code` (13px), `body` (14px), `titleSmall` (17px), `sectionTitle`
+  (18px), `pageTitle` (24px), `display` (36px). Steps that already existed
+  reference `TYPOGRAPHY` directly, so no literal is duplicated; `micro` and
+  `titleSmall` are new steps the dense surface required.
+- `ELEVATION` gains `floating` (`0 24px 70px -12px rgba(0,0,0,0.8)`),
+  `floatingUp`, and `inset` for detached overlays, rising docks, and recessed
+  inputs — replacing raw `rgba()` shadow literals that no `elevation-{sm,md,lg,xl}`
+  recipe expressed.
+- `css.ts` emits both groups theme-invariantly; `generated-tokens.css`
+  regenerated (123 → 136 variables).
+- Assistant surface (17 files) migrated: **469 replacements** — colour
+  utilities, raw `rgba()` shadows, the `accent-amber-500` slider utility, and
+  **195 arbitrary `text-[Npx]`** sizes. The surface now references 50 distinct
+  `var(--vestara-*)` tokens with **zero** palette utilities, zero arbitrary px
+  type sizes, and zero raw colour literals.
+
+**Mapping fidelity (recorded, not asserted as exact)**
+
+| Class | Count | Delta |
+|---|---|---|
+| hex-exact to the target token | 115 | none |
+| ± one palette step | 112 | subtle; mostly intended accent-tinted surfaces |
+| hue shift (emerald → `status-success` green) | 15 | visible but slight; no emerald token exists |
+| status `*-bg`/`*-border` token | 32 | none — the token's own alpha matches `/{10,15}` |
+| type size | 195 | none — the token values equal the px literals |
+
+**Corrections to `27860ef`**
+
+- `border-zinc-800/{40,60,70,80}` had been mapped to
+  `border-(--vestara-border-subtle)/NN`. `border-subtle` resolves to
+  `var(--vestara-accent-border)` = `rgba(245,158,11,0.3)`, so this changed the
+  hue (neutral grey → amber) **and** the effective alpha (0.7 → 0.21, since the
+  opacity modifier compounds with the token's own alpha). Since pre-F-02 the
+  borders were neutral zinc-800, the amber tint was drift. 10 sites in 3 files
+  now use `border-(--vestara-border-default)/NN` — neutral hue, intended alpha,
+  and consistent with the mapping used for the rest of the surface.
+- 42 sites applied an opacity modifier on top of a token that already carries
+  alpha (`bg-(--vestara-accent-bg)/15` → ~0.015 instead of 0.15). Modifier
+  dropped. This is a **pre-existing** class of bug in `27860ef`, not introduced
+  here.
+
+**Verification**
+
+- `pnpm lint:check`, `pnpm vds:validate`, `pnpm build` pass.
+- Consumer sweep — `apps/api`, `packages/conversation`, `packages/workspace`,
+  `packages/ui-tokens`, `packages/design-system`, `packages/ui-components`,
+  `packages/tui`, assistant surface → **49 files / 322 tests pass**.
+- `npx vite build` succeeds (43s) and the emitted bundle **defines every new
+  token at the expected value** (`.5625rem`, `.625rem`, `.6875rem`, `.75rem`,
+  `.8125rem`, `1.0625rem`) and consumes each in a rule.
+- `npx tsc --noEmit -p apps/workspace/tsconfig.json` reports **only** the two
+  pre-existing `composerAutoComplete.test.ts:82,88` errors.
+- Post-migration scan: zero palette utilities, zero `text-[Npx]`, zero
+  `rgba()`/hex literals in the assistant surface. The 6 remaining
+  `style={{ }}` uses are runtime values (progress width, virtualization
+  geometry) or token-derived (`Z_INDEX`), not design literals.
+
+**Not claimed**
+
+- **No visual acceptance.** `apps/workspace/tests/visual/baselines/` contains
+  only `manager.ts` — there are **zero baseline images** in the repository, so
+  `pnpm screenshots:ci` cannot detect a regression; running it would merely
+  author first-time baselines from post-change code. The 112 ±1-step and 15
+  hue-shift mappings are therefore **unverified visually** and are the items
+  most worth a human look.
+- No live dogfood of the assistant surface was performed.
+
+**Adjacent findings (recorded, not mutated)**
+
+- **The hardcode problem is repo-wide, not assistant-scoped.** Outside the
+  assistant surface, `apps/workspace/src` still has **254 files** containing
+  arbitrary px type sizes (~1,656 occurrences, including 7px/8px which the new
+  `FONT_SIZE` scale does not cover, and 14px which maps to `body`) and **171
+  files** with palette utilities. `apps/workspace` is excluded from Biome
+  (`biome.json`) and skipped by `pnpm build`
+  (`scripts/workspace-architecture.mjs`), so **no CI gate covers this surface**.
+- **`Z_INDEX` is canonical but never emitted as CSS variables** (0 occurrences
+  in `generated-tokens.css`), so `z-[100]` / `z-50` / `z-20` / `z-10` in the
+  assistant surface cannot reference a token — while `LauncherDock` and
+  `GlobalAssistant` already use `Z_INDEX.sticky`/`.overlay` inline. The literal
+  range (10–100) also sits below the token range (1000–9999). Emitting
+  `--vestara-z-index-*` would resolve this; **not done here** because it is a
+  third token category outside this authorization.
+- `AssistantResponseBlocks.tsx` retains the verbose
+  `text-[var(--vestara-text-muted)]` / `border-[var(--vestara-border-subtle)]`
+  forms (token-based and compliant) rather than the surface's
+  `text-(--vestara-text-muted)` shorthand — cosmetic inconsistency, left for
+  minimal churn.
+- Three bare `border-(--vestara-border-subtle)` usages predate this session
+  (`f675533`, `04ddb86`) and carry no compounding modifier — compliant.
+- `packages/workspace/src/agents.registry.ts` carries a literal `#3b82f6` agent
+  colour (outside the UI-only scope of the governance).
+
+

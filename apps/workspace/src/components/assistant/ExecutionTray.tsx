@@ -110,11 +110,11 @@ export const ExecutionTray = memo(function ExecutionTray({
     return (
       <div ref={containerRef} className="relative" data-testid="execution-tray">
         {/* Compact status line */}
-        <div className="flex items-center gap-2 px-3 py-1 text-[10px] text-zinc-500">
+        <div className="flex items-center gap-2 px-3 py-1 text-(--vestara-font-size-caption) text-(--vestara-text-muted)">
           {/* Pulsing dot */}
           <span className="relative flex h-1.5 w-1.5 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-(--vestara-accent) opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-(--vestara-accent)" />
           </span>
 
           {/* Status text */}
@@ -125,15 +125,15 @@ export const ExecutionTray = memo(function ExecutionTray({
           {/* Task progress */}
           {hasTasks && (
             <>
-              <span className="text-zinc-700">·</span>
+              <span className="text-(--vestara-text-disabled)">·</span>
               <button
                 type="button"
                 onClick={toggleExpanded}
                 aria-expanded={expanded}
                 aria-label={expanded ? 'Collapse task list' : 'Expand task list'}
-                className="flex items-center gap-1 cursor-pointer hover:text-zinc-300 transition-colors"
+                className="flex items-center gap-1 cursor-pointer hover:text-(--vestara-text-primary) transition-colors"
               >
-                <span className="text-amber-400/80">
+                <span className="text-(--vestara-accent-text)/80">
                   {completed}/{total}
                 </span>
                 <span>task{total !== 1 ? 's' : ''}</span>
@@ -153,8 +153,8 @@ export const ExecutionTray = memo(function ExecutionTray({
           {/* Active task name */}
           {activeTitle && (
             <>
-              <span className="text-zinc-700">·</span>
-              <span className="truncate text-zinc-400 max-w-[160px]" title={activeTitle}>
+              <span className="text-(--vestara-text-disabled)">·</span>
+              <span className="truncate text-(--vestara-text-secondary) max-w-[160px]" title={activeTitle}>
                 {activeTitle}
               </span>
             </>
@@ -163,19 +163,19 @@ export const ExecutionTray = memo(function ExecutionTray({
           {/* Operation count */}
           {operationCount > 0 && (
             <>
-              <span className="text-zinc-700">·</span>
+              <span className="text-(--vestara-text-disabled)">·</span>
               <span>{operationCount} op{operationCount !== 1 ? 's' : ''}</span>
             </>
           )}
 
           {/* Elapsed time */}
-          <span className="text-zinc-700">·</span>
+          <span className="text-(--vestara-text-disabled)">·</span>
           <span className="tabular-nums">{formatElapsed(elapsed)}</span>
         </div>
 
         {/* Expanded task list — floats above composer */}
         {expanded && hasTasks && (
-          <div className="absolute bottom-full mb-1 left-3 right-3 z-50 max-h-[240px] overflow-y-auto rounded-xl border border-zinc-800/60 bg-zinc-950/95 shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+          <div className="absolute bottom-full mb-1 left-3 right-3 z-50 max-h-[240px] overflow-y-auto rounded-xl border border-(--vestara-border-default)/60 bg-(--vestara-surface-canvas)/95 shadow-(--vestara-elevation-floating-up) backdrop-blur-xl">
             <div className="p-2">
               <AssistantTodoChecklist detail={taskSnapshot!} />
             </div>
@@ -187,8 +187,8 @@ export const ExecutionTray = memo(function ExecutionTray({
 
   // Idle with custom config
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-zinc-600" data-testid="execution-tray-idle">
-      <svg className="h-2.5 w-2.5 text-amber-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div className="flex items-center gap-1.5 px-3 py-1 text-(--vestara-font-size-caption) text-(--vestara-text-disabled)" data-testid="execution-tray-idle">
+      <svg className="h-2.5 w-2.5 text-(--vestara-accent-text)/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>

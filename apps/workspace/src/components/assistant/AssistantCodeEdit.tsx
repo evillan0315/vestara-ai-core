@@ -150,20 +150,20 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
       data-operation={detail.operation ?? 'edit'}
       data-state={detail.state}
       data-representation={detail.diffRepresentation}
-      className="min-w-0 rounded-xl border border-zinc-800/70 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 overflow-hidden"
+      className="min-w-0 rounded-xl border border-(--vestara-border-default)/70 bg-gradient-to-b from-(--vestara-surface-shell)/80 to-(--vestara-surface-shell)/40 overflow-hidden"
     >
       {/* Header: operation · filename (primary) · counts · lifecycle · actions */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {detail.state === 'running' ? (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(accent-bg)">
+            <span className="h-1.5 w-1.5 rounded-full bg-(--vestara-accent) motion-reduce:animate-none animate-pulse" aria-hidden="true" />
           </span>
         ) : detail.state === 'completed' ? (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] leading-none text-emerald-400" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-success-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-success)" aria-hidden="true">
             ✓
           </span>
         ) : (
-          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-red-500/15 text-[10px] leading-none text-red-400" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-(status-error-bg) text-(--vestara-font-size-caption) leading-none text-(--vestara-status-error)" aria-hidden="true">
             ✕
           </span>
         )}
@@ -172,28 +172,28 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Collapse' : 'Expand'} diff for ${filename}`}
-          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+          className="flex min-w-0 items-center gap-1.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)/60"
           data-testid="code-edit-toggle"
         >
-          <span aria-hidden="true" className="text-[10px] text-zinc-600 shrink-0">
+          <span aria-hidden="true" className="text-(--vestara-font-size-caption) text-(--vestara-text-disabled) shrink-0">
             {expanded ? '▾' : '▸'}
           </span>
-          <span className={`text-[12px] leading-snug truncate shrink-0 ${failed ? 'text-red-300/90' : 'text-zinc-300'}`}>
+          <span className={`text-(--vestara-font-size-body-small) leading-snug truncate shrink-0 ${failed ? 'text-(--vestara-status-error)/90' : 'text-(--vestara-text-primary)'}`}>
             {label}
           </span>
-          <span className="min-w-0 text-[12px] leading-snug truncate text-zinc-200 font-medium">
+          <span className="min-w-0 text-(--vestara-font-size-body-small) leading-snug truncate text-(--vestara-text-primary) font-medium">
             {filename}
           </span>
           {language && (
-            <span className="shrink-0 rounded bg-zinc-800/80 px-1.5 py-px text-[9px] font-medium text-zinc-500 uppercase tracking-wider">
+            <span className="shrink-0 rounded bg-(--vestara-surface-interactive)/80 px-1.5 py-px text-(--vestara-font-size-micro) font-medium text-(--vestara-text-muted) uppercase tracking-wider">
               {language}
             </span>
           )}
           {(typeof detail.additions === 'number' || typeof detail.deletions === 'number') && (
-            <span data-testid="code-edit-counts" className="shrink-0 text-[11px] leading-snug text-zinc-500 tabular-nums">
-              {typeof detail.additions === 'number' && <span className="text-emerald-500/70">+{detail.additions}</span>}
+            <span data-testid="code-edit-counts" className="shrink-0 text-(--vestara-font-size-label) leading-snug text-(--vestara-text-muted) tabular-nums">
+              {typeof detail.additions === 'number' && <span className="text-(--vestara-status-success)/70">+{detail.additions}</span>}
               {typeof detail.additions === 'number' && typeof detail.deletions === 'number' && <span> </span>}
-              {typeof detail.deletions === 'number' && <span className="text-red-400/70">-{detail.deletions}</span>}
+              {typeof detail.deletions === 'number' && <span className="text-(--vestara-status-error)/70">-{detail.deletions}</span>}
             </span>
           )}
         </button>
@@ -202,7 +202,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
             <span
               data-testid="code-edit-truncated"
               title="The runtime diff exceeded the projection bound"
-              className="mr-1 rounded bg-amber-500/10 px-1 py-0.5 text-[10px] leading-none text-amber-500/90"
+              className="mr-1 rounded bg-(accent-bg) px-1 py-0.5 text-(--vestara-font-size-caption) leading-none text-(--vestara-accent-text)/90"
             >
               Diff preview truncated
             </span>
@@ -213,7 +213,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
             data-testid="code-edit-copy-path"
             title="Copy path"
             aria-label="Copy repository-relative path"
-            className="rounded px-1.5 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="rounded px-1.5 py-0.5 text-(--vestara-font-size-label) text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive) transition-colors cursor-pointer"
           >
             {copied === 'path' ? 'Copied' : 'Path'}
           </button>
@@ -223,7 +223,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
             data-testid="code-edit-copy-diff"
             title="Copy diff"
             aria-label="Copy diff"
-            className="rounded px-1.5 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="rounded px-1.5 py-0.5 text-(--vestara-font-size-label) text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive) transition-colors cursor-pointer"
           >
             {copied === 'diff' ? 'Copied' : 'Diff'}
           </button>
@@ -234,7 +234,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
               data-testid="code-edit-open-in-editor"
               title="Open in editor (copies the repository-relative path)"
               aria-label="Open in editor"
-              className="rounded px-1.5 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="rounded px-1.5 py-0.5 text-(--vestara-font-size-label) text-(--vestara-text-muted) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive) transition-colors cursor-pointer"
             >
               {openInEditorDone ? 'Copied' : 'Editor'}
             </button>
@@ -247,12 +247,12 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
         <span
           data-testid="code-edit-path"
           title={detail.file}
-          className="min-w-0 truncate text-[10px] leading-none text-zinc-600 font-mono"
+          className="min-w-0 truncate text-(--vestara-font-size-caption) leading-none text-(--vestara-text-disabled) font-mono"
         >
           {detail.file}
         </span>
         {detail.diffRepresentation === 'unavailable' && (
-          <span data-testid="code-edit-unavailable" className="shrink-0 text-[10px] leading-none text-zinc-600 italic">
+          <span data-testid="code-edit-unavailable" className="shrink-0 text-(--vestara-font-size-caption) leading-none text-(--vestara-text-disabled) italic">
             Diff unavailable
           </span>
         )}
@@ -260,7 +260,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
 
       {/* Diff body */}
       {expanded && detail.diffRepresentation !== 'unavailable' && (
-        <div data-testid="code-edit-diff" className="max-w-full border-t border-zinc-800/70 px-2 py-2 assistant-expand-enter">
+        <div data-testid="code-edit-diff" className="max-w-full border-t border-(--vestara-border-default)/70 px-2 py-2 assistant-expand-enter">
           {detail.diffRepresentation === 'patch' && detail.patch ? (
             <PatchDiff patch={detail.patch} />
           ) : detail.diffRepresentation === 'hunks' && detail.hunks ? (
@@ -296,19 +296,19 @@ function DiffLine({ line, oldLineNum, newLineNum }: { line: string; oldLineNum?:
     <div
       data-testid="diff-line"
       data-kind={kind}
-      className={`flex min-w-max leading-[1.6] text-[11px] font-mono whitespace-pre ${
+      className={`flex min-w-max leading-[1.6] text-(--vestara-font-size-label) font-mono whitespace-pre ${
         kind === 'add'
-          ? 'bg-emerald-500/[0.08] text-emerald-300/90 border-l-2 border-emerald-500/40'
+          ? 'bg-(--vestara-status-success)/[0.08] text-(--vestara-status-success)/90 border-l-2 border-(status-success-border)'
           : kind === 'delete'
-            ? 'bg-red-500/[0.06] text-red-300/80 border-l-2 border-red-500/30'
+            ? 'bg-(--vestara-status-error)/[0.06] text-(--vestara-status-error)/80 border-l-2 border-(status-error-border)'
             : kind === 'hunk'
-              ? 'bg-zinc-800/50 text-amber-400/80 border-l-2 border-amber-500/30 font-semibold'
-              : 'text-zinc-500 border-l-2 border-transparent'
+              ? 'bg-(--vestara-surface-interactive)/50 text-(--vestara-accent-text)/80 border-l-2 border-(accent-border) font-semibold'
+              : 'text-(--vestara-text-muted) border-l-2 border-transparent'
       }`}
     >
       {/* Line number gutter */}
       {kind !== 'hunk' && (
-        <span className="inline-flex w-16 shrink-0 select-none text-right pr-2 text-zinc-700/80" aria-hidden="true">
+        <span className="inline-flex w-16 shrink-0 select-none text-right pr-2 text-(--vestara-text-disabled)" aria-hidden="true">
           <span className="w-6 inline-block text-right">{oldLineNum ?? ''}</span>
           <span className="w-6 inline-block text-right">{newLineNum ?? ''}</span>
         </span>
@@ -316,7 +316,7 @@ function DiffLine({ line, oldLineNum, newLineNum }: { line: string; oldLineNum?:
       {kind === 'hunk' && (
         <span className="inline-flex w-16 shrink-0 select-none" aria-hidden="true" />
       )}
-      <span aria-hidden="true" className={`w-4 shrink-0 select-none text-center ${kind === 'add' ? 'text-emerald-500/70' : kind === 'delete' ? 'text-red-400/70' : 'text-transparent'}`}>
+      <span aria-hidden="true" className={`w-4 shrink-0 select-none text-center ${kind === 'add' ? 'text-(--vestara-status-success)/70' : kind === 'delete' ? 'text-(--vestara-status-error)/70' : 'text-transparent'}`}>
         {marker}
       </span>
       <span className="min-w-0">{content}</span>
@@ -357,7 +357,7 @@ function PatchDiff({ patch }: { patch: string }) {
   }
 
   return (
-    <div data-testid="patch-diff" className="max-w-full overflow-x-auto rounded-md bg-zinc-950/50 py-1" role="region" aria-label="Runtime diff">
+    <div data-testid="patch-diff" className="max-w-full overflow-x-auto rounded-md bg-(--vestara-surface-canvas)/50 py-1" role="region" aria-label="Runtime diff">
       {lines.map((line, index) => (
         <DiffLine
           key={`${index}:${line.slice(0, 40)}`}
@@ -372,7 +372,7 @@ function PatchDiff({ patch }: { patch: string }) {
 
 function HunkDiff({ hunks }: { hunks: readonly { oldStart?: number; oldLines?: number; newStart?: number; newLines?: number; content: string }[] }) {
   return (
-    <div data-testid="hunk-diff" className="max-w-full overflow-x-auto rounded-md bg-zinc-950/50 py-1" role="region" aria-label="Runtime diff">
+    <div data-testid="hunk-diff" className="max-w-full overflow-x-auto rounded-md bg-(--vestara-surface-canvas)/50 py-1" role="region" aria-label="Runtime diff">
       {hunks.map((hunk, hunkIndex) => {
         const lines = hunk.content.split('\n');
         if (lines[lines.length - 1] === '') lines.pop();

@@ -34,7 +34,7 @@ function manifestRouteFor(token: string): { path: string; title: string; enabled
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">
+    <span className="text-(--vestara-font-size-caption) font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">
       {children}
     </span>
   );
@@ -62,10 +62,10 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
               className="min-w-0 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)]"
             >
               <div className="flex min-w-0 items-start gap-2">
-                <span className="shrink-0 rounded-[var(--vestara-radius-sm)] bg-[var(--vestara-surface-interactive)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--vestara-accent-text)]">
+                <span className="shrink-0 rounded-[var(--vestara-radius-sm)] bg-[var(--vestara-surface-interactive)] px-1.5 py-0.5 font-mono text-(--vestara-font-size-caption) font-semibold text-[var(--vestara-accent-text)]">
                   {fix.key}
                 </span>
-                <span className="min-w-0 flex-1 text-[12px] leading-snug text-[var(--vestara-text-primary)]">
+                <span className="min-w-0 flex-1 text-(--vestara-font-size-body-small) leading-snug text-[var(--vestara-text-primary)]">
                   {fix.title}
                 </span>
               </div>
@@ -79,7 +79,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                       title={file}
                       aria-label={`Copy file path ${file}`}
                       data-testid="response-fix-file"
-                      className="max-w-full cursor-pointer truncate rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-secondary)]"
+                      className="max-w-full cursor-pointer truncate rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 font-mono text-(--vestara-font-size-caption) text-[var(--vestara-text-secondary)]"
                     >
                       {file}
                     </button>
@@ -93,7 +93,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                           key={route}
                           title={`${route} is not enabled yet`}
                           data-testid="response-fix-planned"
-                          className="shrink-0 rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--vestara-text-muted)]"
+                          className="shrink-0 rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) text-[var(--vestara-text-muted)]"
                         >
                           Planned: {manifest.title}
                         </span>
@@ -106,7 +106,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                         onClick={() => navigate(manifest.path)}
                         aria-label={`Open ${manifest.title}`}
                         data-testid="response-fix-route"
-                        className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)]"
+                        className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-[var(--vestara-accent-text)]"
                       >
                         Open {manifest.title}
                       </button>
@@ -118,7 +118,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                 <span
                   data-testid="response-fix-planned"
                   title="No navigable target parsed from this fix"
-                  className="mt-1.5 inline-block rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--vestara-text-muted)]"
+                  className="mt-1.5 inline-block rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) text-[var(--vestara-text-muted)]"
                 >
                   Planned screen
                 </span>
@@ -137,11 +137,11 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
               data-testid="response-validation"
               className="flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)]"
             >
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--vestara-text-secondary)]" title={validation.command}>
+              <span className="min-w-0 flex-1 truncate font-mono text-(--vestara-font-size-label) text-[var(--vestara-text-secondary)]" title={validation.command}>
                 {validation.command}
               </span>
               {validation.result && (
-                <span className="shrink-0 truncate text-[11px] text-[var(--vestara-text-muted)]">{validation.result}</span>
+                <span className="shrink-0 truncate text-(--vestara-font-size-label) text-[var(--vestara-text-muted)]">{validation.result}</span>
               )}
               <button
                 type="button"
@@ -149,7 +149,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                 aria-label={`Open Activity Room for evidence of ${validation.command}`}
                 title="Runtime evidence lives in the Activity Room"
                 data-testid="response-validation-evidence"
-                className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)]"
+                className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-[var(--vestara-accent-text)]"
               >
                 Evidence
               </button>
@@ -170,7 +170,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                 title={file}
                 aria-label={`Copy file path ${file}`}
                 data-testid="response-file"
-                className="max-w-full cursor-pointer truncate rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-secondary)]"
+                className="max-w-full cursor-pointer truncate rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-(--vestara-font-size-caption) text-[var(--vestara-text-secondary)]"
               >
                 {file}
               </button>
@@ -188,7 +188,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
               onClick={() => navigate('/verifier')}
               aria-label="Open Verifier"
               data-testid="response-verifier-open"
-              className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)]"
+              className="shrink-0 cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-(--vestara-font-size-caption) font-medium text-[var(--vestara-accent-text)]"
             >
               Open verifier
             </button>
@@ -198,7 +198,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
               <li
                 key={`${item.slice(0, 24)}:${index}`}
                 data-testid="response-verification"
-                className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] text-[12px] leading-snug text-[var(--vestara-text-primary)]"
+                className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] text-(--vestara-font-size-body-small) leading-snug text-[var(--vestara-text-primary)]"
               >
                 {item}
               </li>
@@ -219,7 +219,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
                 title={suggestion}
                 aria-label={`Send follow-up: ${suggestion}`}
                 data-testid="response-suggestion"
-                className="max-w-full cursor-pointer truncate rounded-full border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)] px-2.5 py-1 text-[11px] text-[var(--vestara-accent-text)]"
+                className="max-w-full cursor-pointer truncate rounded-full border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)] px-2.5 py-1 text-(--vestara-font-size-label) text-[var(--vestara-accent-text)]"
               >
                 {suggestion.length > 80 ? `${suggestion.slice(0, 80)}…` : suggestion}
               </button>

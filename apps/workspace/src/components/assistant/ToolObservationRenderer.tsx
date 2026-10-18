@@ -157,7 +157,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
       data-testid="tool-observation"
       data-kind="read"
       data-state={obs.status}
-      className="min-w-0 rounded-lg border border-(--vestara-border-subtle)/70 bg-(--vestara-surface-shell)/40"
+      className="min-w-0 rounded-lg border border-(--vestara-border-default)/70 bg-(--vestara-surface-shell)/40"
     >
       <button
         type="button"
@@ -172,20 +172,20 @@ const ReadObservationCard = memo(function ReadObservationCard({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[12px] font-medium text-(--vestara-text-primary)">Read</span>
-            <span className="truncate text-[12px] text-(--vestara-text-secondary) font-mono">{collapsedLabel}</span>
+            <span className="text-(--vestara-font-size-body-small) font-medium text-(--vestara-text-primary)">Read</span>
+            <span className="truncate text-(--vestara-font-size-body-small) text-(--vestara-text-secondary) font-mono">{collapsedLabel}</span>
             {isRequestContext && (
-              <span className="shrink-0 rounded-full border border-(--vestara-border-default)/60 px-1.5 py-px text-[9px] text-(--vestara-text-muted)">
+              <span className="shrink-0 rounded-full border border-(--vestara-border-default)/60 px-1.5 py-px text-(--vestara-font-size-micro) text-(--vestara-text-muted)">
                 Request context
               </span>
             )}
           </span>
           {obs.status === 'completed' && (
-            <span className="mt-0.5 block truncate text-[11px] text-(--vestara-text-disabled) font-mono">{file}</span>
+            <span className="mt-0.5 block truncate text-(--vestara-font-size-label) text-(--vestara-text-disabled) font-mono">{file}</span>
           )}
-          {rangeText && <span className="mt-0.5 block text-[11px] text-(--vestara-text-disabled)">{rangeText}</span>}
+          {rangeText && <span className="mt-0.5 block text-(--vestara-font-size-label) text-(--vestara-text-disabled)">{rangeText}</span>}
           {obs.status === 'failed' && detail.error && (
-            <span className="mt-0.5 block text-[11px] leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</span>
+            <span className="mt-0.5 block text-(--vestara-font-size-label) leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</span>
           )}
         </span>
         <svg
@@ -201,11 +201,11 @@ const ReadObservationCard = memo(function ReadObservationCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-(--vestara-border-subtle)/70 px-2.5 py-2" data-testid="read-observation-content">
+        <div className="border-t border-(--vestara-border-default)/70 px-2.5 py-2" data-testid="read-observation-content">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="text-[12px] font-semibold text-(--vestara-text-primary)">Read</span>
+            <span className="text-(--vestara-font-size-body-small) font-semibold text-(--vestara-text-primary)">Read</span>
             <span
-              className={`rounded-full px-1.5 py-px text-[9px] font-medium ${
+              className={`rounded-full px-1.5 py-px text-(--vestara-font-size-micro) font-medium ${
                 obs.status === 'completed'
                   ? 'border border-(--vestara-status-success)/25 bg-(--vestara-status-success)/10 text-(--vestara-status-success)/90'
                   : obs.status === 'failed'
@@ -216,20 +216,20 @@ const ReadObservationCard = memo(function ReadObservationCard({
               {stateLabel}
             </span>
           </div>
-          <div className="mt-1 truncate text-[11px] text-(--vestara-text-secondary) font-mono" title={file}>
+          <div className="mt-1 truncate text-(--vestara-font-size-label) text-(--vestara-text-secondary) font-mono" title={file}>
             {file}
           </div>
-          {rangeText && <div className="mt-0.5 text-[11px] text-(--vestara-text-muted)">{rangeText}</div>}
+          {rangeText && <div className="mt-0.5 text-(--vestara-font-size-label) text-(--vestara-text-muted)">{rangeText}</div>}
           {rows && rows.length > 0 && (
-            <div className="mt-2 overflow-x-auto rounded-md border border-(--vestara-border-subtle)/70 bg-(--vestara-surface-canvas)/60">
+            <div className="mt-2 overflow-x-auto rounded-md border border-(--vestara-border-default)/70 bg-(--vestara-surface-canvas)/60">
               <table className="w-full border-collapse text-left">
                 <tbody>
                   {rows.map((row, index) => (
-                    <tr key={index} className="border-b border-(--vestara-border-subtle)/40 last:border-0">
-                      <td className="w-10 shrink-0 select-none px-2 py-px text-right align-top font-mono text-[11px] text-(--vestara-text-disabled)">
+                    <tr key={index} className="border-b border-(--vestara-border-default)/40 last:border-0">
+                      <td className="w-10 shrink-0 select-none px-2 py-px text-right align-top font-mono text-(--vestara-font-size-label) text-(--vestara-text-disabled)">
                         {row.n}
                       </td>
-                      <td className="whitespace-pre-wrap break-words px-2 py-px align-top font-mono text-[11px] text-(--vestara-text-primary)">
+                      <td className="whitespace-pre-wrap break-words px-2 py-px align-top font-mono text-(--vestara-font-size-label) text-(--vestara-text-primary)">
                         {row.text}
                       </td>
                     </tr>
@@ -239,13 +239,13 @@ const ReadObservationCard = memo(function ReadObservationCard({
             </div>
           )}
           {rows && rows.length === 0 && (
-            <div className="mt-2 text-[11px] text-(--vestara-text-disabled)">Empty file.</div>
+            <div className="mt-2 text-(--vestara-font-size-label) text-(--vestara-text-disabled)">Empty file.</div>
           )}
           {obs.status === 'completed' && detail.contentTruncated && (
-            <div className="mt-1.5 text-[11px] text-(--vestara-text-muted)">Observation truncated</div>
+            <div className="mt-1.5 text-(--vestara-font-size-label) text-(--vestara-text-muted)">Observation truncated</div>
           )}
           {obs.status === 'failed' && detail.error && (
-            <div className="mt-1.5 text-[11px] leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</div>
+            <div className="mt-1.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-status-error)/70 break-words">{detail.error}</div>
           )}
           <div className="mt-2 flex items-center gap-2">
             {rows && (
@@ -254,7 +254,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
                 onClick={handleCopy}
                 data-testid="read-observation-copy"
                 aria-label="Copy persisted observation content"
-                className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-[11px] font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
+                className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -265,7 +265,7 @@ const ReadObservationCard = memo(function ReadObservationCard({
               data-testid="read-observation-open"
               aria-label={`Open current file ${file}`}
               title="Open the current workspace file (historical content above is unchanged)"
-              className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-[11px] font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
+              className="rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2.5 py-1 text-(--vestara-font-size-label) font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 hover:text-(--vestara-text-primary) cursor-pointer"
             >
               Open File
             </button>
@@ -291,17 +291,17 @@ const GenericObservationCard = memo(function GenericObservationCard({ obs }: { o
         <StatusIcon status={obs.status} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12px] text-(--vestara-text-secondary)">
+        <div className="truncate text-(--vestara-font-size-body-small) text-(--vestara-text-secondary)">
           {label}
-          <span className="ml-1.5 font-mono text-[10px] text-(--vestara-text-disabled)">{obs.toolName}</span>
+          <span className="ml-1.5 font-mono text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">{obs.toolName}</span>
         </div>
         {obs.status === 'completed' && obs.content && (
-          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono">
+          <div className="mt-0.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono">
             {obs.content}
           </div>
         )}
         {obs.status === 'failed' && (
-          <div className="mt-0.5 text-[11px] leading-snug text-(--vestara-status-error)/60 break-words">
+          <div className="mt-0.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-status-error)/60 break-words">
             {obs.error ?? obs.content ?? 'failed'}
           </div>
         )}
