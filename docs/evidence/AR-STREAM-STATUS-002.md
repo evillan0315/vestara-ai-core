@@ -1,3 +1,12 @@
+---
+title: "AR-STREAM-STATUS-002 — Degraded Stream Status Repair Evidence"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # AR-STREAM-STATUS-002 — Degraded Stream Status Repair Evidence
 
 Status: implemented and locally verified. No API restart, browser reload,

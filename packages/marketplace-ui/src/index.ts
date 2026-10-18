@@ -93,5 +93,14 @@ export {
   MARKETPLACE_LAYOUT,
   MARKETPLACE_LAYOUT_VARS,
 } from './layout.js';
+export type { ThemeTemplate, ThemeTemplateSwatch } from './templates.js';
+export {
+  TEMPLATE_COUNT,
+  THEME_TEMPLATE_FIXTURES,
+  THEME_TEMPLATES,
+  templateAccent,
+  templateFontFamily,
+  templateFontWeight,
+} from './templates.js';
 export type { MarketplaceBadgeVariant } from './tokens.js';
 export { DISCOVER_COLORS, TYPE_ACCENTS, typeAccent, typeBadgeVariant, UPDATE_ACCENTS } from './tokens.js';

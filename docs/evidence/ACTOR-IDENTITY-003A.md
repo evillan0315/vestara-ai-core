@@ -1,3 +1,12 @@
+---
+title: "ACTOR-IDENTITY-003A — Canonical Human ExecutionActor Propagation"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # ACTOR-IDENTITY-003A — Canonical Human ExecutionActor Propagation
 
 Status: implemented and locally verified; systemd was not restarted.

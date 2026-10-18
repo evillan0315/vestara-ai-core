@@ -14,6 +14,7 @@ import Installed from './Installed.js';
 import OperationCenter from './OperationCenter.js';
 import Publish from './Publish.js';
 import Registries from './Registries.js';
+import Templates from './Templates.js';
 import Updates from './Updates.js';
 
 interface MarketplaceTab {
@@ -32,9 +33,10 @@ const TABS: MarketplaceTab[] = [
     description: 'Discover and install modules, agents, templates, and tools to extend your Vestara workspace.',
   },
   {
-    to: '/marketplace/categories',
-    label: 'Categories',
-    description: 'Browse assets by category to discover what’s available.',
+    to: '/marketplace/templates',
+    label: 'Templates',
+    description:
+      'Theme templates merging the extracted Shell Foundation palette with accent color, font family, and font weight.',
   },
   {
     to: '/marketplace/components',
@@ -152,7 +154,10 @@ export default function MarketplaceLayout() {
           <Route index element={<Discover />} />
           <Route path="capabilities" element={<Capabilities />} />
           <Route path="publish" element={<Publish />} />
+          {/* Categories route kept routable (Discover deep-links) but its tab
+              is hidden in favour of Templates. */}
           <Route path="categories" element={<Categories />} />
+          <Route path="templates" element={<Templates />} />
           <Route path="components" element={<Components />} />
           <Route path="collections" element={<Collections />} />
           <Route path="installed" element={<Installed />} />

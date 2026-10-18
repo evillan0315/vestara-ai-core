@@ -1,3 +1,12 @@
+---
+title: "ACTOR-IDENTITY-004R — Review Findings Repair"
+version: 1.0.0
+status: ready-for-operator-approval
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # ACTOR-IDENTITY-004R — Review Findings Repair
 
 Status: complete locally; not deployed.

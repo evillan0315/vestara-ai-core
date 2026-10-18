@@ -501,7 +501,8 @@ export type AccentColorTheme =
   | 'purple'
   | 'fuchsia'
   | 'pink'
-  | 'startup';
+  | 'startup'
+  | 'shell';
 
 export interface AccentPalette {
   readonly label: string;
@@ -741,7 +742,82 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     borderHover: '#22d3ee80',
     borderActive: '#22d3ee',
   },
+  // Extracted from the Vestara Shell Foundation review artifact
+  // (assets/templates/html/Vestara-Shell-Foundation-Review.html):
+  // accent glow #2de8c3 on layered near-black surfaces (#0a1214 → #132528).
+  shell: {
+    label: 'Vestara Shell',
+    hex: '#2de8c3',
+    light: '#5ff0d4',
+    dark: '#10b7a0',
+    glow: 'rgba(45, 232, 195, 0.04)',
+    bg: '#2de8c314',
+    border: '#2de8c340',
+    borderHover: '#2de8c380',
+    borderActive: '#2de8c3',
+  },
 } as const;
 
 /** Default accent theme — canonical Vestara amber. */
 export const DEFAULT_ACCENT_THEME: AccentColorTheme = 'amber';
+
+// ─── Font Family Catalog (VES-DESIGN-004) ─────────────────────
+//
+// Canonical font-family authority shared by Settings → General (theme
+// appearance) and the Marketplace theme templates. Stacks MUST resolve
+// to the font-family token so surfaces inherit the user-selected family.
+
+export type FontFamilyId = 'system' | 'serif' | 'mono' | 'inter' | 'jakarta' | 'roboto';
+
+export interface FontFamilyToken {
+  readonly label: string;
+  readonly stack: string;
+  /** Coarse style class — sans | serif | mono — for template filtering. */
+  readonly kind: 'sans' | 'serif' | 'mono';
+}
+
+export const FONT_FAMILIES: Record<FontFamilyId, FontFamilyToken> = {
+  system: {
+    label: 'System default',
+    stack: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+    kind: 'sans',
+  },
+  serif: { label: 'Serif', stack: 'ui-serif, "Times New Roman", Georgia, serif', kind: 'serif' },
+  mono: { label: 'Monospace', stack: 'ui-monospace, "JetBrains Mono", "Fira Code", monospace', kind: 'mono' },
+  inter: {
+    label: 'Inter (Google)',
+    stack: '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif',
+    kind: 'sans',
+  },
+  jakarta: {
+    label: 'Plus Jakarta Sans (Google)',
+    stack: '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+    kind: 'sans',
+  },
+  roboto: {
+    label: 'Roboto (Google)',
+    stack: '"Roboto", ui-sans-serif, system-ui, -apple-system, sans-serif',
+    kind: 'sans',
+  },
+};
+
+export const FONT_FAMILY_IDS: readonly FontFamilyId[] = ['system', 'serif', 'mono', 'inter', 'jakarta', 'roboto'];
+
+// ─── Font Weight Catalog (VES-DESIGN-004) ─────────────────────
+
+export type FontWeightId = 'light' | 'normal' | 'medium' | 'semibold';
+
+export interface FontWeightToken {
+  readonly label: string;
+  /** Representative numeric weight for the token (body/normal role). */
+  readonly value: number;
+}
+
+export const FONT_WEIGHTS: Record<FontWeightId, FontWeightToken> = {
+  light: { label: 'Light', value: 300 },
+  normal: { label: 'Normal', value: 400 },
+  medium: { label: 'Medium', value: 500 },
+  semibold: { label: 'Semibold', value: 600 },
+};
+
+export const FONT_WEIGHT_IDS: readonly FontWeightId[] = ['light', 'normal', 'medium', 'semibold'];

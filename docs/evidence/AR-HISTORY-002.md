@@ -1,3 +1,12 @@
+---
+title: "AR-HISTORY-002 — Contiguous Historical Pagination Repair Evidence"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # AR-HISTORY-002 — Contiguous Historical Pagination Repair Evidence
 
 Status: repaired locally; **not deployed**. Live `vestara-api.service` was not

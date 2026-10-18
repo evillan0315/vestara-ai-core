@@ -1,3 +1,12 @@
+---
+title: "ACTOR-IDENTITY-004B — Authorized Assistant Identity Projection Evidence"
+version: 1.0.0
+status: ready-for-operator-approval
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # ACTOR-IDENTITY-004B — Authorized Assistant Identity Projection Evidence
 
 Status: complete locally; provider-neutral projection only.

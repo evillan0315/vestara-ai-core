@@ -1,3 +1,12 @@
+---
+title: "COMPOSER-SUGGEST-PROBE-20260929-01 — Suggest-path telemetry probe (audit response)"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # COMPOSER-SUGGEST-PROBE-20260929-01 — Suggest-path telemetry probe (audit response)
 
 ## 1. Probe identity

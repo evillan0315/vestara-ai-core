@@ -266,10 +266,11 @@ export class TelegramFileHandler {
   static getCategoryFromMimeType(mimeType: string): FileCategory {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
+    // Voice notes arrive as ogg/opus audio — classify before generic audio.
+    if (mimeType.includes('ogg') || mimeType.includes('opus')) return 'voice';
     if (mimeType.startsWith('audio/')) return 'audio';
     if (mimeType === 'application/pdf' || mimeType.includes('document')) return 'document';
     if (mimeType.includes('sticker')) return 'sticker';
-    if (mimeType.includes('ogg') || mimeType.includes('opus')) return 'voice';
     return 'other';
   }
 
@@ -282,7 +283,7 @@ export class TelegramFileHandler {
 
     for (const [fileId, file] of this.fileCache) {
       const age = now - new Date(file.receivedAt).getTime();
-      if (age > this.config.cacheTtlMs) {
+      if (age >= this.config.cacheTtlMs) {
         this.fileCache.delete(fileId);
         cleaned++;
       }

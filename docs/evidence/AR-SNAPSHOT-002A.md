@@ -1,3 +1,12 @@
+---
+title: "AR-SNAPSHOT-002A — Snapshot Ownership & Completeness Repair Evidence"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # AR-SNAPSHOT-002A — Snapshot Ownership & Completeness Repair Evidence
 
 Status: locally repaired and verified; **not deployed**. The API was not

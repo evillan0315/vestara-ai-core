@@ -307,7 +307,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
   detail: Record<string, { snapshot: Snapshot; audit: AuditEvent[] }>;
   onToggle: (projectId: string) => void;
   onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
-  onOpenGraph: () => void;
+  onOpenGraph: (projectId: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-[var(--vestara-spacing-3)]">
@@ -376,7 +376,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
               <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
                 Task progress {done}/{total} {pct}%
               </span>
-              <Button variant="ghost" size="sm" onClick={onOpenGraph}>
+              <Button variant="ghost" size="sm" onClick={() => onOpenGraph(project.id)}>
                 Open graph
               </Button>
             </div>
@@ -412,18 +412,18 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
             <ApprovalActions projectId={project.id} approvals={approvals} busy={busy} onResolve={onResolveApproval} />
 
             {expanded && (
-              <div className="workflow-project-selection-note">
-                {projectDetail ? (
-                  <>
-                    <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
-                    <button type="button" className="workflow-tab-action" onClick={onOpenGraph}>
-                      Open graph
-                    </button>
-                  </>
-                ) : (
-                  <span>Loading workflow snapshot...</span>
-                )}
-              </div>
+                <div className="workflow-project-selection-note">
+                  {projectDetail ? (
+                    <>
+                      <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
+                      <button type="button" className="workflow-tab-action" onClick={() => onOpenGraph(project.id)}>
+                        Open graph
+                      </button>
+                    </>
+                  ) : (
+                    <span>Loading workflow snapshot...</span>
+                  )}
+                </div>
             )}
           </div>
         );
@@ -519,6 +519,7 @@ export default function OrchestrationPage() {
   const [railQuery, setRailQuery] = useState('');
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchJson<{ projects: ProjectSummary[] }>(`${API}/projects`);
@@ -667,10 +668,22 @@ export default function OrchestrationPage() {
 
   const resumeProject = async (projectId: string) => {
     setBusy(`resume-${projectId}`);
+    setActionError(null);
     try {
-      await postJson(`${API}/projects/${projectId}/resume`);
+      const result = await postJson<{ snapshot: Snapshot }>(`${API}/projects/${projectId}/resume`);
+      if (!result) throw new Error('Resume request failed — the server returned an error.');
+      if (result.snapshot && result.snapshot.phase !== 'executing') {
+        throw new Error(
+          `Resume did not run: project is in phase "${result.snapshot.phase}". Only executing workflows can resume — approve the plan or resolve approvals first.`,
+        );
+      }
       await refresh();
-      if (expandedId) await loadDetail(expandedId);
+      // Reload the resumed project's cached detail so its graph/tasks stay
+      // fresh, plus the currently-expanded project when they differ.
+      if (detail[projectId] || expandedId === projectId) await loadDetail(projectId);
+      if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Resume failed.');
     } finally {
       setBusy(null);
     }
@@ -762,12 +775,24 @@ export default function OrchestrationPage() {
     : 0;
   const selectedTotal = selectedDetail ? selectedDetail.snapshot.tasks.length : 0;
   const selectedPct = selectedTotal > 0 ? Math.round((selectedDone / selectedTotal) * 100) : 0;
-  const focusProjectTab = (tab: 'workflow-graph' | 'evidence') => {
-    const target = expandedId ?? projects[0]?.id;
+  const focusProjectTab = (tab: 'workflow-graph' | 'evidence', projectId?: string) => {
+    // Prefer an explicitly-requested project, then the current selection,
+    // then the most urgent recommendation — never silently fall back to the
+    // oldest project (projects[0]) when a better target exists.
+    const target = projectId ?? expandedId ?? nextAction?.projectId ?? projects[0]?.id;
     if (!target) return;
     if (expandedId !== target) toggleExpand(target);
-    if (detail[target]) setActiveTab(tab);
+    else if (!detail[target]) void loadDetail(target);
+    setActiveTab(tab);
   };
+  const openProjectGraph = useCallback(
+    (projectId: string) => {
+      if (expandedId !== projectId) toggleExpand(projectId);
+      else if (!detail[projectId]) void loadDetail(projectId);
+      setActiveTab('workflow-graph');
+    },
+    [expandedId, toggleExpand, detail, loadDetail],
+  );
   const reviewApprovals = () => {
     const target = projects.find((project) => (approvalsByProject[project.id] ?? []).length > 0);
     if (target && expandedId !== target.id) toggleExpand(target.id);
@@ -797,11 +822,11 @@ export default function OrchestrationPage() {
     {
       id: 'graph',
       label: 'Open graph',
-      sub: selectedProject?.name ?? 'Select workflow',
+      sub: selectedProject?.name ?? nextAction?.projectName ?? 'Select workflow',
       tile: 'var(--vestara-status-info)',
       glyph: '⁂',
       disabled: projects.length === 0,
-      onSelect: () => focusProjectTab('workflow-graph'),
+      onSelect: () => focusProjectTab('workflow-graph', selectedProject?.id ?? nextAction?.projectId),
     },
     {
       id: 'evidence',
@@ -810,7 +835,7 @@ export default function OrchestrationPage() {
       tile: 'var(--vestara-status-success)',
       glyph: '▤',
       disabled: projects.length === 0,
-      onSelect: () => focusProjectTab('evidence'),
+      onSelect: () => focusProjectTab('evidence', selectedProject?.id ?? nextAction?.projectId),
     },
   ];
   const evidenceCount = (selectedDetail?.snapshot.artifacts?.length ?? 0) + (selectedDetail?.audit.length ?? 0);
@@ -870,7 +895,7 @@ export default function OrchestrationPage() {
     ...(selectedDetail?.snapshot.phase === 'pending-approval' && expandedId
       ? [{ label: 'Approve plan', onClick: () => void approvePlan(expandedId) }]
       : []),
-    ...(selectedDetail && expandedId && (selectedDetail.snapshot.status === 'running' || selectedDetail.snapshot.status === 'awaiting-approval')
+    ...(selectedDetail && expandedId && selectedDetail.snapshot.phase === 'executing'
       ? [{ label: 'Resume', onClick: () => void resumeProject(expandedId) }]
       : []),
   ];
@@ -994,6 +1019,26 @@ export default function OrchestrationPage() {
           </div>
         )}
 
+        {actionError && (
+          <div
+            className="mpg-enter flex flex-wrap items-center gap-[var(--vestara-spacing-3)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] p-[var(--vestara-spacing-3)]"
+            role="alert"
+            aria-label="Workflow action error"
+          >
+            <p className="min-w-0 flex-1 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-error)]">
+              {actionError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="cursor-pointer rounded-[var(--vestara-radius)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]"
+              aria-label="Dismiss workflow action error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div
           className="flex flex-wrap items-center gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-element)]"
           role="toolbar"
@@ -1086,7 +1131,7 @@ export default function OrchestrationPage() {
                   detail={detail}
                   onToggle={toggleExpand}
                   onResolveApproval={(projectId, taskId, approved) => void resolveApproval(projectId, taskId, approved)}
-                  onOpenGraph={() => setActiveTab('workflow-graph')}
+                  onOpenGraph={openProjectGraph}
                 />
               )}
               {dashboard.phases.length > 0 && (
@@ -1196,17 +1241,16 @@ export default function OrchestrationPage() {
                             Approve plan
                           </Button>
                         )}
-                        {(selectedDetail.snapshot.status === 'running' || selectedDetail.snapshot.status === 'awaiting-approval') &&
-                          expandedId && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => void resumeProject(expandedId)}
-                              disabled={busy === `resume-${expandedId}`}
-                            >
-                              Resume
-                            </Button>
-                          )}
+                        {selectedDetail.snapshot.phase === 'executing' && expandedId && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void resumeProject(expandedId)}
+                            disabled={busy === `resume-${expandedId}`}
+                          >
+                            Resume
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setActiveTab('workflow-graph')}>
                           Open graph
                         </Button>
@@ -1315,7 +1359,7 @@ export default function OrchestrationPage() {
                             }
                           >
                             <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]">
-                              {expandedId && (
+                              {expandedId && selectedDetail.snapshot.phase === 'executing' && (
                                 <Button
                                   variant="secondary"
                                   size="sm"

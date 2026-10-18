@@ -97,8 +97,11 @@ function resolveProjectAction(
     };
   }
 
-  // 4. Paused work that can resume.
-  if (project.status === 'awaiting-approval' || project.status === 'running') {
+  // 4. Paused work that can resume — only the executing phase can progress
+  // via resume (backend resume() is a no-op for every other phase).
+  // Task approvals, failures, plan approval, and verification are handled
+  // by their own branches above/below.
+  if (project.phase === 'executing' && project.status === 'running') {
     return {
       kind: 'resume',
       projectId: project.id,

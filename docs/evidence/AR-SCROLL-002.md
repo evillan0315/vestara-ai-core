@@ -1,3 +1,12 @@
+---
+title: "AR-SCROLL-002 — Restore Canonical Activity Ordering Evidence"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # AR-SCROLL-002 — Restore Canonical Activity Ordering Evidence
 
 Status: bounded M11C repair implemented and locally verified. No API restart,

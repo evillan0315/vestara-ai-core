@@ -1,3 +1,13 @@
+---
+title: "ACTOR-IDENTITY-002D-PROVISIONING — Evidence"
+version: 1.0.0
+status: implemented-live-verified
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+implementation-repository: vestara-ai-core
+---
+
 # ACTOR-IDENTITY-002D-PROVISIONING — Evidence
 
 Status: implemented, deployed, and live recovery verified 2026-09-25.

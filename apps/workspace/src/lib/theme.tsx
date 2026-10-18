@@ -1,11 +1,11 @@
-import { ACCENT_PALETTES, type AccentColorTheme } from '@vestara/ui-tokens';
-export { ACCENT_PALETTES } from '@vestara/ui-tokens';
+import { ACCENT_PALETTES, FONT_FAMILIES, type AccentColorTheme, type FontFamilyId } from '@vestara/ui-tokens';
+export { ACCENT_PALETTES, FONT_FAMILIES } from '@vestara/ui-tokens';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { persistAppearanceSettings, persistThemeMode, resolveHydratedTheme } from './appearance-durability';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
-export type FontFamily = 'system' | 'serif' | 'mono' | 'inter' | 'jakarta' | 'roboto';
+export type FontFamily = FontFamilyId;
 export type FontSize = 'small' | 'medium' | 'large';
 export type FontWeight = 'light' | 'normal' | 'medium' | 'semibold';
 export type SidebarWidth = 'compact' | 'normal' | 'wide';
@@ -232,14 +232,11 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   colorTheme: 'startup',
 };
 
-const FONT_STACKS: Record<FontFamily, string> = {
-  system: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
-  serif: 'ui-serif, "Times New Roman", Georgia, serif',
-  mono: 'ui-monospace, "JetBrains Mono", "Fira Code", monospace',
-  inter: '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif',
-  jakarta: '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
-  roboto: '"Roboto", ui-sans-serif, system-ui, -apple-system, sans-serif',
-};
+// Font stacks are canonical in @vestara/ui-tokens (FONT_FAMILIES) so the
+// Marketplace theme templates and Settings → General share one source.
+const FONT_STACKS: Record<FontFamily, string> = Object.fromEntries(
+  Object.entries(FONT_FAMILIES).map(([id, token]) => [id, token.stack]),
+) as Record<FontFamily, string>;
 
 const FONT_SIZES: Record<FontSize, { base: string; sm: string; xs: string; lg: string }> = {
   small: { base: '13.25px', sm: '11.25px', xs: '10.25px', lg: '15.25px' },

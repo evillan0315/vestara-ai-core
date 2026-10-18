@@ -222,6 +222,80 @@ export function projectRepositoryVerificationAttentionEntries(
   return [...active.values()].sort(compareAttention);
 }
 
+// ─── Telegram Pairing Attention ────────────────────────────────
+
+/** Structural pairing request shape for attention projection. Defined here
+ *  to avoid a dependency on telegram-integration (boundary: activity-room
+ *  must not depend on channel adapters). */
+export interface TelegramPairingAttentionInput {
+  readonly pairingId: string;
+  readonly token: string;
+  readonly status: 'pending' | 'approved' | 'expired' | 'revoked';
+  readonly telegramUserId: string;
+  readonly telegramDisplayName?: string;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly approvedAt?: string;
+  readonly suggestedPrincipalId?: string;
+}
+
+/**
+ * Project pending Telegram pairing requests as Needs-Attention approval-request
+ * entries. Uses the existing agent-message approval-request shape (category
+ * 'approval', reason 'approval-required') — no new attention reason or category
+ * is introduced.
+ *
+ * Dedupe: one open entry per telegramUserId (the latest pending request wins).
+ * Auto-resolve: entries for approved/expired/revoked requests are omitted.
+ */
+export function projectTelegramPairingAttentionEntries(
+  requests: readonly TelegramPairingAttentionInput[],
+): readonly AttentionEntry[] {
+  const latestByUser = new Map<string, TelegramPairingAttentionInput>();
+
+  for (const request of requests) {
+    if (request.status !== 'pending') continue;
+    const existing = latestByUser.get(request.telegramUserId);
+    if (!existing || request.createdAt.localeCompare(existing.createdAt) > 0) {
+      latestByUser.set(request.telegramUserId, request);
+    }
+  }
+
+  return [...latestByUser.values()]
+    .map((request) => {
+      const sourceRecordId = `telegram-pairing:${request.pairingId}`;
+      return {
+        attentionId: `attention:${sourceRecordId}`,
+        reason: 'approval-required' as const,
+        category: 'approval' as const,
+        message: `Telegram pairing request from ${request.telegramDisplayName ?? request.telegramUserId}`,
+        sourceRecordId,
+        sourceRef: {
+          kind: 'telegram-pairing',
+          id: request.pairingId,
+          owner: 'telegram-integration',
+          subsystem: 'pairing',
+        },
+        owner: 'telegram-integration',
+        scope: request.telegramUserId,
+        status: 'open' as const,
+        evidenceRefs: [],
+        details: {
+          pairingId: request.pairingId,
+          token: request.token,
+          expiresAt: request.expiresAt,
+          telegramUserId: request.telegramUserId,
+          ...(request.suggestedPrincipalId ? { suggestedPrincipalId: request.suggestedPrincipalId } : {}),
+        },
+        timestamp: request.createdAt,
+        firstObservedAt: request.createdAt,
+        lastObservedAt: request.createdAt,
+        acknowledged: false,
+      } satisfies AttentionEntry;
+    })
+    .sort(compareAttention);
+}
+
 function resolveByRecord(active: Map<string, AttentionEntry>, record: ActivityRecord): void {
   switch (record.kind) {
     case 'task':

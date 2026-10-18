@@ -1,3 +1,12 @@
+---
+title: "AR-SNAPSHOT-002 — Activity Snapshot Projection Cardinality Repair Evidence"
+version: 1.0.0
+status: partially-complete-api-reload-required
+owner: vestara
+last-reviewed: 2026-10-18
+next-review: 2026-11-17
+---
+
 # AR-SNAPSHOT-002 — Activity Snapshot Projection Cardinality Repair Evidence
 
 Status: implemented locally; **not deployed**. Live `vestara-api.service` was

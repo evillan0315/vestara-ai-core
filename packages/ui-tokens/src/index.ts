@@ -39,6 +39,10 @@ export {
 export type {
   AccentColorTheme,
   AccentPalette,
+  FontFamilyId,
+  FontFamilyToken,
+  FontWeightId,
+  FontWeightToken,
 } from './tokens.js';
 export {
   ACCENT,
@@ -49,6 +53,10 @@ export {
   DEFAULT_ACCENT_THEME,
   DENSITY,
   ELEVATION,
+  FONT_FAMILIES,
+  FONT_FAMILY_IDS,
+  FONT_WEIGHT_IDS,
+  FONT_WEIGHTS,
   MARKETPLACE_LAYOUT,
   MOTION,
   OPACITY,

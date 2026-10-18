@@ -117,7 +117,8 @@ export function isTerminalStatus(status: ExecutionStatus): boolean {
  */
 export function renderProgressBar(percent: number, width = 10): string {
   const safeWidth = Math.max(1, Math.floor(width));
-  const clamped = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
+  // Clamp finite values to 0-100; NaN renders as 0 and infinities saturate.
+  const clamped = Number.isNaN(percent) ? 0 : Math.max(0, Math.min(100, percent));
   const filled = Math.round((clamped / 100) * safeWidth);
   return `[${'█'.repeat(filled)}${'░'.repeat(safeWidth - filled)}] ${Math.round(clamped)}%`;
 }
@@ -163,7 +164,9 @@ export function renderExecutionCard(input: ExecutionCardInput, options?: Executi
   }
 
   if (opts.includeDuration) {
-    const end = isTerminalStatus(input.status) ? (input.completedAt ?? input.timestamp) : undefined;
+    // Elapsed is measured as of this update's timestamp (not wall-clock time)
+    // so cards render deterministically regardless of when they are viewed.
+    const end = isTerminalStatus(input.status) ? (input.completedAt ?? input.timestamp) : input.timestamp;
     const duration = formatDuration(input.startedAt, end);
     if (duration) lines.push('', `_Elapsed: ${duration}_`);
   }
