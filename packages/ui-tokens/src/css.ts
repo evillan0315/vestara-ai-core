@@ -15,7 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
-import { ELEVATION, MARKETPLACE_LAYOUT, MOTION, UI_COMPONENT } from './tokens.js';
+import { ELEVATION, FONT_SIZE, MARKETPLACE_LAYOUT, MOTION, UI_COMPONENT } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -125,6 +125,10 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-elevation-md': ELEVATION.md,
     '--vestara-elevation-lg': ELEVATION.lg,
     '--vestara-elevation-xl': ELEVATION.xl,
+    // VES-DESIGN-007: detached-surface recipes (see tokens.ts ELEVATION).
+    '--vestara-elevation-floating': ELEVATION.floating,
+    '--vestara-elevation-floating-up': ELEVATION.floatingUp,
+    '--vestara-elevation-inset': ELEVATION.inset,
 
     // Motion (theme-invariant rhythm — sourced from MOTION tokens,
     // not per-theme values). Hosts bind transitions/animations here so
@@ -134,6 +138,23 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-motion-slow': MOTION.slow,
     '--vestara-motion-slower': MOTION.slower,
     '--vestara-motion-easing': MOTION.easing.default,
+
+    // VES-DESIGN-007: font-size scale (theme-invariant — the size axis of
+    // TYPOGRAPHY, sourced from FONT_SIZE tokens, not per-theme values).
+    // Before this, the TYPOGRAPHY steps were reachable only as TS constants
+    // and had no CSS variable, so any component needing one specific size had
+    // to hardcode `text-[Npx]`. These names intentionally avoid the legacy
+    // xs/sm/base/lg/2xl overrides in apps/workspace/src/styles/index.css.
+    '--vestara-font-size-micro': FONT_SIZE.micro,
+    '--vestara-font-size-caption': FONT_SIZE.caption,
+    '--vestara-font-size-label': FONT_SIZE.label,
+    '--vestara-font-size-body-small': FONT_SIZE.bodySmall,
+    '--vestara-font-size-code': FONT_SIZE.code,
+    '--vestara-font-size-body': FONT_SIZE.body,
+    '--vestara-font-size-title-small': FONT_SIZE.titleSmall,
+    '--vestara-font-size-section-title': FONT_SIZE.sectionTitle,
+    '--vestara-font-size-page-title': FONT_SIZE.pageTitle,
+    '--vestara-font-size-display': FONT_SIZE.display,
 
     // VES-DESIGN-005 §M: Discover gallery layout (theme-invariant geometry
     // sourced from MARKETPLACE_LAYOUT — identical in dark/light).

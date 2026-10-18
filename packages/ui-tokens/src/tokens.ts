@@ -250,6 +250,35 @@ export const TYPOGRAPHY = {
   },
 } as const;
 
+// ─── Font Size Scale ───────────────────────────────────────────
+
+/**
+ * VES-DESIGN-007: the size axis of TYPOGRAPHY, extracted so a component that
+ * needs only a size can reference a token rather than an arbitrary
+ * `text-[Npx]`. Steps that already existed in TYPOGRAPHY reference it directly
+ * (single authority — no duplicated literals); `micro` and `titleSmall` are
+ * new steps the dense assistant surface required and the type *recipe* scale
+ * never carried.
+ *
+ * Emitted as `--vestara-font-size-*` (see css.ts → generated-tokens.css).
+ * Deliberately NOT named xs/sm/base/lg/2xl: those names are already taken by
+ * the legacy JSON-theme overrides in apps/workspace/src/styles/index.css
+ * (10.75/12.25/14.25/16.25px), which other surfaces consume — reusing them
+ * would silently re-scale existing UI.
+ */
+export const FONT_SIZE = {
+  micro: '0.5625rem', // 9px — dense metadata chips, nested tree rows
+  caption: TYPOGRAPHY.caption.fontSize, // 10px
+  label: TYPOGRAPHY.label.fontSize, // 11px
+  bodySmall: TYPOGRAPHY.bodySmall.fontSize, // 12px
+  code: TYPOGRAPHY.code.fontSize, // 13px
+  body: TYPOGRAPHY.body.fontSize, // 14px
+  titleSmall: '1.0625rem', // 17px — panel/empty-state headings
+  sectionTitle: TYPOGRAPHY.sectionTitle.fontSize, // 18px
+  pageTitle: TYPOGRAPHY.pageTitle.fontSize, // 24px
+  display: TYPOGRAPHY.display.fontSize, // 36px
+} as const;
+
 // ─── Spacing Scale ─────────────────────────────────────────────
 
 export const SPACING = {
@@ -291,6 +320,14 @@ export const ELEVATION = {
   md: '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3)',
   lg: '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4)',
   xl: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+  // VES-DESIGN-007: detached-surface recipes. The scale above covers cards
+  // resting on a surface; a popover/dock that floats *over* the workspace
+  // needs a wider, softer throw than `xl`, and an inset well for fields. These
+  // were previously raw `rgba()` literals inside arbitrary Tailwind shadow
+  // utilities in the assistant surface.
+  floating: '0 24px 70px -12px rgba(0, 0, 0, 0.8)', // overlays: history panel, execution popover
+  floatingUp: '0 -8px 32px -8px rgba(0, 0, 0, 0.6)', // docks that rise from a bottom edge
+  inset: 'inset 0 1px 4px rgba(0, 0, 0, 0.3)', // recessed inputs/search wells
 } as const;
 
 // ─── Opacity Tokens ────────────────────────────────────────────
