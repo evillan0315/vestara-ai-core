@@ -294,7 +294,72 @@ async function installQualificationFixtures(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Deterministic chrome fixtures.
+ *
+ * The screenshot harness boots only `vite dev` (playwright.config.ts webServer)
+ * — there is no API. The route-specific fixtures below cover what each screenshot
+ * route reads, but the surrounding chrome (settings, workspace, agents, files,
+ * health, conversations, catalog, diagnostics) was left to the network and failed
+ * with ECONNREFUSED. What got captured therefore depended on whether something
+ * happened to be listening on :3001 — which is how the committed baselines came
+ * to encode one developer's populated backend while CI rendered a bare one.
+ *
+ * Two endpoints need a real payload rather than the neutral `{}`:
+ *
+ *  - `/api/settings` is read by the theme provider on mount
+ *    (src/lib/theme.tsx:436). `resolveHydratedTheme` iterates `resolved.settings`,
+ *    so `{}` throws a TypeError that the surrounding catch swallows — the seeded
+ *    theme survives, but only by accident. `{ settings: [] }` declines to
+ *    override it deliberately. This is the defect behind 146/172 committed
+ *    dark/light baseline pairs being byte-identical: those baselines were
+ *    captured against a live API whose saved mode was `dark`, which overrode the
+ *    harness's seeded `light`, so every "light" baseline was a dark render.
+ *  - `/api/health` is consumed without a fixture fallback
+ *    (src/pages/Dashboard/useDashboardData.ts:91), so `{}` renders zeros.
+ *
+ * Everything else deliberately falls through to the neutral `{}` so the app's own
+ * designed offline fixtures render — they exist precisely "so the premium layout
+ * never renders hollow in dev / visual regression"
+ * (src/features/overview/overview.fixtures.ts:1-7).
+ */
+async function installChromeFixtures(page: Page): Promise<void> {
+  await page.route('**/api/settings', (route) => json(route, 200, { settings: [] }));
+  await page.route('**/api/health', (route) => json(route, 200, { status: 'ok', reachable: true }));
+}
+
+/**
+ * Deterministic catch-all for `/api/**`.
+ *
+ * Registered before every other fixture. Playwright matches routes in reverse
+ * registration order, so later handlers take precedence — verified in a
+ * standalone probe rather than assumed, since getting this backwards would
+ * quietly shadow every real fixture.
+ *
+ * Anything reaching this handler is un-fixtured, so the render no longer depends
+ * on the environment and the coverage gap stays visible instead of being
+ * silently absorbed into a baseline.
+ */
+async function installApiCatchAll(page: Page, route: RouteDefinition): Promise<void> {
+  const unmatched = new Set<string>();
+
+  await page.route('**/api/**', async (webRoute) => {
+    const request = webRoute.request();
+    unmatched.add(`${request.method()} ${new URL(request.url()).pathname}`);
+    await json(webRoute, 200, {});
+  });
+
+  page.on('close', () => {
+    if (unmatched.size === 0) return;
+    console.log(
+      `[visual-fixtures] ${route.id}: ${unmatched.size} un-fixtured endpoint(s) answered with {}: ${[...unmatched].sort().join(', ')}`,
+    );
+  });
+}
+
 export async function installVisualApiFixtures(page: Page, route: RouteDefinition): Promise<void> {
+  await installApiCatchAll(page, route);
+  await installChromeFixtures(page);
   await installAuthFixture(page);
 
   if (ACTIVITY_ROUTE_IDS.has(route.id)) {

@@ -14,6 +14,11 @@ export default defineConfig({
   reporter: [['list']],
   globalSetup: './tests/visual/setup-clean.ts',
   globalTeardown: './tests/visual/report-teardown.ts',
+  // Per-test budget. Without this Playwright's 30s default applies, but the
+  // `activity` capture alone performs three sequential 10s waits
+  // (runner/page.ts) before stability, masks and the screenshot — so the
+  // budget was arithmetically impossible and every activity case timed out.
+  timeout: 120_000,
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',

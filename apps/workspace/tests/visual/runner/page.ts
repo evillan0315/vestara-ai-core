@@ -11,6 +11,9 @@ import { disableAnimations, emulateReducedMotion, waitForStability } from '../he
 import { themeInitScript } from '../helpers/theme.js';
 import type { RouteDefinition } from '../routes/manifest.js';
 
+/** Fixed instant every capture runs at, so time-derived text is stable. */
+const VISUAL_FIXED_TIME = new Date('2026-01-01T00:00:00.000Z');
+
 export class PageScreenshotRunner {
   constructor(private readonly config: Config) {}
 
@@ -21,6 +24,12 @@ export class PageScreenshotRunner {
   async capture(page: Page, route: RouteDefinition, theme: Theme): Promise<Buffer> {
     await page.addInitScript(themeInitScript(theme));
     await installVisualApiFixtures(page, route);
+    // Freeze wall-clock time. The app's designed offline fixtures derive relative
+    // timestamps from Date.now() at module load (overview.fixtures.ts:15-16), and
+    // the mask set covers notifications and charts but has no date selector
+    // (helpers/masks.ts), so without this the same render diffs between runs
+    // purely on elapsed time. setFixedTime fixes Date only; timers still run.
+    await page.clock.setFixedTime(VISUAL_FIXED_TIME);
     await page
       .goto(`${this.config.baseURL}${route.url}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       .catch(() => {
