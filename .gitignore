@@ -116,6 +116,12 @@ logs/
 !.env.example
 !.env.local.example
 
+# Local recovery copy from the 2026-10-18 .env audit (archived, unconsumed
+# keys kept verbatim). Listed explicitly so it stays ignored even if the
+# `.env.*` glob above gains further negations.
+.env.archive
+.env.archive.*
+
 ###############################################################################
 # Secrets
 ###############################################################################
