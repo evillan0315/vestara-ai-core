@@ -213,4 +213,41 @@ describe('assistant execution persistence wiring', () => {
     await expect(consume()).rejects.toThrow('execution persistence unavailable');
     expect(invoked).toBe(false);
   });
+
+  // GA-EXEC-003: observed 2026-10-18 — a 60m deadline abort persisted 66 KB of
+  // unfinished model output as the assistant's answer. A failed turn must
+  // persist a short notice; the partial stream is never durable evidence.
+  it('GA-EXEC-003: persists a clean failure notice instead of the partial stream when the turn errors', async () => {
+    const store = new TestConversationStore();
+    const providerExecutor: ProviderExecutor = {
+      async complete() {
+        throw new Error('unused');
+      },
+      async *stream() {
+        yield chunk(
+          'text',
+          { sequence: 0, timestamp: new Date().toISOString() },
+          'Let me reconsider the pragmatic path',
+        );
+        yield chunk('error', { sequence: 1, timestamp: new Date().toISOString() }, 'Execution deadline exceeded');
+        yield chunk('complete', { sequence: 2, timestamp: new Date().toISOString() });
+      },
+    };
+    const service = createService(store, providerExecutor);
+    const conversation = await service.createConversation('local');
+    for await (const _item of service.sendMessageStream(conversation.id, 'hello', { assistantRuntime: 'opencode' })) {
+      // drain
+    }
+
+    const execution = [...store.executionStore.records.values()][0];
+    const persistedConversation = await store.get(conversation.id);
+    const assistant = persistedConversation?.messages.find((message) => message.role === 'assistant');
+
+    expect(assistant?.content).toBe('This turn did not complete: Execution deadline exceeded. No answer was produced.');
+    expect(assistant?.content).not.toContain('pragmatic path');
+    expect(execution?.status).toBe('failed');
+    expect(execution?.result?.output).toBe(
+      'This turn did not complete: Execution deadline exceeded. No answer was produced.',
+    );
+  });
 });

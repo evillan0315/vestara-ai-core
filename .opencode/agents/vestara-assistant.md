@@ -3,7 +3,7 @@
 ---
 description: "Global conversational assistant for Workspace users."
 mode: primary
-model: opencode/muse-spark-1.3-contributor-free
+model: opencode-go/muse-spark-1.3-contributor
 permission:
   read: allow
   edit: allow

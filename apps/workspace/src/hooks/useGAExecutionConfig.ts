@@ -18,9 +18,13 @@ import type { GAExecutionConfig } from '@vestara/shared';
 
 // ─── Defaults (match adapter constants) ──────────────────────
 
+// GA-EXEC-003: these MUST equal the adapter constants. `toRequestConfig()`
+// omits anything equal to DEFAULTS, so a mismatch here means the UI displays
+// one number while the adapter silently enforces another — which is how
+// hour-long turns (60m deadline) went unexplained behind a "15m" label.
 const DEFAULTS: Required<GAExecutionConfig> = {
-  turnTimeoutMs: 15 * 60 * 1000, // 15 minutes (dogfood default)
-  maxToolCalls: 0, // 0 = unlimited
+  turnTimeoutMs: 60 * 60 * 1000, // matches adapter TURN_TIMEOUT_MS
+  maxToolCalls: 150, // matches adapter DEFAULT_MAX_TOOL_CALLS
 };
 
 /** Validation bounds (must match server-side EXEC_CFG_BOUNDS). */
@@ -71,10 +75,11 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
     turnTimeoutMs: DEFAULTS.turnTimeoutMs,
     maxToolCalls: DEFAULTS.maxToolCalls,
   });
-  // GA-EXEC-001 fix: track explicit user intent for maxToolCalls so
-  // explicit 0 (unlimited) can be sent. DEFAULTS is 0, so a naïve
-  // `!== DEFAULTS` check would never send 0. Untouched 0 => undefined => adapter default unlimited (0).
-  // Touched 0 => {maxToolCalls:0} => adapter unlimited.
+  // GA-EXEC-001 fix: track explicit user intent for maxToolCalls so an
+  // explicit 0 (unlimited) can be sent. Untouched => omitted => adapter
+  // default (150). Touched 0 => {maxToolCalls:0} => unlimited. Touched N =>
+  // {maxToolCalls:N}. DEFAULTS is 150, so a naïve `!== DEFAULTS` check would
+  // collapse "untouched" and "explicitly 150" into the same request.
   const [maxToolCallsTouched, setMaxToolCallsTouched] = useState(false);
 
   const setTurnTimeoutMs = useCallback((value: number) => {

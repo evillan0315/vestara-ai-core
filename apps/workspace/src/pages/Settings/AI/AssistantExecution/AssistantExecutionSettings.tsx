@@ -27,8 +27,9 @@ const TIMEOUT_OPTIONS = [
   { value: 30_000, label: '30s' },
   { value: 60_000, label: '1m' },
   { value: 300_000, label: '5m' },
-  { value: 900_000, label: '15m (default)' },
+  { value: 900_000, label: '15m' },
   { value: 1_800_000, label: '30m' },
+  { value: 3_600_000, label: '60m (default)' },
 ] as const;
 
 export function AssistantExecutionPanel({ className = '' }: { className?: string }) {
@@ -45,7 +46,7 @@ export function AssistantExecutionPanel({ className = '' }: { className?: string
       >
         <SettingsRow
           label="Max tool calls"
-          description="Per-turn tool invocation budget. 0 = unlimited (default), 1–200 = capped. Adapter default is unlimited when untouched (env VESTARA_GA_MAX_TOOL_CALLS overrides)."
+          description="Per-turn tool invocation budget. 1–200 = capped, 0 = explicitly unlimited. Untouched uses the adapter default of 150 (env VESTARA_GA_MAX_TOOL_CALLS overrides)."
           value={
             <span className="flex items-center gap-3">
               <input
@@ -64,7 +65,7 @@ export function AssistantExecutionPanel({ className = '' }: { className?: string
         />
         <SettingsRow
           label="Turn timeout"
-          description="Hard cap per turn (ms). Default 15m; min 10s, max 60m."
+          description="Hard cap per turn (ms). Default 60m; min 10s, max 60m."
           value={
             <select
               value={String(config.turnTimeoutMs)}
@@ -85,7 +86,7 @@ export function AssistantExecutionPanel({ className = '' }: { className?: string
             Reset to defaults
           </Button>
           <span className="self-center text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-            {isCustom ? 'Custom budget active' : 'Using adapter defaults (unlimited calls, 15m)'}
+            {isCustom ? 'Custom budget active' : 'Using adapter defaults (150 calls, 60m)'}
           </span>
         </div>
         <FactRow

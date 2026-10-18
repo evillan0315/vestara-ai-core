@@ -23,7 +23,9 @@ const BOUNDS = {
   maxToolCalls: { min: 0, max: 200, step: 5 },
 } as const;
 
-const DEFAULTS = { turnTimeoutMs: 15 * 60 * 1000, maxToolCalls: 0 };
+// GA-EXEC-003: must mirror the adapter (TURN_TIMEOUT_MS 60m /
+// DEFAULT_MAX_TOOL_CALLS 150) and useGAExecutionConfig DEFAULTS.
+const DEFAULTS = { turnTimeoutMs: 60 * 60 * 1000, maxToolCalls: 150 };
 
 // ─── Helpers ─────────────────────────────────────────────────
 

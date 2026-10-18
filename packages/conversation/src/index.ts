@@ -198,6 +198,18 @@ function terminalStatusFor(
   }
 }
 
+/**
+ * GA-EXEC-003: A turn that ends in failure/timeout must not persist its
+ * partial stream as the assistant's answer. Observed 2026-10-18: a 60-minute
+ * deadline abort persisted 66 KB of raw, unfinished model output as the reply,
+ * because the accumulated text was written verbatim even when the turn had
+ * errored. The live SSE already carried that output transiently; the durable
+ * record is a short, honest notice instead. Successful turns are unaffected.
+ */
+function turnFailureNotice(error: string): string {
+  return `This turn did not complete: ${error}. No answer was produced.`;
+}
+
 function runtimeCorrelation(
   runtime: SendOptions['assistantRuntime'],
   runtimeSessionId: string,
@@ -747,12 +759,17 @@ export class DefaultConversationService implements ConversationService {
 
     const latency = Math.round(performance.now() - startTime);
 
+    // GA-EXEC-003: a failed/timed-out turn persists a clean notice instead of
+    // its partial stream — see turnFailureNotice. Successful turns are
+    // unchanged (this is the same predicate that classifies terminalStatus).
+    const persistedContent = responseError ? turnFailureNotice(responseError) : fullContent;
+
     // Create assistant response message
     const responseMessage: Message = {
       id: assistantMessageId,
       conversationId,
       role: 'assistant',
-      content: fullContent,
+      content: persistedContent,
       provider: responseProvider,
       ...(responseModel ? { model: responseModel } : {}),
       tokens: totalTokens,
@@ -786,7 +803,7 @@ export class DefaultConversationService implements ConversationService {
         status: terminalStatus,
         requestedAt: execution.requestedAt,
         startedAt: executionStartedAt,
-        output: fullContent,
+        output: persistedContent,
         ...(responseError ? { error: responseError } : {}),
       });
       await executionStore.updateExecutionStatus(execution.executionId, terminalStatus, new Date().toISOString());

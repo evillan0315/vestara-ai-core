@@ -379,14 +379,21 @@ export const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) ||
 
 // GA-EXEC-001: Default per-turn tool-call budget for the Global Assistant.
 // Bounds turns that arrive without an explicit executionConfig.maxToolCalls
-// (e.g. Activity Room fire-and-forget turns). Explicit 0 still means
-// unlimited; explicit 1–200 overrides this default.
-// Default is 0 (unlimited); env VESTARA_GA_MAX_TOOL_CALLS still overrides.
+// (e.g. Activity Room fire-and-forget turns, and the UI hook, which omits its
+// own default from the request body). Explicit 0 still means unlimited;
+// explicit 1–200 overrides this; env VESTARA_GA_MAX_TOOL_CALLS overrides.
+//
+// GA-EXEC-003: non-zero by default. With an unbounded budget the ONLY backstop
+// was the turn deadline, so a looping model produced hour-long turns that
+// streamed no answer and then failed (observed 2026-10-18: 77/136/225 tool
+// calls across three consecutive timeout+failed turns). 150 exceeds every
+// observed SUCCESSFUL turn (max 128) so legitimate long investigations are not
+// truncated, while still ending a runaway turn well before the deadline.
 const DEFAULT_MAX_TOOL_CALLS = (() => {
   const raw = process.env.VESTARA_GA_MAX_TOOL_CALLS;
-  if (raw === undefined || raw === '') return 0;
+  if (raw === undefined || raw === '') return 150;
   const n = Number(raw);
-  return Number.isFinite(n) ? Math.floor(n) : 0;
+  return Number.isFinite(n) ? Math.floor(n) : 150;
 })();
 
 /**
@@ -592,8 +599,8 @@ export async function* runAssistantOpenCodeTurn(
   const turnTimeoutMs = execCfg?.turnTimeoutMs ?? defaultTimeout;
   // GA-EXEC-001: maxToolCalls is the canonical tool-invocation budget.
   // maxOperations was removed — it counted the same events as maxToolCalls.
-  // Falls back to DEFAULT_MAX_TOOL_CALLS (0 = unlimited). Only the
-  // 15min turn timeout bounds unconstrained turns.
+  // Falls back to DEFAULT_MAX_TOOL_CALLS (default 150). An explicit 0 sent by
+  // the UI is preserved as "unlimited", so untouched != explicitly unlimited.
   const maxToolCalls = execCfg?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
   const context = { workspaceId, directory };
   const userText = lastUserText(request.messages);
@@ -815,7 +822,7 @@ export async function* runAssistantOpenCodeTurn(
 
       // GA-EXEC-001: budget enforcement helper — checks tool-call limits
       // after each event. Returns an error message if exceeded, null if
-      // within budget. maxToolCalls=0 means unlimited (UI hook default).
+      // within budget. maxToolCalls=0 means explicitly unlimited.
       const checkBudget = (): string | null => {
         if (maxToolCalls > 0 && toolCallCount >= maxToolCalls) {
           return `Tool call limit reached: ${maxToolCalls} tool calls`;
