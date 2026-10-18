@@ -77,7 +77,7 @@ function RosterEntryComponent({ entry, onSelect }: RosterEntryProps) {
       onClick={() => onSelect(entry.agent.id)}
       className={`
         w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-150
-        hover:bg-(--vestara-surface-hover) cursor-pointer
+        hover:bg-(--vestara-surface-interactive-hover) cursor-pointer
         ${entry.isSelected ? 'bg-(--vestara-accent-bg) ring-1 ring-(--vestara-accent-border)' : ''}
       `}
     >
@@ -88,7 +88,7 @@ function RosterEntryComponent({ entry, onSelect }: RosterEntryProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <AgentRoleIcon role={entry.agent.role} />
-          <span className="text-sm font-medium text-(--vestara-text-1) truncate">
+          <span className="text-sm font-medium text-(--vestara-text-primary) truncate">
             {entry.agent.name}
           </span>
           {hasWork && (
@@ -112,7 +112,7 @@ function RosterEntryComponent({ entry, onSelect }: RosterEntryProps) {
       </div>
 
       {/* Role badge */}
-      <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-medium text-(--vestara-text-muted) bg-((--vestara-surface-secondary)) rounded">
+      <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-medium text-(--vestara-text-muted) bg-(--vestara-surface-interactive) rounded">
         {entry.agent.role}
       </span>
     </button>
@@ -123,7 +123,7 @@ function RosterEntryComponent({ entry, onSelect }: RosterEntryProps) {
 
 function RosterStats({ state }: { state: TeamRosterState }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 text-[11px] text-(--vestara-text-muted) border-b border-(--vestara-border)">
+    <div className="flex items-center gap-3 px-3 py-2 text-[11px] text-(--vestara-text-muted) border-b border-(--vestara-border-default)">
       <span className="flex items-center gap-1">
         <span className="w-2 h-2 rounded-full bg-emerald-400" />
         {state.activeCount} active
@@ -177,10 +177,10 @@ export function TeamRoster({
   );
 
   return (
-    <div className="flex flex-col h-full bg-(--vestara-surface) rounded-lg border border-(--vestara-border)">
+    <div className="flex flex-col h-full bg-(--vestara-surface) rounded-lg border border-(--vestara-border-default)">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-(--vestara-border)">
-        <h3 className="text-sm font-semibold text-(--vestara-text-1)">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-(--vestara-border-default)">
+        <h3 className="text-sm font-semibold text-(--vestara-text-primary)">
           Team Roster
         </h3>
         <div className="flex items-center gap-2">
@@ -191,7 +191,7 @@ export function TeamRoster({
             <button
               type="button"
               onClick={onRefresh}
-              className="p-1 rounded hover:bg-(--vestara-surface-hover) text-(--vestara-text-muted) cursor-pointer"
+              className="p-1 rounded hover:bg-(--vestara-surface-interactive-hover) text-(--vestara-text-muted) cursor-pointer"
               title="Refresh roster"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -230,7 +230,7 @@ export function TeamRoster({
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 text-[10px] text-(--vestara-text-muted) border-t border-(--vestara-border) text-center">
+      <div className="px-3 py-2 text-[10px] text-(--vestara-text-muted) border-t border-(--vestara-border-default) text-center">
         Last updated: {new Date(state.lastUpdatedAt).toLocaleTimeString()}
       </div>
     </div>

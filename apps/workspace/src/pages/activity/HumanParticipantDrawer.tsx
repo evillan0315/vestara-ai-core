@@ -65,7 +65,7 @@ function HumanOverviewTab({
               {participant.displayName?.charAt(0)?.toUpperCase() ?? '?'}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-(--vestara-text-1)">
+              <h3 className="text-sm font-semibold text-(--vestara-text-primary)">
                 {participant.displayName ?? 'Unknown User'}
               </h3>
               <div className="text-[10px] text-(--vestara-text-muted)">Human Participant</div>
@@ -73,7 +73,7 @@ function HumanOverviewTab({
           </div>
         </div>
 
-        <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-3">
+        <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-3">
           <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
             Presence
           </div>
@@ -104,7 +104,7 @@ function HumanOverviewTab({
             </div>
           )}
           <div>
-            <h3 className="text-sm font-semibold text-(--vestara-text-1)">{profile.name}</h3>
+            <h3 className="text-sm font-semibold text-(--vestara-text-primary)">{profile.name}</h3>
             {profile.role && (
               <div className="text-[10px] text-(--vestara-text-muted)">{profile.role}</div>
             )}
@@ -113,7 +113,7 @@ function HumanOverviewTab({
       </div>
 
       {/* Identity */}
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-3">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-3">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Identity
         </div>
@@ -126,7 +126,7 @@ function HumanOverviewTab({
       </div>
 
       {/* Presence */}
-      <div className="rounded-xl border border(--vestara-border) bg-(--vestara-surface) p-3">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-3">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Presence
         </div>
@@ -138,7 +138,7 @@ function HumanOverviewTab({
       </div>
 
       {/* Stats */}
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-3">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-3">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Activity Summary
         </div>
@@ -160,7 +160,7 @@ function HumanActivityTab({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-4">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-4">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Projected State
         </div>
@@ -176,7 +176,7 @@ function HumanActivityTab({
         </div>
       </div>
 
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-4">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-4">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Activity History
         </div>
@@ -194,7 +194,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-[10px]">
       <span className="text-(--vestara-text-muted)">{label}</span>
-      <span className="text-(--vestara-text-1) font-medium">{value}</span>
+      <span className="text-(--vestara-text-primary) font-medium">{value}</span>
     </div>
   );
 }

@@ -166,7 +166,7 @@ function EnhancedMentionDropdown({
             {/* Agent info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-(--vestara-text-1)">{entry.agent.name}</span>
+                <span className="font-medium text-(--vestara-text-primary)">{entry.agent.name}</span>
                 <span className="text-[9px] text-(--vestara-text-muted)">{entry.agent.role}</span>
               </div>
               {presence?.currentTask && (

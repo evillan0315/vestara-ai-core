@@ -70,7 +70,7 @@ function CurrentWork({ participant }: { participant: ParticipantProjection }) {
 
   if (!assignment && workState === 'available') {
     return (
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-4">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-4">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Current Work
         </div>
@@ -100,7 +100,7 @@ function CurrentWork({ participant }: { participant: ParticipantProjection }) {
               workState === 'blocked' ? 'bg-red-400' :
               'bg-zinc-500'
             }`} />
-            <span className="text-sm font-medium text-(--vestara-text-1)">
+            <span className="text-sm font-medium text-(--vestara-text-primary)">
               {assignment.taskTitle ?? assignment.taskId ?? 'Unnamed Task'}
             </span>
           </div>
@@ -133,7 +133,7 @@ function CurrentWork({ participant }: { participant: ParticipantProjection }) {
       )}
 
       {!assignment && workState !== 'available' && (
-        <div className="flex items-center gap-2 text-sm text-(--vestara-text-1)">
+        <div className="flex items-center gap-2 text-sm text-(--vestara-text-primary)">
           <span className={`w-2 h-2 rounded-full ${
             workState === 'working' ? 'bg-emerald-400' :
             workState === 'waiting' ? 'bg-amber-400' :
@@ -151,7 +151,7 @@ function CurrentWork({ participant }: { participant: ParticipantProjection }) {
 function ExecutionHistory({ executions }: { executions: ExecutionRecord[] }) {
   if (executions.length === 0) {
     return (
-      <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-4">
+      <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-4">
         <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-2">
           Execution History
         </div>
@@ -163,7 +163,7 @@ function ExecutionHistory({ executions }: { executions: ExecutionRecord[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-(--vestara-border) bg-(--vestara-surface) p-4">
+    <div className="rounded-xl border border-(--vestara-border-default) bg-(--vestara-surface) p-4">
       <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim) mb-3">
         Execution History ({executions.length})
       </div>
@@ -185,7 +185,7 @@ function ExecutionHistory({ executions }: { executions: ExecutionRecord[] }) {
               <span className={`mt-1 w-2 h-2 rounded-full ${style.dot}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-(--vestara-text-1) truncate">
+                  <span className="text-xs font-medium text-(--vestara-text-primary) truncate">
                     {exec.task}
                   </span>
                   <span className="text-[9px] text-(--vestara-text-muted)">{style.label}</span>
@@ -270,7 +270,7 @@ export function WorkTab({ agentId, participant }: WorkTabProps) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-(--vestara-red-border) bg-(--vestara-red-bg) px-3 py-2 text-[10px] text-(--vestara-red)">
+      <div className="rounded-lg border border-(--vestara-status-error-border) bg-(--vestara-status-error-bg) px-3 py-2 text-[10px] text-(--vestara-red)">
         {error}
       </div>
     );

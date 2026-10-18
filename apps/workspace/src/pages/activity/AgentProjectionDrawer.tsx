@@ -200,7 +200,7 @@ function OverviewTab({ agent, team, participant, loading, error, agentColor, cat
     return <div className="py-8 text-center text-[10px] text-(--vestara-text-muted)">Loading agent configuration…</div>;
   }
   if (error) {
-    return <p className="rounded-lg border border-(--vestara-red-border) bg-(--vestara-red-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">{error}</p>;
+    return <p className="rounded-lg border border-(--vestara-status-error-border) bg-(--vestara-status-error-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">{error}</p>;
   }
   if (!agent) {
     return (
@@ -265,7 +265,7 @@ function OverviewTab({ agent, team, participant, loading, error, agentColor, cat
 
       {agent.capabilities && agent.capabilities.length > 0 && (
         <div className="rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3">
-          <div className="mb-2 text-[9px] uppercase tracking-widest text(--vestara-text-dim)">Capabilities</div>
+          <div className="mb-2 text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Capabilities</div>
           <div className="flex flex-wrap gap-1">
             {agent.capabilities.map((cap) => (
               <span key={cap} className="rounded border border-(--vestara-accent-border) px-1.5 py-0.5 text-[9px] text-(--vestara-text-2)">
@@ -299,7 +299,7 @@ function ConfigurationTab({ agent, teams, draft, updateDraft, validationErrors, 
   return (
     <div className="space-y-3 p-1">
       {saveError && (
-        <div className="rounded-lg border border-(--vestara-red-border) bg-(--vestara-red-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">
+        <div className="rounded-lg border border-(--vestara-status-error-border) bg-(--vestara-status-error-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">
           {saveError}
         </div>
       )}

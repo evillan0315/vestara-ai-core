@@ -146,7 +146,7 @@ export function PresenceEntryComponent({
   return (
     <div className="flex items-center gap-2">
       <PresenceDot state={entry.state} />
-      <span className="text-xs text-(--vestara-text-1)">{style.label}</span>
+      <span className="text-xs text-(--vestara-text-primary)">{style.label}</span>
       {entry.currentTask && showTask && (
         <span className="text-[10px] text-(--vestara-text-muted) truncate">
           · {entry.currentTask.description}
@@ -228,10 +228,10 @@ export function PresenceIndicator({
               key={entry.agentId}
               type="button"
               onClick={() => handleClick(entry.agentId)}
-              className="flex items-center gap-2 w-full px-2 py-1 rounded hover:bg-(--vestara-surface-hover) text-left cursor-pointer"
+              className="flex items-center gap-2 w-full px-2 py-1 rounded hover:bg-(--vestara-surface-interactive-hover) text-left cursor-pointer"
             >
               <PresenceDot state={entry.state} size="sm" />
-              <span className="text-xs text-(--vestara-text-1) truncate flex-1">
+              <span className="text-xs text-(--vestara-text-primary) truncate flex-1">
                 {entry.agentId}
               </span>
               {entry.currentTask && (

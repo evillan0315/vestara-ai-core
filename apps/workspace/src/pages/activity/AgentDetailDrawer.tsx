@@ -151,7 +151,7 @@ export default function AgentDetailDrawer({
         <span
           className={`rounded-full border px-2 py-0.5 text-[9px] ${
             agent?.status === 'active'
-              ? 'border-(--vestara-green-border) bg-(--vestara-green-bg) text-(--vestara-green)'
+              ? 'border-(--vestara-status-success-border) bg-(--vestara-status-success-bg) text-(--vestara-green)'
               : 'border-(--vestara-accent-border) text-(--vestara-text-muted)'
           }`}
         >
@@ -242,7 +242,7 @@ export default function AgentDetailDrawer({
                 />
               </div>
               {error && (
-                <p className="rounded-lg border border-(--vestara-red-border) bg-(--vestara-red-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">
+                <p className="rounded-lg border border-(--vestara-status-error-border) bg-(--vestara-status-error-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">
                   {error}
                 </p>
               )}

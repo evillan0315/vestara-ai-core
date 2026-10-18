@@ -132,7 +132,7 @@ export default function DashboardHeader({
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold transition-all cursor-pointer ${autoRefresh ? 'bg-(--vestara-green)/15 text-(--vestara-green)' : 'text-(--vestara-text-dim) hover:text-(--vestara-text-2)'}`}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-(--vestara-green) animate-pulse' : `'bg-(--vestara-zinc)`}`}
+              className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-(--vestara-green) animate-pulse' : 'bg-(--vestara-status-idle)'}`}
             />
             {autoRefresh ? 'LIVE' : 'REFRESH'}
           </button>
