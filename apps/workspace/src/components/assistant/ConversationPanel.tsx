@@ -54,6 +54,8 @@ import {
   type AutoCompleteCommand,
 } from '../composer/composerAutoComplete';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
+import { AssistantResponseBlocks } from './AssistantResponseBlocks';
+import { applySuggestion, findSpellingIssues } from './composerSpellcheck';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ToolObservationRenderer } from './ToolObservationRenderer';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
@@ -190,6 +192,7 @@ function AssistantLabel({
 const MessageBubble = memo(function MessageBubble({
   message,
   onOpenInEditor,
+  onSuggest,
 }: {
   message: {
     role: string;
@@ -200,6 +203,8 @@ const MessageBubble = memo(function MessageBubble({
     toolObservations?: readonly ToolObservation[];
   };
   onOpenInEditor?: (file: string) => void;
+  /** Send a follow-up turn (suggestion chips). Same precedent as composer suggestions. */
+  onSuggest?: (text: string) => void;
 }) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
@@ -239,6 +244,9 @@ const MessageBubble = memo(function MessageBubble({
             observations, not the transient execution timeline). */}
         {isAssistant && message.toolObservations && message.toolObservations.length > 0 && (
           <ToolObservationRenderer observations={message.toolObservations} onOpenInEditor={onOpenInEditor} />
+        )}
+        {isAssistant && (
+          <AssistantResponseBlocks content={message.content} onOpenFile={onOpenInEditor} onSuggest={onSuggest} />
         )}
         {isAssistant && (
           <AssistantResponseActions content={message.content} failed={isFailedAssistantContent(message.content)} />
@@ -602,6 +610,10 @@ const ComposeInput = memo(function ComposeInput({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  // Local-first spellcheck: shown only after typing settles (done typing),
+  // never while actively typing. Dismissals are per-draft and reset on send.
+  const [composerIdle, setComposerIdle] = useState(false);
+  const [dismissedSpellIds, setDismissedSpellIds] = useState<ReadonlySet<string>>(new Set());
 
   // Expose textarea ref to parent for focus contract
   useEffect(() => {
@@ -655,6 +667,8 @@ const ComposeInput = memo(function ComposeInput({
     if (parseComposerSuggestionCommand(input)) return;
     onSend(text);
     setInput('');
+    setComposerIdle(false);
+    setDismissedSpellIds(new Set());
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (el) {
@@ -668,6 +682,55 @@ const ComposeInput = memo(function ComposeInput({
 
   // Auto-complete detection
   const autoComplete = useMemo(() => detectAutoComplete(input), [input]);
+
+  const canSend = input.trim().length > 0 && !loading;
+
+  // GA-TERM-001 Phase 1: shell mode is derived per keystroke from the raw
+  // input — never stored — so deleting the prefix exits the mode. The text
+  // is always sent verbatim; this only drives presentation + explicit intent.
+  // Declared before spellcheck: suggestions are exempt in shell mode.
+  const shellIntent = useMemo(() => parseShellIntent(input), [input]);
+  const isShellMode = shellIntent !== null && !loading;
+
+  // Spellcheck idle detection: suggestions appear after typing settles
+  // (done typing), never mid-keystroke. Shell mode is exempt (commands).
+  useEffect(() => {
+    if (input.trim().length === 0) {
+      setComposerIdle(false);
+      return;
+    }
+    setComposerIdle(false);
+    const timer = setTimeout(() => setComposerIdle(true), 900);
+    return () => clearTimeout(timer);
+  }, [input]);
+
+  const spellingIssues = useMemo(() => {
+    if (isShellMode) return [];
+    const found = findSpellingIssues(input);
+    if (dismissedSpellIds.size === 0) return found;
+    return found.filter((issue) => !dismissedSpellIds.has(issue.id));
+  }, [input, dismissedSpellIds, isShellMode]);
+
+  const showSpelling = composerIdle && !loading && spellingIssues.length > 0;
+
+  const handleApplySpelling = useCallback(
+    (id: string) => {
+      const issue = spellingIssues.find((entry) => entry.id === id);
+      if (!issue) return;
+      setInput((prev) => applySuggestion(prev, issue));
+      setComposerIdle(false);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [spellingIssues],
+  );
+
+  const handleDismissSpelling = useCallback((id: string) => {
+    setDismissedSpellIds((prev) => new Set(prev).add(id));
+  }, []);
+
+  const handleDismissAllSpelling = useCallback(() => {
+    setDismissedSpellIds(new Set(spellingIssues.map((issue) => issue.id)));
+  }, [spellingIssues]);
 
   useEffect(() => {
     setAutoCompleteIndex(0);
@@ -719,14 +782,6 @@ const ComposeInput = memo(function ComposeInput({
     },
     [autoComplete, autoCompleteIndex, handleAutoCompleteSelect, handleAutoCompleteDismiss, handleSend],
   );
-
-  const canSend = input.trim().length > 0 && !loading;
-
-  // GA-TERM-001 Phase 1: shell mode is derived per keystroke from the raw
-  // input — never stored — so deleting the prefix exits the mode. The text
-  // is always sent verbatim; this only drives presentation + explicit intent.
-  const shellIntent = useMemo(() => parseShellIntent(input), [input]);
-  const isShellMode = shellIntent !== null && !loading;
 
   // Explicit exit: strip the prefix, keep the command as chat text.
   const exitShellMode = useCallback(() => {
@@ -793,9 +848,13 @@ const ComposeInput = memo(function ComposeInput({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={() => setComposerIdle(input.trim().length > 0)}
           placeholder={loading ? 'Assistant is responding…' : isShellMode ? 'Run a shell command… (Enter to run)' : 'Ask anything about this workspace…'}
           aria-label={isShellMode ? 'Run a shell command' : 'Message the assistant'}
           rows={1}
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="sentences"
           className={`w-full resize-none bg-transparent py-3 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 focus:outline-none min-h-[44px] max-h-[120px] ${isShellMode ? 'pl-9 pr-12 font-mono' : 'pl-4 pr-12'}`}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
@@ -840,6 +899,69 @@ const ComposeInput = memo(function ComposeInput({
           </button>
         )}
       </div>
+
+      {/* Local spellcheck: idle-time suggestions, applied only on explicit tap.
+          Send always transmits the draft verbatim. */}
+      {showSpelling && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="composer-spellcheck"
+          className="mt-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)]"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
+              {spellingIssues.length === 1 ? '1 spelling suggestion' : `${spellingIssues.length} spelling suggestions`}
+            </span>
+            <button
+              type="button"
+              onClick={handleDismissAllSpelling}
+              aria-label="Dismiss all spelling suggestions"
+              className="shrink-0 cursor-pointer text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:underline"
+            >
+              Dismiss all
+            </button>
+          </div>
+          <ul className="mt-1 space-y-1">
+            {spellingIssues.slice(0, 3).map((issue) => (
+              <li key={issue.id} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                  {issue.kind === 'repeat' ? (
+                    <>Repeated word “{issue.word}” — tap Apply to remove</>
+                  ) : issue.kind === 'spacing' ? (
+                    <>Extra spacing — tap Apply to fix</>
+                  ) : (
+                    <>“{issue.word}” → “{issue.suggestion}”</>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleApplySpelling(issue.id)}
+                    aria-label={issue.kind === 'repeat' ? `Remove repeated word ${issue.word}` : `Change ${issue.word} to ${issue.suggestion}`}
+                    className="cursor-pointer rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[length:var(--vestara-font-size-xs)] font-medium text-[var(--vestara-accent-text)]"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissSpelling(issue.id)}
+                    aria-label={`Dismiss suggestion for ${issue.word}`}
+                    className="cursor-pointer rounded-[var(--vestara-radius-sm)] px-1.5 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:underline"
+                  >
+                    Dismiss
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {spellingIssues.length > 3 && (
+            <p className="mt-1 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+              +{spellingIssues.length - 3} more — send as-is or keep editing
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Bottom control row: menu | runtime | provider | model | execution settings */}
       <div className="mt-2 flex items-center gap-2">
@@ -1379,28 +1501,43 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   const handleSelectHistory = useCallback(
     (id: string) => {
       setHistoryOpen(false);
-      if (id === assistant.selectedId) {
-        pickerRef.current?.focus();
-        return;
-      }
       // Canonical selection: loads messages via GET only — no POST, no
       // replay into OpenCode, no new turn. Active-turn protection is owned
       // by the hook (abort projection + reconcile; execution persists
       // server-side). Composer focus follows via conversationKey.
       followRef.current = true;
       setShowJump(false);
+      if (id === assistant.selectedId) {
+        // Re-selecting the active conversation forces a canonical reload.
+        // Sticky restore after refresh may have left partial messages;
+        // re-clicking must recover, not no-op. Also exits any transcript view.
+        void assistant.loadMessages(id);
+        pickerRef.current?.focus();
+        return;
+      }
       assistant.selectConversation(id);
     },
-    [assistant.selectedId, assistant.selectConversation],
+    [assistant.selectedId, assistant.selectConversation, assistant.loadMessages],
   );
 
   const handleLoadSession = useCallback(
     (sessionId: string) => {
-      // Load messages from an OpenCode runtime session
+      // Load messages from an OpenCode runtime session (read-only transcript;
+      // never replays into OpenCode, never starts a turn).
+      setHistoryOpen(false);
+      followRef.current = true;
       void assistant.loadSessionMessages(sessionId);
     },
     [assistant.loadSessionMessages],
   );
+
+  const handleBackToConversation = useCallback(() => {
+    // Exit transcript view: reload canonical conversation messages.
+    if (!assistant.selectedId) return;
+    followRef.current = true;
+    setShowJump(false);
+    void assistant.loadMessages(assistant.selectedId);
+  }, [assistant.selectedId, assistant.loadMessages]);
 
   const handleNewConversation = useCallback(() => {
     setHistoryOpen(false);
@@ -1521,6 +1658,15 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       void retryTurn(clientTurnId);
     },
     [retryTurn],
+  );
+
+  // Interactive response blocks: suggestion chips send the chip text as a
+  // follow-up turn (same precedent as composer suggestion shortcuts).
+  const handleSuggestBlock = useCallback(
+    (text: string) => {
+      void handleSend(text);
+    },
+    [handleSend],
   );
 
   // GA-RETRY-001: scheduled retry from usage-limit alerts.
@@ -1656,7 +1802,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       items.push({
         key: msg.id,
         estimate: estimateMessageHeight(msg.content),
-        node: <MessageBubble message={msg} onOpenInEditor={openInEditorFallback} />,
+        node: <MessageBubble message={msg} onOpenInEditor={openInEditorFallback} onSuggest={handleSuggestBlock} />,
       });
     }
     for (const turn of optimisticTurns) {
@@ -1674,6 +1820,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     optimisticTurns,
     openInEditorFallback,
     handleRetry,
+    handleSuggestBlock,
     handleLoadOlderMessages,
   ]);
 
@@ -1764,6 +1911,37 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
+          {assistant.selectedSessionId ? (
+            <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1">
+              <span className="truncate text-[10px] text-[var(--vestara-text-secondary)]">
+                Viewing runtime transcript (read-only)
+              </span>
+              <button
+                type="button"
+                onClick={handleBackToConversation}
+                data-testid="back-to-conversation"
+                className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)] hover:underline"
+              >
+                Back to conversation
+              </button>
+            </div>
+          ) : (
+            selectedSummary?.runtimeSessionId && (
+              <div className="mt-1 flex items-center justify-between gap-2 px-2">
+                <span className="truncate text-[10px] text-[var(--vestara-text-secondary)]">
+                  Full tool transcript lives in the runtime session
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleLoadSession(selectedSummary.runtimeSessionId as string)}
+                  data-testid="view-runtime-transcript"
+                  className="shrink-0 cursor-pointer rounded-md border border-[var(--vestara-border-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--vestara-accent-text)]"
+                >
+                  View transcript
+                </button>
+              </div>
+            )
+          )}
         </div>
       )}
 
@@ -1800,6 +1978,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             anchorRef={pickerRef}
             runtimeSessions={runtimeSessions}
             onResumeSession={onResumeSession}
+            onLoadSession={handleLoadSession}
             sessionStatusMap={sessionStatusMap}
             hasMoreConversations={assistant.listPagination?.hasMore}
             loadingMoreConversations={assistant.loadingMoreConversations}

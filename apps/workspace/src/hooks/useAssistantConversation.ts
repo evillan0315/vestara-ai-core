@@ -728,6 +728,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       writeStoredSelection(id);
       setSelectedConversation(null);
       setMessages([]);
+      setSessionMessages([]);
+      setSelectedSessionId(null);
       setMessagesError(null);
       setMessagesPagination(null);
       setLoadingOlderMessages(false);
@@ -823,14 +825,20 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   }, [refreshList, selectConversation]);
 
   // ── Load messages for a conversation ──
+  // Exits any OpenCode transcript view so the canonical conversation is shown.
   const loadMessages = useCallback(async (conversationId: string) => {
     try {
       const data = await apiFetch<{ conversation: Conversation }>(
         `/api/conversations/${encodeURIComponent(conversationId)}`,
       );
+      if (selectedIdRef.current !== conversationId) return;
+      setSessionMessages([]);
+      setSelectedSessionId(null);
+      setSelectedConversation(data.conversation);
       setMessages(data.conversation.messages ?? []);
       setMessagesPagination(data.conversation._pagination ?? null);
     } catch {
+      if (selectedIdRef.current !== conversationId) return;
       setMessages([]);
       setMessagesPagination(null);
     }
