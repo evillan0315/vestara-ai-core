@@ -79,12 +79,14 @@ describe('dismissAutoComplete', () => {
   it('removes the trigger and trailing whitespace', () => {
     const state = detectAutoComplete('Please help\n/');
     expect(state).not.toBeNull();
+    if (!state) throw new Error('No autocomplete state');
     expect(dismissAutoComplete('Please help\n/', state)).toBe('Please help');
   });
 
   it('handles trigger at the start', () => {
     const state = detectAutoComplete('/');
     expect(state).not.toBeNull();
+    if (!state) throw new Error('No autocomplete state');
     expect(dismissAutoComplete('/', state)).toBe('');
   });
 });
