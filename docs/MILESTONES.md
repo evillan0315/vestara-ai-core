@@ -6422,3 +6422,348 @@ provisioning is API-side on a loopback login.
 **Explicitly not claimed**: no live end-to-end login was performed against the
 running dev API (that process predates this build and was not restarted); the
 login path is covered by unit tests plus a read-only status smoke.
+
+---
+
+## Workspace Feature Records — 2026-10-16 → 2026-10-18
+
+> **Reconciliation note (2026-10-18)**: audited `git log` against the milestone
+> records. Commits `ec06615` → `e5238a5` (2026-10-16 → 2026-10-18) landed after
+> the 2026-10-14 recording checkpoint. The CLI items in that window **were**
+> recorded on the day by the `0543907` pass — `GA-CLI-ESM-001`,
+> `GA-CLI-OPEN-002`, `GA-AUTH-001`, `GA-ASSISTANT-SURFACE-REVIEW-001` (above) —
+> but the remaining work in those commits, and everything in `6c6353c` and
+> `e5238a5`, was unrecorded on every surface. It is recorded below and in
+> `CHANGELOG.md`. No commit in that window maps to a new milestone *version*, so
+> `milestone-service.ts` and `IMPLEMENTATION_STATUS.md` statuses are unchanged
+> (not modified by this record — see the drift observations below). Commit
+> hashes are authoritative; verification claims are limited to what each commit
+> states.
+>
+> **Registry drift observed (not modified here)**: `GA-TERM-001` remains
+> `pending` although Assistant Terminal Mode primitives shipped (`6c6353c`);
+> `GA-UI-008` is documented "implemented" in `docs/blueprint/` but has no entry
+> in `milestone-service.ts` or `IMPLEMENTATION_STATUS.md`; `GA-UI-009` is a plan
+> with no registry/status entry.
+
+### Marketplace Remote Registries & Suggest ✅ Implemented 2026-10-17 (`6c6353c`)
+
+`RemoteMarketplaceRegistry` (catalog-only) with `suggest()` and
+capability/compatibility filters across service/search/remote-types; the
+`/api/marketplace/suggest` endpoint + `VESTARA_MARKETPLACE_REMOTE` wiring in
+`workspace-context`;
+`docs/CAPABILITY-REGISTRY.md` updated. Advances the Marketplace era (v2.8 remote
+registries); **installs from a remote registry still require an archive fetcher
+(not wired)** — recorded, not claimed.
+
+### UI Primitives: Workspace Chrome + Terminal ✅ Implemented 2026-10-17 (`6c6353c`)
+
+`@vestara/ui-components` gains `workspace-chrome` (Drawer/DrawerMenu/Modal/
+OperationalPanel/ProgressBar/StatCard) and `terminal` (terminal drawer);
+`@vestara/ui` extracts `WorkspaceShell` (+ fixtures) and extends
+`EmptyState`/`Tabs`. Composer autocomplete (`ComposerAutoComplete` +
+`composerAutoComplete.ts`, tested) landed in the same batch. These are the
+primitives referenced by **GA-TERM-001** (Assistant Terminal Mode) and
+**GA-UI-009** (Global Assistant Restructure) — neither milestone is claimed
+complete by this record.
+
+### Orchestration & Workflow Resume/Graph Fixes ✅ Implemented 2026-10-18 (`e5238a5`)
+
+Resume is gated on the executing phase (backend resume is a no-op elsewhere);
+resume failures surface via a dismissible error banner and reload the resumed
+project's cached detail. Open graph targets the clicked workflow (per-card id,
+selection-aware quick actions) instead of falling back to `projects[0]`. The
+next-action resolver resumes only for executing/running and lets verifying fall
+through to observational progress. Advances v5.4 / PCS-025 (already recorded
+complete).
+
+### Telegram Projection Health ✅ Implemented 2026-10-18 (`e5238a5`)
+
+Rich-cards saturate infinities in the progress clamp and measure elapsed as of
+the update timestamp; file-handler classifies `ogg`/`opus` as voice before
+generic audio and expires cache entries with `>=` for zero-TTL determinism;
+activity projection formats timestamps in UTC. Determinism only — no new
+authority.
+
+### Marketplace Theme Templates & Appearance Tokens (VES-DESIGN-004) ✅ Implemented 2026-10-18 (`e5238a5`)
+
+`packages/marketplace-ui/src/templates.ts` (theme template families/weights,
++99 tests); `ui-tokens` adds the `shell` accent palette and the font-family/
+weight catalogs (`FONT_FAMILIES`, `FONT_WEIGHTS`), covered by
+`packages/ui-tokens/__tests__/theme-appearance-tokens.test.ts`. Feeds GA-UI-009
+M1 (assistant token group); does **not** complete it.
+
+### TUI Stream Execution-Id Fix (GA-TUI-STREAM-001) ✅ Fixed 2026-10-16 (`51f194b`)
+
+`submit()` armed the stream gate with `exec-*` while the controller yielded
+`assistant-*`/`tool-*` ids, so every delta/complete was rejected as stale and
+agent responses never rendered (silent drop). `execute()` now accepts the caller
+execution id; tool cards are `<executionId>-tool-<n>`; the gate accepts
+namespaced tools and still rejects foreign/cancelled executions. Regression
+tests added. Restores the TUI client described by ADR-113.
+
+### Workflow Orchestrator E2E Corpus Restored ✅ 2026-10-16 (`de337a6`)
+
+Restored the orchestrator + E2E corpus (~7.5k test lines: harness
+characterization, lifecycle, worker execution, planning-trial, real-agent,
+verification-repair, multi-repo, observation) to close a false-green gate.
+Evidence supporting the v5.4 / PCS-025 "delivered" status.
+
+### Blueprint Governance Volume ✅ 2026-10-16 (`e21a81a`)
+
+`docs/blueprint/governance/` constitution/catalog volumes and ADR-100–129 (plus
+nla/orb/osr reference docs) refreshed with implementation-reference metadata.
+
+### Marketplace UI Components, Workspace Files & Agent Runtimes ✅ 2026-10-16 (`a923639`, `ec06615`)
+
+`@vestara/ui-components` (`catalog`, `icons`, `chat-assistant`,
+`file-workspace`, `auth-onboarding`, `data-display`) and the workspace
+Marketplace `Components` page; `ui-tokens` extended and `generated-tokens.css`/
+`marketplace.css` regenerated (`a923639`, whose CLI-owned API-auth portion is
+already recorded as GA-AUTH-001). `ec06615` added the workspace Files
+experience (`FileBrowserPanel`, `FileQuickOpen`, `FileInspector`,
+`FilesHeader`), a Playwright e2e config, and refreshed agent-runtime renders
+across OpenCode/Codex/Claude/Gemini.
+
+### Native Assistant Response Blocks (GA-UI-010) ✅ Implemented 2026-10-18 (`83e7a70`)
+
+Native parser + renderer for assistant markdown (fixes, validations, files
+changed, verifications, suggestion chips), composer spellcheck, and the
+conversation-reselect fix. Presentation only; attributed to no pre-existing
+milestone after an attribution audit — see the dedicated **GA-UI-010** entry at
+the end of this file. Recorded after commit, not before.
+
+### Observation — v7.15 Phase 1 (not a blocker)
+
+`v7.15` (Navigation Restructure, current focus) remains **Phase 1 authorized**.
+Audited: no `apps/workspace/src/lib/navigation-generator.ts`, no
+`navigation-types.ts`, and no `navCategory`/`navGroup` annotations in
+`apps/workspace/src/routes.ts` exist yet — so **no Phase 1 implementation is
+recorded or present**. Status unchanged; recorded here for traceability.
+
+---
+
+## GA-UI-010 — Native Assistant Response Blocks ✅ Implemented 2026-10-18 (`83e7a70`)
+
+**Status**: Implemented — native core, presentation only. Recorded 2026-10-18.
+
+**Commit**: `83e7a70` — 7 files, `+957/−15`:
+`AssistantResponseBlocks.tsx`, `assistantResponseBlocks.ts` + test,
+`composerSpellcheck.ts` + test, `ConversationPanel.tsx`,
+`useAssistantConversation.ts`.
+
+**Why a new identifier**: the work was attributed by audit before it was
+recorded, and it belongs to none of the existing candidates — SRX (🔷 Proposed;
+extension/contract/entitlement architecture, SRX-001 not run), GA-UI-008
+(launcher dock only), GA-UI-009 (restructure M1–M8: token group, conversation
+rail, header, status rail, capabilities grid, template polish, motion), or
+GA-UX-PREMIUM M7/M8 (whose data source is the structured `assistant.execution.v1`
+projection, explicitly "derived from bash/test results (not manufactured)").
+The closest partial homes are cross-referenced below rather than claimed.
+
+**Objective**: derive navigable structure from an assistant response on the
+client and present it, without inventing authority, provenance, or execution.
+
+**What was built**:
+
+| Surface | Behaviour |
+|---|---|
+| `assistantResponseBlocks.ts` | Pure parser (no DOM, no network) over assistant markdown: `fixes[]` (`Fix X — title`, with file/route refs extracted from the title text only), `validations[]` (command — result), `filesChanged[]`, `verifications[]`, `suggestions[]` |
+| `AssistantResponseBlocks.tsx` | Renders the parsed blocks under a completed assistant message: file refs open the editor, route refs navigate, `Evidence` opens the Activity Room, suggestion chips send a follow-up turn |
+| `composerSpellcheck.ts` | Local-first composer typing aid: curated typo map, repeated words, double spacing; pure and bounded (single pass) |
+| `ConversationPanel.tsx` | Wires blocks into `MessageBubble`; spellcheck shown idle-time only, per-draft dismissals reset on send |
+| `useAssistantConversation.ts` | Selecting/reloading a conversation exits the OpenCode transcript view and shows the canonical conversation; stale loads discarded via `selectedIdRef` |
+
+**Boundaries (invariants preserved)**:
+
+1. **Presentation only** — no execution, routing, persistence, or
+   conversation-selection authority. Navigation targets are display-only.
+2. **Suggestion chips are ordinary user turns** — they go through the existing
+   `sendMessage` path (GA-UI-006 §4 precedent). No tool invocation, no
+   privileged action, no auto-execution. Clicking a chip is a navigation
+   shortcut, never an `ExecutionRequest`.
+3. **Conservative parsing** — unrecognized content yields empty arrays; the raw
+   markdown always renders unchanged. Nothing is hidden, replaced, or truncated.
+4. **Tokens only** — 16 `var(--vestara-*)` references; zero hardcoded visual
+   values. This commit adds no F-02-class debt.
+5. **Spellcheck never mutates the draft** — every correction requires an
+   explicit Apply; Send transmits the draft verbatim.
+
+**Relationship to SRX (explicit, to prevent a false claim)**: this is a native
+core-side capability, **not** SRX-006/007/008. It satisfies none of SRX's
+invariants: there is no Layer-0 `@vestara/assistant-result-contracts` package,
+no extension port, no `provenance.source` marking, no confidence scoring, and no
+entitlement gating. SRX remains 🔷 Proposed and still requires SRX-001 first.
+**Known gap**: inferred structure is presented without a provenance marker
+(SRX invariant 5 unsatisfied) — recorded as a condition for future SRX
+convergence, not remediated here.
+
+**Cross-references**: GA-UI-005 §12 (adjacent opportunity 1 — canonical "open
+file in Workspace" navigation) is realized for assistant output by this record;
+GA-UX-PREMIUM M7/M8 remain the structured-data counterparts; GA-UI-006 §4 is the
+suggestion-chip precedent; `83e7a70` is listed in the Workspace Feature Records
+section above.
+
+**Verification (claimed)**: 18/18 new pure unit tests
+(`assistantResponseBlocks.test.ts`, `composerSpellcheck.test.ts`) pass under
+`npx vitest run`; `tsc -p apps/workspace/tsconfig.json` reports **zero** errors
+in the seven committed files. **Not claimed**: no runtime dogfood, no
+`pnpm screenshots:ci`, no end-to-end turn executed, no visual acceptance.
+
+**Adjacent findings (recorded, not mutated)**:
+
+- `apps/workspace/src/components/composer/composerAutoComplete.test.ts:82,88` —
+  two pre-existing `TS2345` errors, unmodified since `6c6353c`. The package
+  typecheck fails at HEAD; because `pnpm build` hardcodes
+  `@vestara/workspace-ui` as non-buildable (`scripts/workspace-architecture.mjs`)
+  and Biome excludes `apps/workspace`, **no CI gate covers this surface**.
+- The F-02 hardcode findings from GA-ASSISTANT-SURFACE-REVIEW-001 remain open in
+  `ConversationPanel.tsx`; this commit adds none.
+- `GA-UI-008`, `GA-UI-009`, and `GA-UX-PREMIUM` still have no
+  `milestone-service.ts` or `IMPLEMENTATION_STATUS.md` entries (see the drift
+  note above).
+
+**Registry note**: following the `WF-GRAPH` / `WF-PLAYGROUND` precedent, this
+record lives in `MILESTONES.md` only; `packages/workspace/src/milestone-service.ts`
+is intentionally untouched (it tracks `vX.Y` version milestones).
+
+---
+
+## GA-EXEC-003 — Assistant Turn Reliability: Model Pin, Tool-Call Budget, Failure Notice ✅ Fixed 2026-10-18
+
+**Trigger**: a Global Assistant turn streamed for **3,610,745 ms** and ended
+without producing an answer. Reproduced across three consecutive turns.
+
+### Evidence (observed, not inferred)
+
+- `conv-1792307446505-2` → session `ses_eb20dc9c3ffeyC4uTxsllfpaWq`.
+  `POST /api/conversations/conv-1792307446505-2/stream` began
+  `2026-10-18T12:27:14.014Z` and completed `13:27:24.759Z`.
+  `assistant.turn.ended` at `13:27:22.465Z` carried
+  `termination=timeout elapsedMs=3,602,043 toolCallCount=77`.
+- The assistant message (`msg-1792326438232-31`) was written only at
+  `13:27:23.082Z` — **after** the turn ended. The UI was not wedged; it was
+  waiting on a turn that had not finished. The API was healthy and browser
+  polling was functioning throughout (no stale SSE/API wedge).
+- The execution record (`exec-1792326438232-32`, requested `12:27:18.232Z`,
+  failed `13:27:23.985Z`) carried error
+  `{code: 'failed', message: 'Execution deadline exceeded', recoverable: true}`
+  and an `output` of **66,253 characters** of unfinished model monologue — the
+  partial stream persisted as the durable answer.
+- Same shape in `conv-1792316740047-23`: timeout at 225 tool calls, followed by
+  a failed turn at 136.
+- **Provider provenance**: every observed turn in `07:38–09:18` resolved to
+  `opencode-go/muse-spark-1.3-contributor` and **7/7 completed**; every observed
+  turn in `09:46–12:27` resolved to `opencode/deepseek-v4.1-flash-free` and
+  **3/3 timed out or failed**.
+- Live `/config/providers` catalog: provider `opencode-go` exposes
+  `muse-spark-1.3-contributor`; provider `opencode` exposes `muse-spark-1.3`
+  and `deepseek-v4.1-flash-free`. The registered
+  `opencode/muse-spark-1.3-contributor-free` **is not in the catalog**.
+- **Regression origin**: commit `e18439e` (2026-09-30) changed only
+  `opencode.json` and the registry assistant entry from
+  `opencode-go/muse-spark-1.3-contributor` to
+  `opencode/muse-spark-1.3-contributor-free`.
+- Constants: `TURN_TIMEOUT_MS` default 60 min
+  (`apps/api/src/assistant-opencode-adapter.ts:378`) with
+  `DEFAULT_MAX_TOOL_CALLS = 0` (unlimited).
+
+### Fix
+
+1. **Model pin** — `packages/workspace/src/agents.registry.ts` and
+   `opencode.json` now declare `opencode-go/muse-spark-1.3-contributor`; all
+   four runtime renders regenerated with `pnpm agents:sync` (56 files across
+   4 runtimes × 2 repos + 2 root instruction files).
+2. **Tool-call budget** — `DEFAULT_MAX_TOOL_CALLS` `0` → **150**. 150 exceeds
+   every observed successful turn (max 128) so legitimate long investigations
+   are not truncated, while a runaway turn ends long before the deadline. An
+   explicit `0` from the UI is preserved as "unlimited";
+   `VESTARA_GA_MAX_TOOL_CALLS` still overrides.
+3. **Failure notice** — `packages/conversation/src/index.ts` adds
+   `turnFailureNotice()`; the streaming path persists
+   `This turn did not complete: <error>. No answer was produced.` as both the
+   message content and the execution `result.output`. The partial stream is
+   never durable. Successful turns are unchanged (same predicate that
+   classifies `terminalStatus`).
+4. **UI/adapter default alignment** — `useGAExecutionConfig` and
+   `ExecutionControlsPopover` declared 15m / 0 while the adapter enforced
+   60m / 0; `toRequestConfig()` omits values equal to `DEFAULTS`, so the UI
+   displayed "15m" behind a 60-minute deadline. Both now read 60m / 150 and
+   `AssistantExecutionSettings` labels the option `60m (default)`.
+
+### Verification
+
+- `pnpm lint:check`, `pnpm build`, `pnpm agents:check`, `pnpm vds:validate`
+  pass.
+- `npx vitest run apps/api/__tests__ packages/conversation/__tests__` →
+  36 files / 248 tests pass, including the new GA-EXEC-003 case in
+  `packages/conversation/__tests__/assistant-execution-wiring.test.ts`
+  (asserts the notice is persisted, the partial text is **absent**,
+  `status === 'failed'`, and the notice appears in `result.output`).
+
+### Not claimed
+
+- **No post-fix live dogfood turn was executed**, and the running dev API
+  (pid 373786) was **not** restarted — it still holds the pre-audit environment
+  in memory. The model pin is verified by catalog comparison and rendered agent
+  files, **not** by an observed successful end-to-end turn. No claim is made
+  that the fixed path has been exercised against a live model.
+- Per the established principle, **selected-provider/model execution provenance
+  reaching execution is not claimed** — only that the declared identifiers now
+  match the live catalog.
+
+### Adjacent findings (recorded, not mutated)
+
+- `apps/workspace/src/components/composer/composerAutoComplete.test.ts:82,88` —
+  two pre-existing `TS2345` errors still fail the package typecheck (unchanged,
+  carried forward from `GA-UI-010`).
+- **Remaining F-02 scope**: the seven components migrated here were the F-02
+  set. Ten further assistant-surface files still carry literal palette
+  utilities (`text-zinc-*`, `bg-emerald-500/15`, `text-amber-400/80`, …):
+  `AssistantCodeEdit.tsx`, `AssistantFilesSummary.tsx`, `AssistantTerminal.tsx`,
+  `AssistantVerification.tsx`, `AssistantTodoChecklist.tsx`,
+  `AssistantResponseActions.tsx`, `ConversationHistory.tsx`, `ExecutionTray.tsx`,
+  `ExecutionControlsPopover.tsx`, plus arbitrary `text-[Npx]` sizes throughout
+  (including in the migrated files — F-02 was color-scoped, not size-scoped).
+- `packages/workspace/src/agents.registry.ts` carries a literal `#3b82f6` agent
+  color (outside the UI-only scope of the governance).
+- `pnpm screenshots:ci` was not run; the token migration is visually unverified.
+- `GA-UI-008`, `GA-UI-009`, and `GA-UX-PREMIUM` still have no
+  `milestone-service.ts` or `IMPLEMENTATION_STATUS.md` entries.
+
+---
+
+## ENV-AUDIT-001 — `.env` Reduction and Archive ✅ 2026-10-18
+
+**Scope**: `/home/user/projects/vestara-ai-core` only. Three files:
+`.env`, `.opencode/.env`, `.env.production`.
+
+**Evidence**: `.env` held 186 declarations / 184 distinct keys (10,837 B);
+`.opencode/.env` was **byte-identical** to it with **no consumer anywhere in the
+repository** (its only reference is a mtime index entry at
+`.vestara/workspace.json:6836`); `.env.production` held 2 keys with a header
+stating it layers on top of `.env` and must not duplicate secrets. All three
+were already gitignored and **none was tracked** — no secret was ever committed.
+
+**Change**: keep set reduced to the **19** keys with a recorded consumer
+(curated registry `apps/api/src/routes/system-environment.ts` — `SETTINGS-ENV-E1`;
+a `process.env`/`import.meta.env` reference; or a workflow/systemd reference).
+The **165 unconsumed keys were archived, not deleted**, to `.env.archive`
+(verbatim including original comments, values preserved); `.opencode/.env` was
+removed. `.gitignore` lists `.env.archive` + `.env.archive.*` explicitly rather
+than relying on the `.env.*` glob, which carries `!.env.example` /
+`!.env.local.example` negations.
+
+**Integrity proof**: 19 + 165 = 184 distinct keys, union 184, zero overlap, every
+original value byte-identical, zero empty values, zero unparseable lines, and
+**zero names declared in the curated env registry appear in the archive**.
+`node --env-file=.env` loads 19/19.
+
+**Explicitly not claimed**: consumption could only be disproven **within this
+repository**. An external process conventionally reading provider credential
+names (the `opencode` CLI/server, or a sibling tool) could not be ruled out from
+inside the repo — which is why the keys were archived rather than deleted. The
+running opencode server (pid 290140) does **not** receive this file, but that is
+not proof of intent. `/proc/<pid>/environ` was checked and is **not** a valid
+consumption signal for `--env-file` keys (0/186 present).
+

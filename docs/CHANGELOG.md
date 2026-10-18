@@ -10,6 +10,211 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-18] — Assistant Turn Reliability (Model Pin, Tool-Call Budget, Failure Notice) + `.env` Audit
+
+### Fixed
+
+- **Global Assistant turns ran to a 60-minute deadline and failed without
+  answering (GA-EXEC-003)** — three defects compounded:
+  - **Model pin.** The assistant was registered as
+    `opencode/muse-spark-1.3-contributor-free`, which is **not present in the
+    live OpenCode provider catalog** (`opencode-go` exposes
+    `muse-spark-1.3-contributor`; `opencode` exposes `muse-spark-1.3` and
+    `deepseek-v4.1-flash-free`). Observed turns therefore resolved to a
+    different model than declared: `opencode-go/muse-spark-1.3-contributor`
+    completed 7/7 observed turns (07:38–09:18), while the substituted
+    `opencode/deepseek-v4.1-flash-free` timed out or failed 3/3 (09:46–12:27).
+    `agents.registry.ts` and `opencode.json` now pin
+    `opencode-go/muse-spark-1.3-contributor`; all four runtime renders were
+    regenerated via `pnpm agents:sync`.
+  - **Unbounded tool-call budget.** `DEFAULT_MAX_TOOL_CALLS` was `0`
+    (unlimited), leaving the turn deadline as the only backstop, so a looping
+    model produced hour-long turns (observed 77 / 136 / 225 tool calls across
+    the three failing turns). The default is now **150**, which exceeds every
+    observed successful turn (max 128) so legitimate long investigations are
+    not truncated. An explicit `0` sent by the UI still means unlimited;
+    `VESTARA_GA_MAX_TOOL_CALLS` still overrides.
+  - **Partial stream persisted as the answer.** A failed or timed-out turn
+    wrote the accumulated stream verbatim to the assistant message and the
+    execution record — observed as **66,253 characters of unfinished model
+    output** presented as a reply. `turnFailureNotice()` now persists
+    `This turn did not complete: <error>. No answer was produced.` as both the
+    message content and the execution `result.output`. Successful turns are
+    unchanged.
+- **UI/adapter default mismatch.** `useGAExecutionConfig` and
+  `ExecutionControlsPopover` declared `turnTimeoutMs` 15m and `maxToolCalls` 0
+  while the adapter enforced 60m / 0. Because `toRequestConfig()` omits values
+  equal to `DEFAULTS`, the UI displayed "15m" behind a 60-minute deadline. Both
+  now read 60m / 150, matching the adapter, and the Settings surface labels the
+  option `60m (default)`.
+- **`LauncherDock.tsx:181`** carried a stray `0` after `text-(--vestara-text)`,
+  leaving an invalid trailing class (pre-existing since `9fea59f`).
+
+### Changed
+
+- **`.env` audited and reduced (`vestara-ai-core` only)** — 186 declarations /
+  184 distinct keys → **19** proven-consumed keys. The **165 unconsumed keys
+  were archived, not deleted**, to `.env.archive` (verbatim, values preserved);
+  the byte-identical duplicate `.opencode/.env`, which had **no consumer**, was
+  removed. `.env.production` was already minimal (2 keys) and is untouched.
+  35 of the archived keys were secret-shaped credentials for products absent
+  from this repository. `.gitignore` now lists `.env.archive` explicitly rather
+  than relying on the `.env.*` glob, which carries `!.env.example` /
+  `!.env.local.example` negations.
+- **Assistant surface migrated to Vestara design tokens (F-02 of
+  `GA-ASSISTANT-SURFACE-REVIEW-001`)** — seven components no longer carry
+  literal color utilities (see `MILESTONES.md` for the file list and the
+  remaining-scope note).
+
+### Verification
+
+- `pnpm lint:check`, `pnpm build`, `pnpm agents:check`, `pnpm vds:validate`
+  pass. `npx vitest run apps/api/__tests__ packages/conversation/__tests__` →
+  36 files / 248 tests pass, including the new GA-EXEC-003 case.
+- `.env` integrity: 19 kept + 165 archived distinct keys, union 184, zero
+  overlap, every original value byte-identical, zero empty values, and **zero
+  names declared in the curated env registry appear in the archive**.
+
+### Not claimed
+
+- No post-fix live dogfood turn was executed, and the running dev API
+  (pid 373786) was **not** restarted — it still holds the pre-audit environment
+  in memory. The model pin is verified by catalog comparison and rendered agent
+  files, not by an observed successful end-to-end turn.
+- `pnpm screenshots:ci` was not run; the token migration is visually unverified.
+
+## [2026-10-18] — Workflow Resume, Telegram Projection Health, Marketplace Templates, Native Assistant Response Blocks
+
+### Added
+
+- **Native assistant response blocks (`83e7a70`)** — recorded as
+  **GA-UI-010**: `AssistantResponseBlocks.tsx` + pure parser
+  `assistantResponseBlocks.ts` (+ tests) derive navigable structure
+  from assistant markdown — `Fix X — title` lines with file/route
+  refs extracted from the title text only, validation, files-changed,
+  verification, and suggestion blocks. File refs open the editor,
+  route refs navigate, `Evidence` opens the Activity Room,
+  suggestion chips send a follow-up turn through the existing
+  `sendMessage` path (GA-UI-006 §4 precedent). Presentation only: no
+  execution, routing, or persistence authority; unrecognized input
+  yields empty arrays and the markdown renders unchanged. Native
+  core — **not** SRX-006/007/008 (no contracts package, no
+  `provenance.source` marking, no entitlements).
+- **Local-first composer spellcheck (`83e7a70`)**: `composerSpellcheck.ts`
+  (+ tests) — curated typo map, repeated words, double spacing;
+  idle-time only, per-draft dismissals, no network/telemetry, and the
+  draft is never mutated (every correction requires explicit Apply).
+- **Marketplace theme templates + appearance tokens (`e5238a5`)**:
+  `packages/marketplace-ui/src/templates.ts` (theme template
+  families, +99 tests); `ui-tokens` gains the `shell` accent
+  palette (extracted from `assets/templates/html/Vestara-Shell-
+  Foundation-Review.html`) plus the VES-DESIGN-004 font catalogs
+  (`FONT_FAMILIES`, `FONT_WEIGHTS`), covered by
+  `packages/ui-tokens/__tests__/theme-appearance-tokens.test.ts`.
+- **Activity Room attention primitive (`e5238a5`)**:
+  `packages/activity-room/src/attention.ts` (+ tests).
+- **Workspace UI v2 desktop-shell plan (`e5238a5`)**:
+  `docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md`
+  (status proposed; implementation not authorized).
+
+### Fixed
+
+- **Conversation reselect shows the canonical conversation (`83e7a70`)**:
+  selecting or reloading a conversation exits the OpenCode transcript
+  view and loads the canonical conversation; stale loads are discarded
+  via `selectedIdRef`.
+- **Orchestration resume/open-graph (`e5238a5`)**: Resume is
+  gated on the executing phase (backend resume is a no-op
+  elsewhere); resume failures surface as a dismissible error
+  banner and reload the resumed project's cached detail. Open
+  graph targets the clicked workflow (per-card id,
+  selection-aware quick actions) instead of falling back to
+  `projects[0]`; the next-action resolver resumes only for
+  executing/running and lets verifying fall through to
+  observational progress.
+- **Telegram projection determinism (`e5238a5`)**: rich-cards
+  saturate infinities in the progress clamp and measure elapsed
+  as of the update timestamp; file-handler classifies
+  `ogg`/`opus` as voice before generic audio and expires cache
+  entries with `>=` for zero-TTL determinism; activity
+  projection formats timestamps in UTC.
+
+## [2026-10-17] — Marketplace Remote Registries & Suggest, Orchestration Rework, Composer Autocomplete, Shell Primitives
+
+### Added
+
+- **Marketplace remote registries + suggest (`6c6353c`)**:
+  `RemoteMarketplaceRegistry` (catalog-only) with `suggest()` and
+  capability/compatibility filters across service/search/
+  remote-types; `GET /api/marketplace/suggest` and
+  `VESTARA_MARKETPLACE_REMOTE` (`;`-separated
+  `id|displayName|baseUrl`) wired in `workspace-context`;
+  `suggestQueryFromUrl` + `compatibleOnly` search;
+  `docs/CAPABILITY-REGISTRY.md` updated (remote registries serve
+  catalog discovery/search/health; installs require an archive
+  fetcher, not yet wired; publishing + Ed25519 sign/verify
+  implemented and exposed).
+- **UI primitives (`6c6353c`)**: `@vestara/ui-components` gains
+  `workspace-chrome.tsx` (Drawer/DrawerMenu/Modal/OperationalPanel/
+  ProgressBar/StatCard) and `terminal.tsx` (terminal drawer);
+  `@vestara/ui` extracts `WorkspaceShell` (+ fixtures) and extends
+  `EmptyState`/`Tabs`.
+- **Composer autocomplete (`6c6353c`)**: `ComposerAutoComplete` +
+  `composerAutoComplete.ts` with tests.
+- **Design reference templates (`6c6353c`)**:
+  `assets/templates/html/*` and
+  `assets/templates/react/vestara-tui-ink/` reference projects.
+
+### Changed
+
+- **Orchestration + WorkflowGraph rework (`6c6353c`)**:
+  `apps/workspace/src/pages/Orchestration.tsx`, `WorkflowGraph.tsx`,
+  and `orchestration-next-action.ts` reworked; Marketplace pages
+  (Discover/Capabilities/AssetDetail/Extractor) and tokens/styles
+  updated.
+
+## [2026-10-16] — CLI Auth/ESM/Open Resilience, Marketplace UI Tokens, Workflow E2E Restoration, TUI Stream Fix, Blueprint Governance
+
+### Added
+
+- **CLI auth + runtime probe (`46ef953`, `a923639`)**: `auth`
+  command group (`login`/`status`/`logout`/`token`), shared
+  `~/.config/vestara/auth.json` session store, `runtime-probe`,
+  and an `executable` PATH probe. Recorded in full as
+  **GA-AUTH-001** in `MILESTONES.md`.
+- **Marketplace UI components + tokens (`a923639`)**:
+  `@vestara/ui-components` (`catalog`, `icons`, `chat-assistant`,
+  `file-workspace`, `auth-onboarding`, `data-display`) and the
+  workspace Marketplace `Components` page; `ui-tokens` extended and
+  `generated-tokens.css`/`marketplace.css` regenerated.
+- **Blueprint governance volume (`e21a81a`)**:
+  `docs/blueprint/governance/` constitution/catalog volumes and
+  ADR-100–129 (plus nla/orb/osr reference docs) refreshed
+  (implementation-reference metadata).
+- **Workspace Files experience + agent runtimes (`ec06615`)**:
+  `FileBrowserPanel`, `FileQuickOpen`, `FileInspector`,
+  `FilesHeader` added/updated, a Playwright e2e config introduced,
+  and agent-runtime renders refreshed across
+  OpenCode/Codex/Claude/Gemini.
+
+### Fixed
+
+- **TUI stream execution-id (`51f194b`)**: `submit()` armed the
+  stream gate with `exec-*` while the controller yielded
+  `assistant-*`/`tool-*` ids, so every delta/complete was rejected
+  as stale and agent responses never rendered (silent drop).
+  `execute()` now accepts the caller execution id; tool cards are
+  `<executionId>-tool-<n>`; the gate accepts namespaced tools and
+  still rejects foreign/cancelled executions. Regression tests added
+  (stream-gate identity matrix + controller stream-id handshake).
+- **Workflow orchestration E2E corpus (`de337a6`)**: restored the
+  orchestrator and E2E corpus (harness characterization, lifecycle,
+  worker execution, planning-trial, real-agent, verification-repair,
+  multi-repo, observation — ~7.5k test lines) to close a
+  false-green gate.
+- **Biome ignore (`e1736ff`)**: generated HTML bundles under
+  `assets/templates/html` excluded from Biome.
+
 ## [2026-10-14] — Marketplace UI Extraction, Telegram Explicit Pairing, Identity Spec
 
 ### Added
