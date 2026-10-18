@@ -10,6 +10,19 @@ const vestaraAiCore = resolve(here, '..');
 const rootRepo = resolve(here, '..', '..');
 const CHECK = process.argv.includes('--check');
 
+// The parent-of-repo target exists for a local layout where sibling repos sit
+// under one folder that also carries a shared .opencode/agents. GitHub Actions
+// checks the repo out at <parent>/<repo> where the parent is a bare directory,
+// so probing it there reported the agent dirs as MISSING and failed
+// `agents:check` on every run — and it passed locally only because this machine
+// happens to have that shared folder. Treat the parent as a target only when it
+// already looks like one, so the check reflects this checkout rather than
+// whatever layout the runner happens to have.
+const rootRepoIsTarget =
+  existsSync(join(rootRepo, '.git')) ||
+  existsSync(join(rootRepo, 'opencode.json')) ||
+  existsSync(join(rootRepo, '.opencode', 'agents'));
+
 // Load the canonical registry (.ts) by transpiling it in-memory. The registry
 // only `import type`s from ./types (erased), so no runtime resolution is needed.
 const registryPath = join(vestaraAiCore, 'packages', 'workspace', 'src', 'agents.registry.ts');
@@ -294,14 +307,11 @@ function syncOpencodeJson(label, file) {
   console.log(`[agents:sync] ${label}: synced ${file} (instructions mirrored, \`agent\` block stripped)`);
 }
 
-const agentDirTargets = [
-  ['vestara-ai-core', vestaraAiCore],
-  ['root', rootRepo],
-];
+const agentDirTargets = [['vestara-ai-core', vestaraAiCore], ...(rootRepoIsTarget ? [['root', rootRepo]] : [])];
 
 const opencodeJsonTargets = [
   ['vestara-ai-core', join(vestaraAiCore, 'opencode.json')],
-  ['root', join(rootRepo, 'opencode.json')],
+  ...(rootRepoIsTarget ? [['root', join(rootRepo, 'opencode.json')]] : []),
 ];
 
 // Root instruction files belong to the repo itself — the parent checkout is a
@@ -334,6 +344,6 @@ if (CHECK) {
   );
 } else {
   console.log(
-    `[agents:sync] Done. ${total} agent file(s) written (${CANONICAL_AGENTS.length} per runtime × ${AGENT_TARGETS.length} runtimes × 2 repos) + ${roots} root file update(s).`,
+    `[agents:sync] Done. ${total} agent file(s) written (${CANONICAL_AGENTS.length} per runtime × ${AGENT_TARGETS.length} runtimes × ${agentDirTargets.length} repo(s)) + ${roots} root file update(s).`,
   );
 }
