@@ -15,7 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
-import { ELEVATION, FONT_SIZE, MARKETPLACE_LAYOUT, MOTION, UI_COMPONENT } from './tokens.js';
+import { ELEVATION, FONT_SIZE, MARKETPLACE_LAYOUT, MOTION, SIZING, UI_COMPONENT } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -155,6 +155,15 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-font-size-section-title': FONT_SIZE.sectionTitle,
     '--vestara-font-size-page-title': FONT_SIZE.pageTitle,
     '--vestara-font-size-display': FONT_SIZE.display,
+
+    // VES-DESIGN-008: sizing scale (theme-invariant geometry sourced from
+    // SIZING tokens). SIZING already existed in tokens.ts but was never emitted
+    // as CSS variables, so any `--vestara-sizing-*` reference resolved to
+    // nothing — the same silent-undefined trap VES-DESIGN-007 closed for
+    // font sizes. Only the scroll bounds are emitted so far; the remaining
+    // SIZING groups can follow as consumers adopt them.
+    '--vestara-sizing-scroll-max-height': SIZING.scroll.maxHeight,
+    '--vestara-sizing-scroll-dialog-max-height': SIZING.scroll.dialogMaxHeight,
 
     // VES-DESIGN-005 §M: Discover gallery layout (theme-invariant geometry
     // sourced from MARKETPLACE_LAYOUT — identical in dark/light).

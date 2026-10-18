@@ -98,6 +98,8 @@
   --vestara-motion-normal: 200ms;
   --vestara-motion-slow: 300ms;
   --vestara-motion-slower: 500ms;
+  --vestara-sizing-scroll-dialog-max-height: 40vh;
+  --vestara-sizing-scroll-max-height: 45vh;
   --vestara-status-active: #4ade80;
   --vestara-status-disabled: #52525b;
   --vestara-status-error: #f87171;
@@ -238,6 +240,8 @@
   --vestara-motion-normal: 200ms;
   --vestara-motion-slow: 300ms;
   --vestara-motion-slower: 500ms;
+  --vestara-sizing-scroll-dialog-max-height: 40vh;
+  --vestara-sizing-scroll-max-height: 45vh;
   --vestara-status-active: #16a34a;
   --vestara-status-disabled: #a1a1aa;
   --vestara-status-error: #dc2626;

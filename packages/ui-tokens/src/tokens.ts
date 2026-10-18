@@ -407,6 +407,16 @@ export const SIZING = {
     md: '20px',
     lg: '24px',
   },
+  // Scroll regions. Bounded in viewport units so a long list scrolls inside its
+  // own block and the block's action bar stays reachable, instead of the block
+  // growing past the viewport and pushing its controls out of view. These are
+  // layout bounds, not theme values — a single declaration serves both themes.
+  scroll: {
+    /** In-flow list inside a message/panel (e.g. assistant suggested steps). */
+    maxHeight: '45vh',
+    /** List inside an overlay dialog, where chrome takes more room. */
+    dialogMaxHeight: '40vh',
+  },
 } as const;
 
 // ─── Density Tokens ────────────────────────────────────────────

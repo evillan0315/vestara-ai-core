@@ -9,8 +9,9 @@
  *   otherwise an honest "Planned" badge (future screen, never a dead link)
  * - validation rows → Evidence button navigates to the Activity Room, the
  *   runtime evidence authority (no inline evidence is fabricated)
- * - suggestion chips → `onSuggest` sends the chip text as a follow-up turn,
- *   the same precedent as composer suggestion shortcuts
+ * - suggested next steps → multi-select checkboxes with a submit control and a
+ *   confirming dialog; `onSuggest` receives one composed turn, never a per-chip
+ *   send (see `AssistantSuggestedSteps`)
  *
  * Renders nothing when the parser finds no blocks.
  */
@@ -18,6 +19,8 @@
 import { memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { APP_ROUTES } from '../../routes';
+import { SectionLabel } from './AssistantSectionLabel';
+import { AssistantSuggestedSteps } from './AssistantSuggestedSteps';
 import { hasResponseBlocks, parseResponseBlocks } from './assistantResponseBlocks';
 
 export interface AssistantResponseBlocksProps {
@@ -30,14 +33,6 @@ function manifestRouteFor(token: string): { path: string; title: string; enabled
   const route = APP_ROUTES.find((entry) => entry.path === token);
   if (!route || route.redirect) return null;
   return { path: route.path, title: route.title, enabled: route.enabled !== false };
-}
-
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <span className="text-(--vestara-font-size-caption) font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">
-      {children}
-    </span>
-  );
 }
 
 export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
@@ -208,24 +203,7 @@ export const AssistantResponseBlocks = memo(function AssistantResponseBlocks({
       )}
 
       {blocks.suggestions.length > 0 && onSuggest && (
-        <div className="min-w-0" data-testid="response-suggestions">
-          <SectionLabel>Suggested next steps</SectionLabel>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {blocks.suggestions.map((suggestion) => (
-              <button
-                key={suggestion.slice(0, 48)}
-                type="button"
-                onClick={() => onSuggest(suggestion)}
-                title={suggestion}
-                aria-label={`Send follow-up: ${suggestion}`}
-                data-testid="response-suggestion"
-                className="max-w-full cursor-pointer truncate rounded-full border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)] px-2.5 py-1 text-(--vestara-font-size-label) text-[var(--vestara-accent-text)]"
-              >
-                {suggestion.length > 80 ? `${suggestion.slice(0, 80)}…` : suggestion}
-              </button>
-            ))}
-          </div>
-        </div>
+        <AssistantSuggestedSteps suggestions={blocks.suggestions} onSend={onSuggest} />
       )}
     </div>
   );
