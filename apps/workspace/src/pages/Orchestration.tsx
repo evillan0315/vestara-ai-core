@@ -3,10 +3,12 @@ import type { ArtifactKind } from '@vestara/workflow-orchestrator';
 import { Badge, Button, EmptyState, Input, StatusIndicator, Tabs } from '@vestara/ui';
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
+import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
 import { WorkflowGraph } from '../components/workflow/WorkflowGraph';
 import { WorkflowSupportingPanels } from '../components/workflow/WorkflowSupportingPanels';
 import { navIcon } from '../layouts/workspace-navigation';
 import OperationalWorkspaceLayout from '../layouts/OperationalWorkspaceLayout';
+import { type ApprovalGate, resolveApprovalGate } from '../lib/orchestration-approval';
 import { getNextAction, getNextActions, getProjectAction } from '../lib/orchestration-next-action';
 import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
 import '../styles/workflow-page.css';
@@ -203,13 +205,15 @@ function NextActionButton({ kind, projectId, actionable, onSelect }: {
     ? 'Review approvals'
     : kind === 'task-failure'
       ? 'Open tasks'
-      : kind === 'plan-approval'
-        ? 'Approve plan'
-        : kind === 'resume'
-          ? 'Resume'
-          : kind === 'progress'
-            ? 'Open graph'
-            : 'View project';
+      : kind === 'architecture-review'
+        ? 'Review gate'
+        : kind === 'plan-approval'
+          ? 'Review approval'
+          : kind === 'resume'
+            ? 'Resume'
+            : kind === 'progress'
+              ? 'Open graph'
+              : 'View project';
   return (
     <Button
       variant={actionable ? 'primary' : 'secondary'}
@@ -499,6 +503,33 @@ async function postJson<T>(path: string, body?: unknown): Promise<T | null> {
   }
 }
 
+interface ActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** POST that preserves the server's error message for approval-gate feedback. */
+async function postAction(path: string, body?: unknown): Promise<ActionResult> {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (res.ok) return { ok: true };
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Non-JSON error body — keep the status-based message.
+    }
+    return { ok: false, error: message };
+  } catch {
+    return { ok: false, error: 'Network error — check the API connection.' };
+  }
+}
+
 export default function OrchestrationPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [metricsByProject, setMetricsByProject] = useState<Record<string, ProjectMetrics>>({});
@@ -520,6 +551,9 @@ export default function OrchestrationPage() {
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ projectId: string; gate: ApprovalGate } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const refresh = useCallback(async () => {
     const data = await fetchJson<{ projects: ProjectSummary[] }>(`${API}/projects`);
@@ -655,10 +689,67 @@ export default function OrchestrationPage() {
     }
   };
 
+  const runArchitectureReview = async (
+    projectId: string,
+    status: 'approved' | 'violations',
+    reason?: string,
+  ): Promise<ActionResult> => {
+    setBusy(`architecture-${projectId}`);
+    setApprovalError(null);
+    const findings = status === 'violations' ? [{ reason: reason?.trim() || 'Changes requested' }] : [];
+    try {
+      const result = await postAction(`${API}/projects/${projectId}/architecture`, {
+        architectId: 'architect',
+        status,
+        findings,
+      });
+      if (!result.ok) {
+        setApprovalError(result.error ?? 'Architecture review failed.');
+        return result;
+      }
+      setRejectTarget(null);
+      setRejectReason('');
+      await refresh();
+      if (expandedId) await loadDetail(expandedId);
+      return result;
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const approvePlan = async (projectId: string) => {
     setBusy(`plan-${projectId}`);
+    setApprovalError(null);
     try {
-      await postJson(`${API}/projects/${projectId}/approve`, {});
+      const result = await postAction(`${API}/projects/${projectId}/approve`, {});
+      if (!result.ok) {
+        setApprovalError(result.error ?? 'Plan approval failed.');
+        return;
+      }
+      await refresh();
+      if (expandedId) await loadDetail(expandedId);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const rejectApproval = async () => {
+    if (!rejectTarget || !rejectReason.trim()) return;
+    const { projectId, gate } = rejectTarget;
+    if (gate.kind === 'architecture') {
+      await runArchitectureReview(projectId, 'violations', rejectReason.trim());
+      return;
+    }
+    setBusy(`cancel-${projectId}`);
+    setApprovalError(null);
+    try {
+      const result = await postAction(`${API}/projects/${projectId}/cancel`, { reason: rejectReason.trim() });
+      if (!result.ok) {
+        setApprovalError(result.error ?? 'Rejection failed.');
+        return;
+      }
+      setRejectTarget(null);
+      setRejectReason('');
       await refresh();
       if (expandedId) await loadDetail(expandedId);
     } finally {
@@ -697,8 +788,11 @@ export default function OrchestrationPage() {
       setCreateOpen(true);
       return;
     }
-    if (kind === 'plan-approval') {
-      void approvePlan(projectId);
+    // Approval gates are a human decision — open the gate, never auto-approve.
+    if (kind === 'architecture-review' || kind === 'plan-approval') {
+      if (projectId && expandedId !== projectId) toggleExpand(projectId);
+      setActiveTab('overview');
+      setInspectorTab('overview');
       return;
     }
     if (kind === 'resume') {
@@ -709,14 +803,10 @@ export default function OrchestrationPage() {
     if (kind === 'task-failure') setActiveTab('tasks');
     if (kind === 'progress') setActiveTab('workflow-graph');
     if (kind === 'start') setActiveTab('overview');
-  }, [nextAction, expandedId, toggleExpand, approvePlan, resumeProject]);
+  }, [nextAction, expandedId, toggleExpand, resumeProject]);
 
   const nextActionBusy =
-    nextAction?.kind === 'plan-approval'
-      ? busy === `plan-${nextAction.projectId}`
-      : nextAction?.kind === 'resume'
-        ? busy === `resume-${nextAction.projectId}`
-        : false;
+    nextAction?.kind === 'resume' ? busy === `resume-${nextAction.projectId}` : false;
 
   const createAndRun = async () => {
     if (!form.name.trim() || !form.goal.trim()) {
@@ -765,6 +855,7 @@ export default function OrchestrationPage() {
 
   const selectedProject = projects.find((project) => project.id === expandedId) ?? null;
   const selectedDetail = expandedId ? detail[expandedId] : undefined;
+  const selectedApprovalGate = resolveApprovalGate(selectedDetail?.snapshot.phase ?? '');
   const selectedGraph = selectedDetail ? projectSnapshotGraph(selectedDetail.snapshot) : null;
   const selectedNode = selectedGraph?.nodes.find((node) => node.id === selectedGraphNodeId) ?? null;
   const selectedTask = selectedNode?.kind === 'task'
@@ -892,8 +983,15 @@ export default function OrchestrationPage() {
   const heroActions: Array<{ label: string; onClick: () => void; primary?: boolean; disabled?: boolean; title?: string }> = [
     { label: 'New project', onClick: () => setCreateOpen(true), primary: true },
     { label: 'Refresh', onClick: () => void refresh() },
-    ...(selectedDetail?.snapshot.phase === 'pending-approval' && expandedId
-      ? [{ label: 'Approve plan', onClick: () => void approvePlan(expandedId) }]
+    ...(selectedDetail &&
+    expandedId &&
+    (selectedDetail.snapshot.phase === 'architecture' || selectedDetail.snapshot.phase === 'pending-approval')
+      ? [
+          {
+            label: selectedDetail.snapshot.phase === 'architecture' ? 'Review gate' : 'Review approval',
+            onClick: () => setInspectorTab('overview'),
+          },
+        ]
       : []),
     ...(selectedDetail && expandedId && selectedDetail.snapshot.phase === 'executing'
       ? [{ label: 'Resume', onClick: () => void resumeProject(expandedId) }]
@@ -1189,6 +1287,29 @@ export default function OrchestrationPage() {
                   />
                   {inspectorTab === 'overview' && (
                     <div className="space-y-[var(--vestara-spacing-section)]">
+                      {selectedApprovalGate && (
+                        <WorkflowApprovalGate
+                          gate={selectedApprovalGate}
+                          busy={
+                            busy === `architecture-${selectedProject.id}` ||
+                            busy === `plan-${selectedProject.id}` ||
+                            busy === `cancel-${selectedProject.id}`
+                          }
+                          error={approvalError}
+                          onApprove={() => {
+                            if (selectedApprovalGate.kind === 'architecture') {
+                              void runArchitectureReview(selectedProject.id, 'approved');
+                            } else {
+                              void approvePlan(selectedProject.id);
+                            }
+                          }}
+                          onReject={() => {
+                            setApprovalError(null);
+                            setRejectReason('');
+                            setRejectTarget({ projectId: selectedProject.id, gate: selectedApprovalGate });
+                          }}
+                        />
+                      )}
                       <OperationalPanel
                         icon={navIcon('workflows')}
                         title={selectedProject.name}
@@ -1231,16 +1352,6 @@ export default function OrchestrationPage() {
                         />
                       )}
                       <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]">
-                        {selectedDetail.snapshot.phase === 'pending-approval' && expandedId && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void approvePlan(expandedId)}
-                            disabled={busy === `plan-${expandedId}`}
-                          >
-                            Approve plan
-                          </Button>
-                        )}
                         {selectedDetail.snapshot.phase === 'executing' && expandedId && (
                           <Button
                             variant="secondary"
@@ -1400,8 +1511,9 @@ export default function OrchestrationPage() {
                             setInspectorTab('blocker');
                           } else if (kind === 'task-failure') {
                             setActiveTab('tasks');
-                          } else if (kind === 'plan-approval') {
-                            void approvePlan(projectId);
+                          } else if (kind === 'architecture-review' || kind === 'plan-approval') {
+                            setActiveTab('overview');
+                            setInspectorTab('overview');
                           } else if (kind === 'resume') {
                             void resumeProject(projectId);
                           } else if (kind === 'progress') {
@@ -1672,6 +1784,62 @@ export default function OrchestrationPage() {
               </Button>
               <Button variant="primary" size="sm" onClick={() => void createAndRun()} disabled={createBusy} loading={createBusy}>
                 {createBusy ? 'Creating...' : 'Create & run'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {rejectTarget && (
+        <Modal
+          onClose={() => {
+            setRejectTarget(null);
+            setRejectReason('');
+          }}
+          ariaLabel={rejectTarget.gate.title}
+        >
+          <div className="space-y-[var(--vestara-spacing-4)] p-[var(--vestara-spacing-5)]">
+            <h2 className="text-[length:var(--vestara-font-size-sm)] font-bold text-[var(--vestara-text-primary)]">
+              {rejectTarget.gate.rejectLabel}
+            </h2>
+            <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
+              {rejectTarget.gate.rejectConsequence}
+            </p>
+            <Input
+              label="Reason"
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="What needs to change?"
+            />
+            {approvalError && (
+              <p
+                className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-error)]"
+                role="alert"
+              >
+                {approvalError}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-[var(--vestara-spacing-2)] pt-[var(--vestara-spacing-1)]">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectReason('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => void rejectApproval()}
+                disabled={!rejectReason.trim() || busy !== null}
+                loading={
+                  busy === `architecture-${rejectTarget.projectId}` || busy === `cancel-${rejectTarget.projectId}`
+                }
+              >
+                {rejectTarget.gate.rejectLabel}
               </Button>
             </div>
           </div>

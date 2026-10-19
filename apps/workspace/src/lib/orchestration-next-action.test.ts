@@ -49,7 +49,7 @@ describe('getNextAction', () => {
       { a: metrics() },
       {},
     );
-    expect(plan).toMatchObject({ kind: 'plan-approval', ctaLabel: 'Approve plan', actionable: true });
+    expect(plan).toMatchObject({ kind: 'plan-approval', ctaLabel: 'Review approval', actionable: true });
 
     const resume = getNextAction(
       [{ id: 'a', name: 'Alpha', phase: 'executing', status: 'running' }],
@@ -93,6 +93,15 @@ describe('getProjectAction', () => {
       [],
     );
     expect(action).toMatchObject({ kind: 'task-failure', actionable: true });
+  });
+
+  it('returns architecture review action for the architecture phase', () => {
+    const action = getProjectAction(
+      { id: 'a', name: 'Alpha', phase: 'architecture', status: 'awaiting-approval' },
+      metrics(),
+      [],
+    );
+    expect(action).toMatchObject({ kind: 'architecture-review', ctaLabel: 'Review gate', actionable: true });
   });
 
   it('returns plan approval action for pending-approval phase', () => {

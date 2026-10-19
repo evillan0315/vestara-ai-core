@@ -3,8 +3,8 @@
  *
  * Pure, deterministic resolver over data the page already fetches
  * (`projects`, `metricsByProject`, `approvalsByProject`). No new API calls.
- * Priority: task approvals → failed/blocked tasks → plan approval →
- * resume → in-progress inspection → untouched project.
+ * Priority: task approvals → failed/blocked tasks → architecture review →
+ * plan approval → resume → in-progress inspection → untouched project.
  */
 
 export interface NextActionProject {
@@ -26,6 +26,7 @@ export interface NextActionApproval {
 export type NextActionKind =
   | 'task-approval'
   | 'task-failure'
+  | 'architecture-review'
   | 'plan-approval'
   | 'resume'
   | 'progress'
@@ -46,10 +47,11 @@ export interface NextAction {
 const KIND_PRIORITY: Record<NextActionKind, number> = {
   'task-approval': 0,
   'task-failure': 1,
-  'plan-approval': 2,
-  resume: 3,
-  progress: 4,
-  start: 5,
+  'architecture-review': 2,
+  'plan-approval': 3,
+  resume: 4,
+  progress: 5,
+  start: 6,
 };
 
 function resolveProjectAction(
@@ -84,20 +86,33 @@ function resolveProjectAction(
     };
   }
 
-  // 3. Plan awaiting the approval gateway.
+  // 3. Plan awaiting the architecture review gate.
+  if (project.phase === 'architecture') {
+    return {
+      kind: 'architecture-review',
+      projectId: project.id,
+      projectName: project.name,
+      title: `Review architecture for ${project.name}`,
+      detail: 'The plan is proposed — approve it or request changes before director approval.',
+      ctaLabel: 'Review gate',
+      actionable: true,
+    };
+  }
+
+  // 4. Plan awaiting the director approval gateway.
   if (project.phase === 'pending-approval') {
     return {
       kind: 'plan-approval',
       projectId: project.id,
       projectName: project.name,
       title: `Approve plan for ${project.name}`,
-      detail: 'Architecture review is complete — approve the plan to start execution.',
-      ctaLabel: 'Approve plan',
+      detail: 'Architecture review is complete — approve or reject the plan before execution.',
+      ctaLabel: 'Review approval',
       actionable: true,
     };
   }
 
-  // 4. Paused work that can resume — only the executing phase can progress
+  // 5. Paused work that can resume — only the executing phase can progress
   // via resume (backend resume() is a no-op for every other phase).
   // Task approvals, failures, plan approval, and verification are handled
   // by their own branches above/below.
@@ -113,7 +128,7 @@ function resolveProjectAction(
     };
   }
 
-  // 5. Active execution worth inspecting.
+  // 6. Active execution worth inspecting.
   if (project.phase === 'executing' || project.phase === 'verifying') {
     const done = metrics ? `${metrics.tasks.completed}/${metrics.tasks.total} tasks complete` : 'Execution in progress';
     return {
@@ -127,7 +142,7 @@ function resolveProjectAction(
     };
   }
 
-  // 6. Fallback: untouched project.
+  // 7. Fallback: untouched project.
   return {
     kind: 'start',
     projectId: project.id,
