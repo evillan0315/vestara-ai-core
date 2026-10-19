@@ -54,7 +54,7 @@ architecture (tokens, boundaries, tests, data layer).
 | System menu | `src/components/SystemMenu.tsx` | `fixed` overlay + dropdown: user card, Lockscreen / Switch User / Settings, Logout / Shutdown (danger), footer `VESTARA SHELL OS • 112 FINAL` |
 | Dock | `src/components/Dock.tsx` | `h-12` centered pill, 8 package icons, open (teal dot) / minimized (amber dot) indicators, V logo cap |
 | Desktop icons | `src/components/DesktopIcons.tsx` | 5 icons, double-click to open |
-| Teal logo | `src/components/VestaraLogoTeal.tsx` | Inline SVG, same V geometry as `public/logo.svg`, but **hardcoded** teal ramp (`#E6FFF9 → #2DE8C3 → #042F2E`), hardcoded spine `#134E4A` |
+| Teal logo | `src/components/VestaraLogoTeal.tsx` | Inline SVG, `viewBox="0 0 512 512"` — same V geometry as production `apps/workspace/public/logo.svg` (`512×512`; NB `assets/brand/logo.svg` is a different asset, `605×571`). **Hardcoded** teal ramp (`#E6FFF9 → #2DE8C3 → #042F2E`), hardcoded spine `#134E4A` |
 | Packages (7) | `src/packages/*.tsx` | `Overview` (static hero + 4 stat cards), `ActivityRoom` (static participant rail + 3 records), `AgentWorkforce` (6-card static grid), `Marketplace` (6 static cards), `Terminal` (static transcript), `Settings` (static shell/topbar/token panels), `Diagnostic` (32 sine bars with `Math.random`) |
 
 ### 1.2 Current Vestara mapping
@@ -66,9 +66,9 @@ architecture (tokens, boundaries, tests, data layer).
 | Top bar (current: 64px) | `AppHeader` + `HeaderSearch/Connection/Notifications/UserMenu` | `apps/workspace/src/components/layout/AppHeader/` |
 | Shell geometry | `ShellRoot` (viewport) + `ShellLayout` (header slot, sidebar, drawers) | `apps/workspace/src/layouts/` |
 | Topbar styling | `.shell-topbar` (blur + accent hairline) | `apps/workspace/src/styles/index.css:723` |
-| Teal accent | `ACCENT_PALETTES.shell` (`#2de8c3`, light `#5ff0d4`, dark `#10b7a0`) | `packages/ui-tokens/src/tokens.ts:748` |
+| Teal accent | `ACCENT_PALETTES.shell` (`#2de8c3`, light `#5ff0d4`, dark `#10b7a0`) | `packages/ui-tokens/src/tokens.ts:795` |
 | Runtime theming | `theme.tsx` sets `--vestara-accent*` from selected palette | `apps/workspace/src/lib/theme.tsx:332` |
-| Capability spec | CSP-010 (Workspace UI, Implemented v1.1) | `docs/capabilities/CSP-010-workspace-ui/` |
+| Capability spec | CSP-010 (Workspace UI) — body table reads "Implemented (v1.1)" but frontmatter `status: proposed`; T10 reconciles | `docs/capabilities/CSP-010-workspace-ui/` |
 | OS capability | CSP-016 (AI OS Integration, Implemented v2.0) | `docs/capabilities/CSP-016-os-integration/` |
 | Prior review | `Vestara-Teal-Implementation-Review.html` (Executive Summary, De-minified Component Map, Branding & Tokens Extraction, Implementation Steps, Roadmap & Risks, Reviewer Notes) | `assets/templates/html/v2/start/` |
 
@@ -87,7 +87,10 @@ architecture (tokens, boundaries, tests, data layer).
 | G9 | Google Fonts via CDN `<link>` — use token font stack / self-host | Medium | Phase 0 |
 | G10 | `Files` WinType has no content (falls to `Package {type} wired` div) | Medium | Phase 3 |
 | G11 | Version skew (prototype v7.15.112 vs `@vestara/workspace-ui` v1.1.0 / root v0.3.0) — do not import version strings | Low | Phase 0 |
-| G12 | Wallpaper PNGs (2× 220KB) in prototype assets — use `assets/wallpapers/` + `os/customization/assets/` | Low | Phase 1 |
+| G12 | Wallpaper weight: prototype ships **2 byte-identical** 220 KB PNGs (only one referenced; `…_1.png` is dead); repo `assets/wallpapers/` is **13 MB of 1.8–2.4 MB PNGs** (teal = 1.78 MB @ 1671×941) and is **consumed by nothing** (0 imports). Review mitigation: WebP + lazy-load + 10 % opacity/blur 20 px (boot screen already does 10 %/blur 20). ffmpeg has `libwebp`; no `cwebp`/`sharp`/`convert`. | Low | Phase 1 |
+| G13 | Review claims "**Current implementation already matches target spec** / No gold references remaining". **True only for the prototype** (`workspace-ui-v2/src/App.tsx`, 0 gold refs). **False for the real app**: 134 gold refs; hardcoded `--vestara-gold` ramp (`#c9a84c/#fcf6ba/#b38728/#b8860b`) still defined in `styles/index.css:41-44,249`; `components/Sidebar.tsx` renders `text-vestara-gold`; `Overview/DecisionsCard.tsx` uses `border-l-[var(--vestara-gold)]`; default accent is `amber` (`#f59e0b`). Review self-contradicts — its own step 01 says "Replace gold logo with teal variant in `src/components/VestaraLogo.tsx`". | High | Phase 0 |
+
+> Prototype "ALREADY TEAL" applies to the **prototype artifact** (its `src/App.tsx` is teal-only). The production `@vestara/workspace-ui` v1.1.0 is **amber/gold by default** and is *not* teal — Phase 0 must reconcile these before any shell work.
 
 ## 2. Token mapping (prototype → `--vestara-*`)
 
@@ -105,8 +108,10 @@ No new tokens are expected; if a semantic role is missing, create
 
 ## 3. Phase 0 — Foundations and token alignment (2–3 days)
 
-1. **T0.1 Token audit.** Map every prototype hex to `--vestara-*`; expose the
-   `shell` accent in the Settings accent picker; add missing tokens only.
+1. **T0.1 Token audit.** Map every prototype hex to `--vestara-*`; add missing
+   tokens only. The `shell` accent is **already exposed** in the Settings picker
+   (`SettingsReferenceSurface.tsx:708` iterates `Object.entries(ACCENT_PALETTES)`,
+   which includes `shell`) — verify only, do not re-implement.
    Files: `packages/ui-tokens/src/tokens.ts`, `apps/workspace/src/lib/theme.tsx`,
    `apps/workspace/src/pages/Settings/*`. Acceptance: `pnpm vds:validate` green.
 2. **T0.2 Shell scaffold.** Create `apps/workspace/src/features/desktop-shell/`
@@ -217,6 +222,8 @@ shared where possible; only hardware-adjacent calls differ. Confirm target host
 | Package boundary violations | Medium | Medium | `dependencies:check` per phase; BLOCKER stops, ADJACENT records |
 | OS port target ambiguity (Tauri vs OS-0) | Medium | Medium | Phase 5 gated on explicit host decision |
 | Live API perturbing baseline tests (port 3001) | Low | Medium | `pnpm services:stop` before full runs; `--maxWorkers=2` on small boxes |
+| Wallpaper payload (13 MB PNGs, one 1.78 MB @ 1671×941) shipped to a desktop shell | Medium | Medium | Transcode to WebP/AVIF (ffmpeg `libwebp`), serve one optimized size, lazy-load, keep 10 %/blur-20 boot treatment; drop dead `…_1.png` duplicate. `assets/wallpapers/` is currently unconsumed — decide ship-vs-archive in Phase 1 |
+| "Already teal / no gold" misread from review applied to production app | Medium | High | G13 — production is amber/gold (134 refs, deprecated `--vestara-gold` ramp). Verify against source, not the review card, before T0/T1 |
 
 ## 11. Governance gates and audit checklist (reviewer/verifier)
 
@@ -239,12 +246,23 @@ Run in order; any failure is a BLOCKER:
 ## 12. Workflow orchestration mapping
 
 This plan is registered as an orchestrated project (see §13). Task IDs below
-are the orchestration handles for reviewer/audit:
+are the orchestration handles for reviewer/audit.
+
+> Caveat (D2, **BLOCKED**): the persisted task rows were created 2026-10-18,
+> before this doc's G12/G13 revisions. `task-1792304306501-1` (T0) and
+> `task-1792304306501-2` (T1) therefore do **not** yet carry the added scope
+> (G13 gold reconciliation / `styles/index.css`; wallpaper pipeline /
+> `assets/wallpapers/`). Resync has **no governed path**: `TaskStore` exposes no
+> scope/description/files edit method, `orchestrator.rebuild()` is event-replay
+> (not an editor, and A7 left no events), the API exposes no task-update route,
+> and the single writer (API) is currently unresponsive. An out-of-band
+> `.vestara/` write would violate the runtime-state guardrail and reproduce A7.
+> This doc is the scope of record until the API can re-register the plan.
 
 | # | Task summary | Files | Effort | Capabilities |
 |---|---|---|---|---|
-| T0 | Foundations + token alignment | `packages/ui-tokens/src/tokens.ts`, `apps/workspace/src/lib/theme.tsx`, `features/desktop-shell/` scaffold | large | implementation, analysis |
-| T1 | 32px DesktopTopBar + chrome swap | `components/layout/AppHeader/*`, `layouts/ShellLayout.tsx`, `styles/index.css` | large | implementation |
+| T0 | Foundations + token alignment (incl. G13: reconcile production gold vs prototype teal; retire dead `--vestara-gold` ramp / dead gold-bearing files) | `packages/ui-tokens/src/tokens.ts`, `apps/workspace/src/lib/theme.tsx`, `styles/index.css`, `features/desktop-shell/` scaffold | large | implementation, analysis |
+| T1 | 32px DesktopTopBar + chrome swap + wallpaper pipeline (WebP/AVIF, lazy, single size) | `components/layout/AppHeader/*`, `layouts/ShellLayout.tsx`, `styles/index.css`, `assets/wallpapers/` | large | implementation |
 | T2 | SystemMenu + Dock + DesktopIcons | `features/desktop-shell/SystemMenu.tsx`, `Dock.tsx`, `DesktopIcons.tsx` | medium | implementation |
 | T3 | VestaraWindow (drag/resize/focus) | `features/desktop-shell/VestaraWindow.tsx` | large | implementation |
 | T4 | Boot + Login + state machine | `features/desktop-shell/BootScreen.tsx`, `LoginScreen.tsx`, `DesktopShell.tsx` | medium | implementation |
@@ -260,7 +278,8 @@ are the orchestration handles for reviewer/audit:
 | Role | Action | Status |
 |---|---|---|
 | Planner | Built this plan from `start/` inspection + current-Vestara investigation | Done 2026-10-18 |
-| Auditor (self) | Path/claim verification — findings A1–A3 below, plan corrected | Done 2026-10-18 |
+| Auditor (self) | Path/claim verification — findings A1–A6 below, plan corrected | Done 2026-10-18 |
+| Auditor (self) | Plan-integrity audit vs repo + orchestration stores — findings A7–A11, plan corrected | Done 2026-10-19 |
 | Reviewer | Governance + scope review (§11 checklist) | Pending |
 | Verifier | Independent audit (evidence vs claims, gates green) | Pending |
 | Director | Approval to execute (phases run only on approval) | Pending |
@@ -272,14 +291,29 @@ are the orchestration handles for reviewer/audit:
 | A1 | `apps/workspace/src/mocks/server.ts` (mock `:3002`) referenced in governance but **not present** in repo. Plan originally cited it as a data source. | Medium | Plan corrected (§6, §12-T5): data layer is API → `*.fixtures.ts`; mock-server creation is out of scope |
 | A2 | Plan originally stated target uses "MUI v9"; repo has `@mui/material ^6.4.0`. v9 is aspirational per governance, not installed. | Medium | Plan corrected (header, G3, T0.3): match existing MUI v6 imports; v9 migration explicitly out of scope |
 | A3 | All 30 other referenced paths verified present; prototype claims (9 WinTypes, 32px/48px/36px geometry, hardcoded TOKENS, `Math.random`, inline `<style>`, CDN fonts, static packages) verified by direct file reads | — | No change; evidence holds |
+| A4 | Review card "Current implementation already matches target spec / No gold references remaining" is a **claim about the prototype only**; production has 134 gold refs + deprecated hardcoded `--vestara-gold` ramp + amber default accent | High | Recorded as G13 (§1.3) + risk row (§10); Phase 0 scope confirmed |
+| A5 | Dead code (0 imports, adjacent to G13): `apps/workspace/src/components/Sidebar.tsx` (the gold `text-vestara-gold` wordmark) and `apps/workspace/src/pages/Overview/DecisionsCard.tsx` (gold `border-l`) are **not imported anywhere** | Low | ADJACENT — recorded, not fixed. Confirm removal in T0/T10 instead of blindly re-tokenizing dead files |
+| A6 | Prototype `src/assets/wallpaper-teal-giant-planet-mountain-lake_1.png` is byte-identical (md5 `a921d49…`) to `…-lake.png` and **unreferenced** | Low | ADJACENT — dead duplicate; safe to drop. Repo `assets/wallpapers/` teal PNG differs (md5 `721beba…`), i.e. two separate renders |
+| A7 | Plan claimed "17 `orchestration.*` events" for the project; **actual 0**. State lives in `plans.db`, but no event is correlated to `project-1792304306133-1`; `/audit` returns empty | High | **Root cause found.** The registration ran the `WorkflowOrchestrator` **library** directly (bypassing the API), supplying its own sink that appended to `engineering-events.db`. `SqliteEngineeringEventStore` is an in-memory sql.js DB persisted by **debounced whole-file atomic replacement** (`flushPersist`: `.tmp` → `renameSync`), and the live API (`apps/api/src/workspace-context.ts:624`) holds its **own** copy of the same file and re-writes it in full on every flush. The script never called `eventStore.close()` (the only deterministic flush), and any concurrent API flush replaces the entire file → the script's rows were lost. Corroborated: 30 event rows dated 2026-10-18 but **none at 06:18** (registration time; next is 06:22, `external-runtime.*`, API-originated); the last `orchestration.*` rows in the DB are 2026-09-14 (dogfood project, registered via the API). **Rule:** orchestration state must be mutated only through the API (single writer) — never open `.vestara/**` stores out-of-band while the API runs. |
+| A8 | §1.2 cited `packages/ui-tokens/src/tokens.ts:748` for `ACCENT_PALETTES.shell`; actual line is **795** (748 = `purple:`) | Low | Corrected (§1.2) |
+| A9 | §1.1/G2 referenced `public/logo.svg`; prototype has no `public/` dir. Correct asset is `apps/workspace/public/logo.svg` (viewBox `512×512`); `assets/brand/logo.svg` differs (`605×571`) | Low | Corrected (§1.1) |
+| A10 | §1.2 asserted CSP-010 "Implemented v1.1"; `CSP-010-workspace-ui/README.md` frontmatter is `status: proposed` (body table says Implemented) | Low | Noted inline (§1.2); reconciled by T10 |
+| A11 | T0.1 listed "expose the `shell` accent in the Settings accent picker" as work; already satisfied — `SettingsReferenceSurface.tsx:708` iterates `Object.entries(ACCENT_PALETTES)` (includes `shell`) | Low | Corrected to verify-only (§3 T0.1) |
 
 > Orchestration handles (registered 2026-10-18):
 > - Project: `project-1792304306133-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `architecture` — ready for review)
 > - Plan: `plan-1792304306496-1` (status `proposed`, revision 1)
 > - Tasks: `task-1792304306501-1` … `task-1792304306501-11` (all `pending`; T0→T10 in §12 order)
 > - Artifacts: `artifact-1792304306401-1` (analysis), `artifact-1792304306530-2` (plan)
-> - Audit trail: 17 `orchestration.*` events in `.vestara/events/engineering-events.db`
->   (query via `GET /api/orchestration/projects/project-1792304306133-1/audit`).
+> - Durable state: project/plan/tasks/artifacts persisted in `.vestara/plans/plans.db`.
+> - Audit trail: **NOT present** — `.vestara/events/engineering-events.db` contains
+>   **no** `orchestration.*` events correlated to `project-1792304306133-1`
+>   (0 matching rows; all 56 orchestration events belong to the earlier
+>   `project-1789370182127-1`, last at 2026-09-14). Consequently
+>   `GET /api/orchestration/projects/project-1792304306133-1/audit` (which queries
+>   `correlationId: projectId`) currently returns an **empty** event list.
+>   Root cause identified — audit finding A7 (out-of-band library write lost to the
+>   API's whole-file persist; register via the API only).
 > Reviewer: call `POST /api/orchestration/projects/:id/architecture` with
 > `{architectId, status: approved|violations, findings}`. On approval the plan
 > moves to `reviewed` and the project to `pending-approval` for Director sign-off.
