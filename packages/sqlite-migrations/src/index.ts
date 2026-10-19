@@ -7,6 +7,7 @@ export {
   fingerprint,
   stepSatisfied,
 } from './manifest';
+export { type PersistObservation, recordPersist } from './persist-diagnostics';
 export { currentVersion, migrate } from './runner';
 export {
   DatabaseVersionIncompatibleError,

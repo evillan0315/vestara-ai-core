@@ -67,7 +67,7 @@ import {
 import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
 import type { Runtime } from '@vestara/runtime';
 import type { ServiceStatus, VestaraService } from '@vestara/shared';
-import { migrate } from '@vestara/sqlite-migrations';
+import { migrate, recordPersist } from '@vestara/sqlite-migrations';
 import { type OperationType, TelemetryRuntime } from '@vestara/telemetry';
 import { TerminalSessionRegistry } from '@vestara/terminal-runtime';
 import { FileThreadStore } from '@vestara/thread-runtime';
@@ -315,6 +315,7 @@ export async function openSqlDb(
     ? createHash('sha256').update(fs.readFileSync(dbPath)).digest('hex')
     : null;
   const persistOwnedDb = (): void => {
+    const startedAt = performance.now();
     const currentBytes = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : null;
     const currentDigest = currentBytes ? createHash('sha256').update(currentBytes).digest('hex') : null;
     if (currentDigest !== expectedDiskDigest) {
@@ -324,6 +325,11 @@ export async function openSqlDb(
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     fs.writeFileSync(dbPath, data);
     expectedDiskDigest = createHash('sha256').update(data).digest('hex');
+    recordPersist({
+      store: path.basename(dbPath),
+      bytes: data.byteLength,
+      durationMs: performance.now() - startedAt,
+    });
   };
   const isWriteSql = (sql: string): boolean => {
     const trimmed = sql.trim().toUpperCase();
@@ -375,9 +381,15 @@ export async function openSqlDb(
 
 function persistDb(db: any, dbPath: string): void {
   try {
+    const startedAt = performance.now();
     const data = db.export();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     fs.writeFileSync(dbPath, Buffer.from(data));
+    recordPersist({
+      store: path.basename(dbPath),
+      bytes: data.byteLength,
+      durationMs: performance.now() - startedAt,
+    });
   } catch {
     /* best-effort */
   }

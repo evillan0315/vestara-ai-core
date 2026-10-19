@@ -10,7 +10,7 @@ import type {
 import { isValidTransition } from '@vestara/execution-types';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationStatus, ConversationSummary, Message, ToolObservation } from '@vestara/shared';
-import { migrate } from '@vestara/sqlite-migrations';
+import { migrate, recordPersist } from '@vestara/sqlite-migrations';
 import { CONVERSATION_MANIFEST } from './migrations';
 
 let SQL: any = null;
@@ -208,9 +208,16 @@ export class SqliteConversationStore implements ConversationStore {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
+      const startedAt = performance.now();
       const tmp = `${this.dbPath}.tmp-${process.pid}`;
-      fs.writeFileSync(tmp, Buffer.from(migrated.export()));
+      const buffer = Buffer.from(migrated.export());
+      fs.writeFileSync(tmp, buffer);
       fs.renameSync(tmp, this.dbPath);
+      recordPersist({
+        store: path.basename(this.dbPath),
+        bytes: buffer.byteLength,
+        durationMs: performance.now() - startedAt,
+      });
     };
     if (this.dbPath) {
       let buffer: Buffer | undefined;
@@ -662,6 +669,7 @@ export class SqliteConversationStore implements ConversationStore {
     try {
       const fs = require('node:fs') as typeof import('node:fs');
       const path = require('node:path') as typeof import('node:path');
+      const startedAt = performance.now();
       const data = this.db.export();
       const buffer = Buffer.from(data);
       const dir = path.dirname(this.dbPath);
@@ -674,6 +682,11 @@ export class SqliteConversationStore implements ConversationStore {
       const tmp = `${this.dbPath}.tmp-${process.pid}`;
       fs.writeFileSync(tmp, buffer);
       fs.renameSync(tmp, this.dbPath);
+      recordPersist({
+        store: path.basename(this.dbPath),
+        bytes: buffer.byteLength,
+        durationMs: performance.now() - startedAt,
+      });
     } catch {}
   }
 }

@@ -20,7 +20,7 @@ import {
   InMemoryActivityStore,
   SqliteActivityStore,
 } from '@vestara/activity-room';
-import { migrate } from '@vestara/sqlite-migrations';
+import { migrate, recordPersist } from '@vestara/sqlite-migrations';
 
 export interface ActivityRoom {
   readonly store: ActivityStore;
@@ -30,9 +30,15 @@ export interface ActivityRoom {
 
 function persistDb(db: any, dbPath: string): void {
   try {
+    const startedAt = performance.now();
     const data = db.export();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     fs.writeFileSync(dbPath, Buffer.from(data));
+    recordPersist({
+      store: path.basename(dbPath),
+      bytes: data.byteLength,
+      durationMs: performance.now() - startedAt,
+    });
   } catch {
     /* best-effort */
   }
