@@ -34,6 +34,7 @@ import {
   type M11CStreamItem,
 } from '../../hooks/useM11CActivityRoom';
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
+import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
 import { projectActivityStreamWorkflowGraph, workflowGraphNodeId } from '../../lib/activity-workflow-graph';
@@ -49,7 +50,9 @@ import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
 import ActivityReportDrawer from './ActivityReportDrawer';
+import { ExecutionControlsPopover } from '../../components/assistant/ExecutionControlsPopover';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import SouthOutlinedIcon from '@mui/icons-material/SouthOutlined';
@@ -1098,6 +1101,15 @@ function M11CComposer({
   const [mentionQuery, setMentionQuery] = useState('');
   const [structuredTarget, setStructuredTarget] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // GA-EXEC-003: Activity Room turns now carry the same session-local
+  // turn budget as the Global Assistant. The API route and the payload type
+  // already accepted `executionConfig`; the composer simply never sent it, so
+  // Activity Room turns were pinned to the adapter default (150) with no way
+  // to raise it. Untouched => undefined body => adapter default, unchanged.
+  const execConfig = useGAExecutionConfig();
+  const [execControlsOpen, setExecControlsOpen] = useState(false);
+  const execGearRef = useRef<HTMLButtonElement>(null);
+  const execBudgetLabel = execConfig.config.maxToolCalls === 0 ? 'unlimited' : `${execConfig.config.maxToolCalls} calls`;
 
   // Pre-fill with @mention when replying
   useEffect(() => {
@@ -1154,6 +1166,8 @@ function M11CComposer({
       const attachmentLines = attachedFiles.map((file) => `![${file.name}](${file.path})`);
       const contentWithAttachments =
         attachmentLines.length > 0 ? `${text}\n\n${attachmentLines.join('\n')}` : text;
+      // Untouched => undefined => adapter default (150). Touched 0 => unlimited.
+      const execRequestConfig = execConfig.toRequestConfig();
       const result = await postActivityMessage({
         content: contentWithAttachments,
         targets: [...targets],
@@ -1163,6 +1177,9 @@ function M11CComposer({
         // targets. Principal ≠ Surface ≠ Target.
         surface: 'workspace-ui',
         referencedActivityIds: mergedReferences.length > 0 ? mergedReferences : undefined,
+        // GA-EXEC-003: per-turn budget rides the request; omitted when
+        // untouched so the adapter default (150) still applies.
+        ...(execRequestConfig ? { executionConfig: execRequestConfig } : {}),
         ...(steerConversationId && steerRequestId ? { steerConversationId, steerRequestId } : {}),
       });
       setValue('');
@@ -1188,7 +1205,7 @@ function M11CComposer({
     } finally {
       setSending(false);
     }
-  }, [value, sending, replyTo, references, attachedFiles, onClearReply, onClearReferences, onClearFiles, structuredTarget, steerConversationId, steerRequestId, onSteerSent]);
+  }, [value, sending, replyTo, references, attachedFiles, execConfig, onClearReply, onClearReferences, onClearFiles, structuredTarget, steerConversationId, steerRequestId, onSteerSent]);
 
   const handleChange = useCallback((next: string) => {
     setValue(next);
@@ -1471,7 +1488,7 @@ function M11CComposer({
              <span className="truncate">{previewLabel}</span>
            </span>
          </div>
-         <span className="ar-composer__secondary flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
+         <span className="ar-composer__secondary relative flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
             {/* Character count (configurable cap) — tertiary metadata */}
             <span
               aria-hidden="true"
@@ -1482,6 +1499,37 @@ function M11CComposer({
             <span className="sr-only" aria-live="polite">
               {value.length > composerMax ? `Over limit by ${value.length - composerMax} characters` : ''}
             </span>
+
+           {/* GA-EXEC-003: per-turn budget control — same hook, bounds, and
+               server contract as the Global Assistant. Untouched shows the
+               adapter default (150 calls); touched 0 shows unlimited. */}
+           <button
+             ref={execGearRef}
+             type="button"
+             onClick={() => setExecControlsOpen((open) => !open)}
+             aria-label="Execution limits"
+             aria-expanded={execControlsOpen}
+             title={`Execution limits — ${execBudgetLabel}`}
+             className={`flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius)] border px-2 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+               execConfig.isCustom
+                 ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                 : 'border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]'
+             }`}
+           >
+             <TuneOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+             <span className="tabular-nums">{execBudgetLabel}</span>
+           </button>
+           {execControlsOpen && (
+             <ExecutionControlsPopover
+               config={execConfig.config}
+               isCustom={execConfig.isCustom}
+               onTurnTimeoutChange={execConfig.setTurnTimeoutMs}
+               onMaxToolCallsChange={execConfig.setMaxToolCalls}
+               onReset={execConfig.resetToDefaults}
+               onClose={() => setExecControlsOpen(false)}
+               anchorRef={execGearRef}
+             />
+           )}
 
            {/* Send — primary composer action (existing submit path) */}
            <button

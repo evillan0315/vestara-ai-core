@@ -253,15 +253,22 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
     defaultValue: 'off',
     validate: oneOf(['off', 'secrets', 'full']),
   },
+  // GA-EXEC-003: these declared keys must not contradict the enforced adapter
+  // limits (TURN_TIMEOUT_MS 60m / DEFAULT_MAX_TOOL_CALLS 150 in
+  // apps/api/src/assistant-opencode-adapter.ts). Nothing consumes them yet —
+  // the live authority is the session-local `useGAExecutionConfig` hook, which
+  // omits untouched values so the adapter default applies. `maxToolCalls: 0`
+  // here previously read as "unlimited default", which is the opposite of the
+  // enforced 150 and a silent trap for the first consumer to wire it.
   'assistantExecution.turnTimeoutMs': {
     section: 'assistant-execution',
-    defaultValue: 900_000,
+    defaultValue: 3_600_000,
     validate: (value: unknown): value is number =>
       typeof value === 'number' && Number.isInteger(value) && value >= 10_000 && value <= 3_600_000,
   },
   'assistantExecution.maxToolCalls': {
     section: 'assistant-execution',
-    defaultValue: 0,
+    defaultValue: 150,
     validate: (value: unknown): value is number =>
       typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 200,
   },

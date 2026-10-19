@@ -760,3 +760,30 @@ M11B without concrete shared-boundary evidence.
 This handoff does not reopen AR-HISTORY-002, AR-SNAPSHOT-002A,
 AR-SCROLL-002, or AR-STREAM-STATUS-002/003, and authorizes no mutation during
 the lifecycle audit.
+
+### Addendum 2026-10-19 — GA-EXEC-003: budget breach is terminal + Activity Room budget wiring
+
+**Observed:** `Assistant response failed: Tool call limit reached: 150 tool calls`, persisted as
+`This turn did not complete: Tool call limit reached: 150 tool calls. No answer was produced.`
+**Classification:** Fix 1 BLOCKER (breach was not terminal), Fix 2 ADJACENT (Activity Room could not raise the budget),
+Fix 3 ADJACENT (declared-vs-enforced default drift).
+
+| Fix | Files | Change | Observable |
+|-----|-------|--------|------------|
+| **Fix 1 — breach is terminal** | `apps/api/src/assistant-opencode-adapter.ts` (both budget call sites: `message.part.updated` running tool parts and `session.next.tool.*`) | On breach: yield the `error` chunk **and** set `termination = 'failed'` + `turnDone = true`. Previously the loop kept consuming events, so a later idle settlement produced `executionResult.termination = 'completed'` while the persisted message and execution status were `failed`, and `requiresAbort('completed')` skipped the session abort the 2026-09-13 comment claimed tool-limit performed. | `executionResult.termination = 'failed'`; `assistant.turn.abortSession` fires; the runtime stops executing tools after Vestara declares failure |
+| **Fix 2 — budget rides Activity Room turns** | `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` (`M11CComposer`) | Wires `useGAExecutionConfig` + `ExecutionControlsPopover`, renders the effective-budget chip, and sends `executionConfig` through the existing `postActivityMessage` contract (already accepted by `ActivityMessagePayload` and forwarded by `/api/messages` since the 2026-09-13 Fix 1). | Untouched stays the adapter default (150); the composer can set 1–200 or `0` (unlimited) |
+| **Fix 3 — default drift** | `packages/configuration/src/workspace-settings.ts` | `assistantExecution.maxToolCalls` `0` → `150`; `assistantExecution.turnTimeoutMs` `900_000` → `3_600_000`, mirroring the adapter. A comment records that these keys are declared-not-yet-consumed (the session-local hook is the live authority). | No silent “unlimited default” trap when the key is first wired |
+
+**Default lineage (for the record):** `30` → `80` (2026-09-13 addenda) → `150` (current
+`DEFAULT_MAX_TOOL_CALLS`, overridable by `VESTARA_GA_MAX_TOOL_CALLS`; explicit `0` = unlimited). The `80`
+references above are historical, not current.
+
+**Verification:** `tsc -b apps/api` PASS · `tsc -b apps/workspace` PASS · `tsc -b packages/configuration` PASS ·
+`pnpm lint:check` PASS (1591 files) · `vitest` 45/45 across 8 files (`assistant-opencode-tool-budget.test.ts`,
+`useGAExecutionConfig.test.ts`, `ar-tools-001`, `assistant-edit-projection`, `assistant-identity-transport`,
+orchestration approval/gate) plus 44/44 adapter-adjacent suites (routing-convergence-001a/001c,
+runtime-question-response) · `pnpm vds:validate` PASS · `pnpm docs:validate` PASS · `pnpm docs:govern` PASS.
+
+**Known pre-existing drift (not introduced here):** `pnpm documentation:check` is red on this working tree with 41
+baseline-drift findings in unrelated documents (e.g. `docs/MILESTONES.md`, `docs/blueprint/SETTINGS-ENV-E2-*`);
+zero findings reference this document or the files changed above.

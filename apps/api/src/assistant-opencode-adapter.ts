@@ -883,7 +883,15 @@ export async function* runAssistantOpenCodeTurn(
               toolCallCount++;
               const budgetError = checkBudget();
               if (budgetError) {
+                // GA-EXEC-003: a breached budget is a terminal turn failure,
+                // not a transient warning. Settle FAILED immediately so the
+                // runtime stops executing tools, the meta chunk reports an
+                // authoritative `failed` termination, and the finally block
+                // aborts the session (requiresAbort) — previously the loop
+                // kept consuming events and could settle `completed`.
                 yield chunk('error', sequence++, { content: budgetError });
+                termination = 'failed';
+                turnDone = true;
                 break;
               }
               yield chunk('tool_call', sequence++, { name: toolName, detail });
@@ -979,7 +987,11 @@ export async function* runAssistantOpenCodeTurn(
             toolCallCount++;
             const budgetError = checkBudget();
             if (budgetError) {
+              // GA-EXEC-003: same terminal semantics as the live
+              // message.part.updated path above — breach = failed turn + abort.
               yield chunk('error', sequence++, { content: budgetError });
+              termination = 'failed';
+              turnDone = true;
               break;
             }
             yield chunk('tool_call', sequence++, { name: detail.tool, detail });
