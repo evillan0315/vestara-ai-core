@@ -6876,4 +6876,141 @@ silently re-scaled existing UI.
 - `packages/workspace/src/agents.registry.ts` carries a literal `#3b82f6` agent
   colour (outside the UI-only scope of the governance).
 
+---
+
+## GA-SSE-002 — Turn-Start Wire Visibility ✅ Corrected 2026-10-19 (`5f38df6`)
+
+**Status**: Defect in an already-`complete` milestone, corrected and recorded.
+Filed against GA-SSE-002 rather than a new identifier because the defect is in
+that milestone's own claims — §1 (adapter boundary row), §4 (the `status` UI
+contract, which is reused unchanged) and §13 (live acceptance T1).
+
+**Trigger**: a reported assistant-turn delay — "the response stream takes a
+while to appear". Investigated measure-first, then fixed.
+
+### Phase 1 — the delay had two causes; the dominant one was operational
+
+1. **The running API instance was wedged (unbounded delay).** dogfood pid
+   `373786` — the same instance the 2026-10-18 `.env` audit recorded as "not
+   restarted" — was in uninterruptible sleep: `Dsl rq_qos_wait`.
+   `/api/health`, `/api/milestones` and `/api/conversations` each returned
+   nothing within 5 s (curl code `000`); TCP still accepted, with the accept
+   queue backing up (`ss` Recv-Q 6). `SIGTERM` was ignored; only `SIGKILL`
+   landed, on the next return to userspace. `/proc/373786/io` showed
+   **337 GB written over a 21 h lifetime** and **~30 MB/s at observation**
+   (297 MB / 10 s) — while **no file it held grew**: its log is on `/tmp`
+   (tmpfs, 0 KB / 10 s) and `.vestara/m9-activity.db` + `-wal` were 0 KB / 10 s.
+   The writes were therefore repeated in-place writes to the SQLite
+   database/WAL, throttled by the I/O cgroup into `D` on this live-USB
+   persistence overlay (`/dev/sdb9`, 85% full, USB storage also in `D`).
+   **Mechanism: high confidence. The code path that entered the loop: not
+   identified — still open.**
+   Restarted with the identical invocation → boot 19.5 s, `/api/health` 200 in
+   1.3 ms, and **0 MB / 20 s** afterwards — so the churn was that instance's
+   accumulated state, not steady-state behaviour.
+
+2. **The transport was silent by construction (13.25 s, reproducible).** With
+   the fresh instance healthy, one real turn (`opencode` /
+   `deepseek-v4.1-flash-free`, new conversation) measured: headers/first byte
+   **13,287 ms**, first event **13,288 ms** (the delta), `done` 21,079 ms.
+
+**Correction of a prior claim from this session**: the hypothesis "a second API
+instance cannot boot against an owned workspace (boot-lock contention)" is
+**disproven** — the fresh instance completed `boot-advanced`/`http-listening` in
+19.5 s. The earlier second instance was hung by the same I/O stall, not a lock.
+
+### What changed (`5f38df6`, 3 files, +29/−1)
+
+| File | Change |
+|---|---|
+| `apps/api/src/routes/conversations.ts` | `res.flushHeaders()` immediately after `writeHead` — after validation and the busy check, so the committed `200` and every error path are unchanged |
+| `apps/api/src/assistant-opencode-adapter.ts` | `sequence` declared before the first slow step; an immediate `status` chunk (`'OpenCode turn started'`) yielded before persona resolution, provider/model resolution, session creation and prompt submission |
+| `apps/api/__tests__/runtime-question-response.test.ts` | the suite encoded the old stream shape (first yield = the question tool call); the helper and the iterator test now consume the leading status explicitly |
+
+### Measured before/after (two real turns, n=1 each)
+
+| Stage | before | after |
+|---|---|---|
+| POST → headers (`fetch` resolves; client leaves `'sending'`) | 13,287 ms | **20 ms** |
+| first event on the wire | 13,288 ms (the delta) | 3,156 ms (`status`) |
+| first delta | 13,251 ms | 5,574 ms |
+| `done` | 21,079 ms | 7,892 ms |
+
+**Attribution**: only the first two rows are claimed. The delta/`done` change is
+**not** attributed to this commit — neither edit can affect model speed, and n=1
+per run. The accept-at-20 ms result is structural: the head is no longer held
+for the first body write.
+
+### Boundaries (invariants preserved)
+
+1. **No execution path added**, and no new event type — the `status` contract is
+   GA-SSE-002 §4's existing one, which the client already renders.
+2. **Disconnect ≠ cancellation unchanged** (GA-DETACH-001): the change is in the
+   head flush and the first chunk, not in draining or abort semantics.
+3. **Truthful status text** — "OpenCode turn started" describes the server, not
+   model progress; no fabricated capability or progress claim.
+
+### Verification (claimed)
+
+`biome check` clean; `pnpm --filter @vestara/api build` (tsc) clean with both
+changes confirmed present in `dist`; API suite **33 files / 234 tests pass**;
+`packages/activity-room` **21 tests pass**. Two live turns executed against the
+restarted instance; both persisted an assistant row.
+
+**Post-fix live evidence touching GA-EXEC-003 (narrows, does not close)**: both
+2026-10-19 turns resolved to provider `opencode` / model
+`deepseek-v4.1-flash-free` — the pair whose observed 2026-10-18 turns were 3/3
+timeout-or-fail — and both **completed** (21.1 s and 7.9 s; trivial prompt, no
+tools). A tool-using turn remains unobserved.
+
+### Not claimed
+
+- No browser/UI acceptance of the new first status; the client's rendering of it
+  is inferred from the existing `status` handling.
+- No verification of the wedge producer, and no evidence the write loop cannot
+  recur.
+- No tool-using turn; no multi-turn continuity check.
+
+### Adjacent findings (recorded, not mutated)
+
+- **GA-SSE-002 §12 cites a test suite that does not exist.**
+  `apps/api/__tests__/assistant-opencode-adapter.test.ts` (13 named tests, "All
+  65 affected tests pass") is **absent from the repository**, and no test named
+  `turn-started status before text` or `buffers deltas, flushes final answer`
+  exists anywhere. The OpenCode adapter now has **no dedicated suite**
+  (`assistant-codex-adapter.test.ts` is the only adapter suite). §12's claims are
+  unverifiable today.
+- **GA-SSE-002 §1/§13 recorded a client-side label as a server chunk.**
+  `"Thinking…"` has **zero** occurrences in `apps/api/src`, yet §1 lists the
+  adapter's first event as "Thinking… status" and §13 places T1 ("Thinking…") at
+  97 ms after submit. That was the React hook's optimistic local status
+  (`useAssistantConversation.ts` sets `streamStatus='Thinking…'` synchronously),
+  not a wire event — which is precisely why a 13.25 s silence went unnoticed.
+  Confidence: high (grep 0 + two live measurements, in neither of which was the
+  first event a "Thinking…" chunk).
+- `docs/blueprint/GA-SSE-002-true-continuous-streaming.md` frontmatter is
+  `status: complete` with `next-review: 2026-10-04` (overdue) — left untouched,
+  outside the agreed recording scope.
+- Persisted assistant rows carry `tokens: 0` while `latency: 6577` is populated
+  (GA-EXEC-002 projection) — usage accounting is not reaching the row.
+- `docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md` was already
+  modified in the working tree by work other than this session; **not** staged,
+  **not** committed.
+- **The docs checker cannot see parameterized API routes.**
+  `documentation:check` reports `implementation-route-exists` for any documented
+  route whose literal carries a path parameter, because its implementation scan
+  matches concrete route strings in the route modules (the stream branch is
+  resolved by regex, not by a literal). Two such findings for `CHANGELOG.md`
+  were already present in the baseline, so the pattern is pre-existing. This
+  record therefore identifies the stream branch by code location rather than
+  writing the route literal, instead of re-baselining. The remaining introduced
+  findings (~41 at the time of this record) are pre-existing drift across
+  `docs/blueprint/governance/**`, `docs/blueprint/SETTINGS-ENV-E2-*.md` and the
+  in-progress `docs/plans/VES-UI-001-*.md` plan; the committed baseline was
+  generated 2026-10-11 and is stale. **Re-baselining was deliberately not
+  performed** — it would mask another workstream's in-progress findings.
+- **Still open**: the status cannot be emitted before ~3.1 s, because
+  route-level pre-adapter work (`resolveExecutionBinding` → `getConversation` →
+  service prep) completes before the generator is first pulled.
+
 

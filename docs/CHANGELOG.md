@@ -10,6 +10,80 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-19] — Assistant SSE Turn-Start Visibility, Wedged API Instance
+
+### Fixed
+
+- **The assistant turn was invisible on the wire for its whole pre-token window
+  (GA-SSE-002 correction)** — the conversation stream route (`action === 'stream'`
+  in `apps/api/src/routes/conversations.ts`) committed its SSE head with
+  `writeHead()` but never flushed it, and Node holds the head until the first
+  body write. The route's first write happens inside `emit()`, which only the
+  adapter drives, and the OpenCode adapter yielded nothing before the first model
+  part — so the head and the first event were the same packet and the browser's
+  `fetch()` could not resolve until the model answered, leaving the client in
+  `'sending'` with its own optimistic `'Thinking…'` label. Measured on a real
+  turn: headers at **13,287 ms**, first event (the delta) at 13,288 ms, `done` at
+  21,079 ms — 13.25 s of total transport silence.
+  - `conversations.ts`: `res.flushHeaders()` after `writeHead`, placed after
+    validation and the busy check so the committed `200` and every error path
+    are unchanged.
+  - `assistant-opencode-adapter.ts`: an immediate `status` chunk
+    (`'OpenCode turn started'`) yielded before persona resolution, provider/model
+    resolution, session creation and prompt submission — parity with the Codex
+    adapter (`assistant-codex-adapter.ts:286-290`). No new event type, no
+    execution path, GA-DETACH-001 untouched.
+  - `apps/api/__tests__/runtime-question-response.test.ts` encoded the old first
+    chunk (the question tool call); updated to the new stream shape.
+  - Measured after rebuild + restart: accept at **20 ms**, with a server-authored
+    status as the first event. See **Not claimed** for what is not attributed.
+
+### Verification
+
+- `biome check` clean; `pnpm --filter @vestara/api build` clean with both changes
+  confirmed present in `dist`; `apps/api/__tests__` → **33 files / 234 tests
+  pass**; `packages/activity-room` → **21 tests pass**.
+- Two live turns executed against the restarted instance (both persisted an
+  assistant row) — provider `opencode`, model `deepseek-v4.1-flash-free`, the
+  pair whose observed 2026-10-18 turns were 3/3 timeout-or-fail. This narrows
+  GA-EXEC-003's post-fix evidence gap without closing it.
+
+### Not claimed
+
+- The delta (13,251 → 5,574 ms) and `done` (21,079 → 7,892 ms) improvements are
+  **not** attributed to this change — neither edit can affect model speed, and
+  n=1 per run.
+- No browser acceptance of the new first status; no tool-using turn; no
+  multi-turn continuity check.
+- The status still cannot be emitted before ~3.1 s, because route-level
+  pre-adapter work (`resolveExecutionBinding` → `getConversation` → service prep)
+  completes before the generator is first pulled. Not fixed here.
+
+### Recorded
+
+- **A wedged API instance was found and restarted.** dogfood pid `373786` — the
+  instance the 2026-10-18 `.env` audit recorded as "not restarted" — was in
+  `Dsl rq_qos_wait` (uninterruptible block-I/O wait): `/api/health`,
+  `/api/milestones` and `/api/conversations` each returned nothing within 5 s
+  (curl code `000`) while TCP still accepted, `SIGTERM` was ignored and only
+  `SIGKILL` landed. `/proc` I/O showed **337 GB written over a 21 h lifetime**
+  and **~30 MB/s at observation** (297 MB / 10 s) with **no held file growing**
+  (log on tmpfs; `.vestara/m9-activity.db` and `-wal` static) → repeated
+  in-place writes to the activity database, throttled by the I/O cgroup on this
+  live-USB persistence overlay. After restart: healthy (1.3 ms) and
+  **0 MB / 20 s**. **The code path that drives the write loop is still
+  unidentified.** Recorded because it presents as an *unbounded* assistant delay
+  and must not be mistaken for the structural defect above.
+- Corrected in-session claim: "a second API instance cannot boot against an owned
+  workspace (boot-lock contention)" is **disproven** — the fresh instance
+  completes `boot-advanced`/`http-listening` in 19.5 s; the earlier hang was the
+  same I/O stall.
+- GA-SSE-002 §12 cites `apps/api/__tests__/assistant-opencode-adapter.test.ts`
+  (13 named tests) which **does not exist** anywhere, and §1/§13 record a
+  `"Thinking…"` *server* status that has **zero** occurrences in
+  `apps/api/src` — it is the client's optimistic label. Recorded in
+  `MILESTONES.md`; the blueprint doc was not mutated.
+
 ## [2026-10-18] — Assistant Turn Reliability (Model Pin, Tool-Call Budget, Failure Notice) + `.env` Audit
 
 ### Fixed
