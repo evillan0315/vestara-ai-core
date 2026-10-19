@@ -94,6 +94,11 @@ async function runQuestionTurn(store: RuntimeQuestionInteractionStore, reply: ()
     }),
   } as const;
   const iterator = runAssistantOpenCodeTurn(options, request(), 'ses-response-test');
+  // GA-SSE-002: the turn opens with an immediate status chunk emitted before any
+  // pre-token work, so the question tool call is the second yield.
+  const opening = await iterator.next();
+  expect(opening.value?.type).toBe('status');
+  expect(opening.value?.content).toBe('OpenCode turn started');
   const first = await iterator.next();
   expect(first.done).toBe(false);
   const pending = iterator.next();
@@ -236,6 +241,11 @@ describe('AR-HITL-002A live runtime-question response convergence', () => {
       'ses-response-test',
     );
 
+    // GA-SSE-002: the turn opens with an immediate status chunk, before any
+    // pre-token work, so the SSE transport produces a first byte at turn start.
+    const opening = await iterator.next();
+    expect(opening.value?.type).toBe('status');
+    expect(opening.value?.content).toBe('OpenCode turn started');
     expect((await iterator.next()).value?.type).toBe('tool_call');
     expect((await iterator.next()).value?.type).toBe('status');
     const response = iterator.next();

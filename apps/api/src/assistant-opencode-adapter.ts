@@ -606,6 +606,15 @@ export async function* runAssistantOpenCodeTurn(
   const userText = lastUserText(request.messages);
   if (!userText) throw new Error('Assistant OpenCode turn requires a user message');
 
+  // GA-SSE-002: emit a status immediately, before the first slow step. Every
+  // step between here and the first model part is pre-token work (persona
+  // resolution, provider/model resolution, session creation, prompt
+  // submission) and previously yielded nothing, so the transport carried no
+  // byte at all until the model answered. Truthful: the turn has started; the
+  // session and the model wait follow.
+  let sequence = 0;
+  yield chunk('status', sequence++, { content: 'OpenCode turn started' });
+
   // ROUTING-CONVERGENCE-001C: resolve the execution persona FIRST — before
   // any session is created or message sent. Rejection fails the turn with no
   // OpenCode side effects (never a silent fallback persona).
@@ -693,7 +702,7 @@ export async function* runAssistantOpenCodeTurn(
   });
   const shellStartedAt = new Map<string, number>();
   const openToolInvocations = new Map<string, { readonly tool: string }>();
-  let sequence = 0;
+  // `sequence` is declared above, before the first yielded status chunk.
   // AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool use.
   // Tool lifecycle also emits canonical `opencode.message.part.updated`
   // (part.type=tool) for the M9IngestionBridge, which stores durable

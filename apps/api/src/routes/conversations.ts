@@ -439,6 +439,15 @@ export async function handleConversationsRoute(
       Connection: 'keep-alive',
       ...CORS,
     });
+    // GA-SSE-002: flush the SSE head at turn start. Node holds the head until
+    // the first body write unless it is flushed explicitly, and the first write
+    // only happens on the adapter's first chunk (previously the first model
+    // part). The browser's fetch() cannot resolve before the head arrives, so
+    // the client stayed in 'sending' for the whole pre-token window (measured
+    // 13.25s on a new conversation, 2026-10-19). Flushing here — after
+    // validation and the busy check, so the 200 is already committed — makes
+    // accept observable without adding an execution path.
+    res.flushHeaders();
     let sequence = 0;
     let clientDisconnected = false;
 
