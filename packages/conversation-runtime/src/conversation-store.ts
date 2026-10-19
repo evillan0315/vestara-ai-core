@@ -1,3 +1,4 @@
+import type { DatabaseSync } from 'node:sqlite';
 import type { AssistantExecutionStore, ConversationListPage, ConversationStore } from '@vestara/conversation';
 import type {
   AssistantExecutionObservationReference,
@@ -10,41 +11,9 @@ import type {
 import { isValidTransition } from '@vestara/execution-types';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationStatus, ConversationSummary, Message, ToolObservation } from '@vestara/shared';
-import { migrate, recordPersist } from '@vestara/sqlite-migrations';
+import { migrate } from '@vestara/sqlite-migrations';
 import { CONVERSATION_MANIFEST } from './migrations';
-
-let SQL: any = null;
-
-async function getDb(): Promise<any> {
-  if (SQL) return SQL;
-  const { getSql } = await import('@vestara/shared');
-  SQL = await getSql();
-  return SQL;
-}
-
-function dbRun(db: any, sql: string, params?: any[]): void {
-  const stmt = db.prepare(sql);
-  if (params) stmt.bind(params);
-  stmt.step();
-  stmt.free();
-}
-
-function dbGet(db: any, sql: string, params?: any[]): any {
-  const stmt = db.prepare(sql);
-  if (params) stmt.bind(params);
-  const result = stmt.step() ? stmt.getAsObject() : null;
-  stmt.free();
-  return result;
-}
-
-function dbAll(db: any, sql: string, params?: any[]): any[] {
-  const results: any[] = [];
-  const stmt = db.prepare(sql);
-  if (params) stmt.bind(params);
-  while (stmt.step()) results.push(stmt.getAsObject());
-  stmt.free();
-  return results;
-}
+import { dbAll, dbGet, dbRun, openConversationDatabase, sqljsCompat } from './native-sqlite';
 
 const EXECUTION_STATUSES = new Set<ExecutionStatus>([
   'requested',
@@ -164,12 +133,12 @@ function parseExecutionResult(value: unknown): Message['executionResult'] {
 
 /**
  * SQLite-backed `ConversationStore` for `@vestara/conversation`. Persists the
- * conversation + message rows so chat history survives restart. Uses the same
- * sql.js pattern as `SqliteConversationSessionStore`; each store owns its own
- * tables so they can share a dbPath without interfering.
+ * conversation + message rows so chat history survives restart. Uses native
+ * SQLite with WAL (see `native-sqlite.ts`); each store owns its own tables so
+ * they can share a dbPath without interfering.
  */
 export class SqliteConversationStore implements ConversationStore {
-  private db: any;
+  private db!: DatabaseSync;
   private logger?: Logger;
   private initialized = false;
   private dbPath?: string;
@@ -185,7 +154,6 @@ export class SqliteConversationStore implements ConversationStore {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    const sql = await getDb();
     const fs = await import('node:fs');
     const path = await import('node:path');
     // SQLite files start with the 16-byte magic "SQLite format 3\0". A zero-filled,
@@ -202,32 +170,10 @@ export class SqliteConversationStore implements ConversationStore {
         // Best effort — startup must proceed even when quarantine fails.
       }
     };
-    const persistAtomic = (migrated: any): void => {
-      if (!this.dbPath) return;
-      const dir = path.dirname(this.dbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      const startedAt = performance.now();
-      const tmp = `${this.dbPath}.tmp-${process.pid}`;
-      const buffer = Buffer.from(migrated.export());
-      fs.writeFileSync(tmp, buffer);
-      fs.renameSync(tmp, this.dbPath);
-      recordPersist({
-        store: path.basename(this.dbPath),
-        bytes: buffer.byteLength,
-        durationMs: performance.now() - startedAt,
-      });
-    };
     if (this.dbPath) {
-      let buffer: Buffer | undefined;
       try {
         const raw = fs.readFileSync(this.dbPath);
-        if (!isValidSqlite(raw)) {
-          quarantine(this.dbPath, 'invalid-sqlite-header');
-        } else {
-          buffer = raw;
-        }
+        if (!isValidSqlite(raw)) quarantine(this.dbPath, 'invalid-sqlite-header');
       } catch (error) {
         // ENOENT (first boot) → fresh DB. Any other read failure quarantines so a
         // half-written file cannot wedge every subsequent startup.
@@ -235,37 +181,36 @@ export class SqliteConversationStore implements ConversationStore {
           quarantine(this.dbPath, 'unreadable');
         }
       }
-      try {
-        this.db = buffer ? new sql.Database(buffer) : new sql.Database();
-      } catch {
-        if (buffer) quarantine(this.dbPath, 'open-failed');
-        this.db = new sql.Database();
-      }
-    } else {
-      this.db = new sql.Database();
+      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
     }
+    this.db = openConversationDatabase(this.dbPath);
 
     try {
-      migrate(this.db, CONVERSATION_MANIFEST, {
-        persist: persistAtomic,
-      });
+      this._migrate();
     } catch (error) {
       // Payload passed the header check but is still unusable (e.g. corrupt pages
       // failing PRAGMA user_version). Quarantine and start fresh rather than crash.
       if (!this.dbPath) throw error;
       try {
-        this.db?.close?.();
+        this.db?.close();
       } catch {
         // Ignore close failures on a corrupt handle.
       }
       quarantine(this.dbPath, 'migrate-failed');
-      this.db = new sql.Database();
-      migrate(this.db, CONVERSATION_MANIFEST, {
-        persist: persistAtomic,
-      });
+      this.db = openConversationDatabase(this.dbPath);
+      this._migrate();
       this.logger?.warn('Recreated conversation database after quarantining corrupt file');
     }
     this.initialized = true;
+  }
+
+  /**
+   * Run the conversation migration chain through the shared engine. Writes go
+   * straight to SQLite, so the engine needs no whole-file persist callback.
+   */
+  private _migrate(): void {
+    const adapter = sqljsCompat(this.db);
+    migrate(adapter as unknown as Parameters<typeof migrate>[0], CONVERSATION_MANIFEST);
   }
 
   private async _db(): Promise<any> {
@@ -288,7 +233,6 @@ export class SqliteConversationStore implements ConversationStore {
         conversation.runtimeSessionId ?? null,
       ],
     );
-    this._persist();
   }
 
   /** Unbounded read — returns the complete conversation. Retained for backward compatibility. */
@@ -474,19 +418,16 @@ export class SqliteConversationStore implements ConversationStore {
       );
     }
     dbRun(db, 'UPDATE conversations SET updated_at = ? WHERE id = ?', [message.createdAt, conversationId]);
-    this._persist();
   }
 
   async setStatus(id: string, status: Conversation['status']): Promise<void> {
     const db = await this._db();
     dbRun(db, 'UPDATE conversations SET status = ? WHERE id = ?', [status, id]);
-    this._persist();
   }
 
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await this._db();
     dbRun(db, 'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?', [title, new Date().toISOString(), id]);
-    this._persist();
   }
 
   async updateRuntimeSessionId(id: string, runtimeSessionId: string): Promise<void> {
@@ -496,7 +437,6 @@ export class SqliteConversationStore implements ConversationStore {
       new Date().toISOString(),
       id,
     ]);
-    this._persist();
   }
 
   async createExecution(record: AssistantExecutionRecord): Promise<void> {
@@ -522,7 +462,6 @@ export class SqliteConversationStore implements ConversationStore {
         record.result ? JSON.stringify(record.result) : null,
       ],
     );
-    this._persist();
   }
 
   async getExecution(executionId: ExecutionId): Promise<AssistantExecutionRecord | null> {
@@ -558,7 +497,6 @@ export class SqliteConversationStore implements ConversationStore {
       updatedAt,
       executionId,
     ]);
-    this._persist();
   }
 
   async updateExecutionRuntime(
@@ -573,7 +511,6 @@ export class SqliteConversationStore implements ConversationStore {
       'UPDATE assistant_executions SET runtime_correlation_json = ?, updated_at = ? WHERE execution_id = ?',
       [JSON.stringify(runtime), updatedAt, executionId],
     );
-    this._persist();
   }
 
   async updateExecutionObservation(
@@ -588,7 +525,6 @@ export class SqliteConversationStore implements ConversationStore {
       'UPDATE assistant_executions SET observation_reference_json = ?, updated_at = ? WHERE execution_id = ?',
       [JSON.stringify(observation), updatedAt, executionId],
     );
-    this._persist();
   }
 
   async attachExecutionResult(executionId: ExecutionId, result: ExecutionResult, updatedAt: string): Promise<void> {
@@ -603,7 +539,6 @@ export class SqliteConversationStore implements ConversationStore {
       updatedAt,
       executionId,
     ]);
-    this._persist();
   }
 
   async remove(id: string): Promise<void> {
@@ -611,7 +546,6 @@ export class SqliteConversationStore implements ConversationStore {
     dbRun(db, 'DELETE FROM assistant_executions WHERE conversation_id = ?', [id]);
     dbRun(db, 'DELETE FROM conversation_messages WHERE conversation_id = ?', [id]);
     dbRun(db, 'DELETE FROM conversations WHERE id = ?', [id]);
-    this._persist();
   }
 
   private _rowToMessage(row: Record<string, unknown>): Message {
@@ -662,31 +596,5 @@ export class SqliteConversationStore implements ConversationStore {
         ? { result: parseTerminalResult(row.terminal_result_json, String(row.execution_id)) }
         : {}),
     };
-  }
-
-  private _persist(): void {
-    if (!this.dbPath) return;
-    try {
-      const fs = require('node:fs') as typeof import('node:fs');
-      const path = require('node:path') as typeof import('node:path');
-      const startedAt = performance.now();
-      const data = this.db.export();
-      const buffer = Buffer.from(data);
-      const dir = path.dirname(this.dbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      // Atomic write: a crash mid-write must leave either the old or the new DB,
-      // never a truncated file (a truncated file caused the Oct 2026 zero-filled
-      // conversations.db outage).
-      const tmp = `${this.dbPath}.tmp-${process.pid}`;
-      fs.writeFileSync(tmp, buffer);
-      fs.renameSync(tmp, this.dbPath);
-      recordPersist({
-        store: path.basename(this.dbPath),
-        bytes: buffer.byteLength,
-        durationMs: performance.now() - startedAt,
-      });
-    } catch {}
   }
 }
