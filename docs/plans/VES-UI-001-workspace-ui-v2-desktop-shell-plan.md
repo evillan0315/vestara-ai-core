@@ -248,16 +248,14 @@ Run in order; any failure is a BLOCKER:
 This plan is registered as an orchestrated project (see §13). Task IDs below
 are the orchestration handles for reviewer/audit.
 
-> Caveat (D2, **BLOCKED**): the persisted task rows were created 2026-10-18,
-> before this doc's G12/G13 revisions. `task-1792304306501-1` (T0) and
-> `task-1792304306501-2` (T1) therefore do **not** yet carry the added scope
-> (G13 gold reconciliation / `styles/index.css`; wallpaper pipeline /
-> `assets/wallpapers/`). Resync has **no governed path**: `TaskStore` exposes no
-> scope/description/files edit method, `orchestrator.rebuild()` is event-replay
-> (not an editor, and A7 left no events), the API exposes no task-update route,
-> and the single writer (API) is currently unresponsive. An out-of-band
-> `.vestara/` write would violate the runtime-state guardrail and reproduce A7.
-> This doc is the scope of record until the API can re-register the plan.
+> Resolved (D2, 2026-10-19): the original task rows were created 2026-10-18,
+> before this doc's G12/G13 revisions, and carried stale T0/T1 scope. There is
+> still **no task-update route** (`TaskStore` exposes no scope/description/files
+> edit; `generatePlan` would create a duplicate plan and cannot self-transition
+> `architecture → architecture`), so resync was done by **re-registering the
+> project through the API** (single writer): `project-1792304306133-1` was
+> cancelled and replaced by `project-1792412250418-1` with corrected T0/T1
+> scope. Out-of-band `.vestara/` writes remain forbidden; see A7.
 
 | # | Task summary | Files | Effort | Capabilities |
 |---|---|---|---|---|
@@ -280,6 +278,7 @@ are the orchestration handles for reviewer/audit.
 | Planner | Built this plan from `start/` inspection + current-Vestara investigation | Done 2026-10-18 |
 | Auditor (self) | Path/claim verification — findings A1–A6 below, plan corrected | Done 2026-10-18 |
 | Auditor (self) | Plan-integrity audit vs repo + orchestration stores — findings A7–A11, plan corrected | Done 2026-10-19 |
+| Orchestrator | Re-registered plan through the API with G12/G13 scope (D2); old project cancelled | Done 2026-10-19 |
 | Reviewer | Governance + scope review (§11 checklist) | Pending |
 | Verifier | Independent audit (evidence vs claims, gates green) | Pending |
 | Director | Approval to execute (phases run only on approval) | Pending |
@@ -294,26 +293,24 @@ are the orchestration handles for reviewer/audit.
 | A4 | Review card "Current implementation already matches target spec / No gold references remaining" is a **claim about the prototype only**; production has 134 gold refs + deprecated hardcoded `--vestara-gold` ramp + amber default accent | High | Recorded as G13 (§1.3) + risk row (§10); Phase 0 scope confirmed |
 | A5 | Dead code (0 imports, adjacent to G13): `apps/workspace/src/components/Sidebar.tsx` (the gold `text-vestara-gold` wordmark) and `apps/workspace/src/pages/Overview/DecisionsCard.tsx` (gold `border-l`) are **not imported anywhere** | Low | ADJACENT — recorded, not fixed. Confirm removal in T0/T10 instead of blindly re-tokenizing dead files |
 | A6 | Prototype `src/assets/wallpaper-teal-giant-planet-mountain-lake_1.png` is byte-identical (md5 `a921d49…`) to `…-lake.png` and **unreferenced** | Low | ADJACENT — dead duplicate; safe to drop. Repo `assets/wallpapers/` teal PNG differs (md5 `721beba…`), i.e. two separate renders |
-| A7 | Plan claimed "17 `orchestration.*` events" for the project; **actual 0**. State lives in `plans.db`, but no event is correlated to `project-1792304306133-1`; `/audit` returns empty | High | **Root cause found.** The registration ran the `WorkflowOrchestrator` **library** directly (bypassing the API), supplying its own sink that appended to `engineering-events.db`. `SqliteEngineeringEventStore` is an in-memory sql.js DB persisted by **debounced whole-file atomic replacement** (`flushPersist`: `.tmp` → `renameSync`), and the live API (`apps/api/src/workspace-context.ts:624`) holds its **own** copy of the same file and re-writes it in full on every flush. The script never called `eventStore.close()` (the only deterministic flush), and any concurrent API flush replaces the entire file → the script's rows were lost. Corroborated: 30 event rows dated 2026-10-18 but **none at 06:18** (registration time; next is 06:22, `external-runtime.*`, API-originated); the last `orchestration.*` rows in the DB are 2026-09-14 (dogfood project, registered via the API). **Rule:** orchestration state must be mutated only through the API (single writer) — never open `.vestara/**` stores out-of-band while the API runs. |
+| A7 | Plan claimed "17 `orchestration.*` events" for the project; **actual 0**. State lives in `plans.db`, but no event is correlated to `project-1792304306133-1`; `/audit` returns empty | High | **Root cause found.** The registration ran the `WorkflowOrchestrator` **library** directly (bypassing the API), supplying its own sink that appended to `engineering-events.db`. `SqliteEngineeringEventStore` is an in-memory sql.js DB persisted by **debounced whole-file atomic replacement** (`flushPersist`: `.tmp` → `renameSync`), and the live API (`apps/api/src/workspace-context.ts:624`) holds its **own** copy of the same file and re-writes it in full on every flush. The script never called `eventStore.close()` (the only deterministic flush), and any concurrent API flush replaces the entire file → the script's rows were lost. Corroborated: 30 event rows dated 2026-10-18 but **none at 06:18** (registration time; next is 06:22, `external-runtime.*`, API-originated); the last `orchestration.*` rows in the DB are 2026-09-14 (dogfood project, registered via the API). **Rule:** orchestration state must be mutated only through the API (single writer) — never open `.vestara/**` stores out-of-band while the API runs. **Resolved 2026-10-19:** re-registration through the API produced **17** correlated `orchestration.*` events for `project-1792412250418-1`; `/audit` is no longer empty. |
 | A8 | §1.2 cited `packages/ui-tokens/src/tokens.ts:748` for `ACCENT_PALETTES.shell`; actual line is **795** (748 = `purple:`) | Low | Corrected (§1.2) |
 | A9 | §1.1/G2 referenced `public/logo.svg`; prototype has no `public/` dir. Correct asset is `apps/workspace/public/logo.svg` (viewBox `512×512`); `assets/brand/logo.svg` differs (`605×571`) | Low | Corrected (§1.1) |
 | A10 | §1.2 asserted CSP-010 "Implemented v1.1"; `CSP-010-workspace-ui/README.md` frontmatter is `status: proposed` (body table says Implemented) | Low | Noted inline (§1.2); reconciled by T10 |
 | A11 | T0.1 listed "expose the `shell` accent in the Settings accent picker" as work; already satisfied — `SettingsReferenceSurface.tsx:708` iterates `Object.entries(ACCENT_PALETTES)` (includes `shell`) | Low | Corrected to verify-only (§3 T0.1) |
 
-> Orchestration handles (registered 2026-10-18):
-> - Project: `project-1792304306133-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `architecture` — ready for review)
-> - Plan: `plan-1792304306496-1` (status `proposed`, revision 1)
-> - Tasks: `task-1792304306501-1` … `task-1792304306501-11` (all `pending`; T0→T10 in §12 order)
-> - Artifacts: `artifact-1792304306401-1` (analysis), `artifact-1792304306530-2` (plan)
+> Orchestration handles (re-registered 2026-10-19; supersedes the 2026-10-18 handles):
+> - Project: `project-1792412250418-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `architecture` — ready for review)
+> - Plan: `plan-1792412251142-1` (status `proposed`, revision 1)
+> - Tasks: `task-1792412251312-1` … `task-1792412251312-11` (all `pending`; T0→T10 in §12 order)
+> - Artifacts: `artifact-1792412250905-1` (analysis), `artifact-1792412252217-2` (plan)
 > - Durable state: project/plan/tasks/artifacts persisted in `.vestara/plans/plans.db`.
-> - Audit trail: **NOT present** — `.vestara/events/engineering-events.db` contains
->   **no** `orchestration.*` events correlated to `project-1792304306133-1`
->   (0 matching rows; all 56 orchestration events belong to the earlier
->   `project-1789370182127-1`, last at 2026-09-14). Consequently
->   `GET /api/orchestration/projects/project-1792304306133-1/audit` (which queries
->   `correlationId: projectId`) currently returns an **empty** event list.
->   Root cause identified — audit finding A7 (out-of-band library write lost to the
->   API's whole-file persist; register via the API only).
+> - Audit trail: **present** — 17 correlated `orchestration.*` events
+>   (project.created, 3× phase.changed, analysis.completed, plan.generated,
+>   11× task.created); `GET /api/orchestration/projects/project-1792412250418-1/audit`.
+>   Root-cause guard from A7 still applies: mutate only through the API.
+> - Superseded: `project-1792304306133-1` / `plan-1792304306496-1` /
+>   `task-1792304306501-1…11` cancelled 2026-10-19 (stale T0/T1 scope).
 > Reviewer: call `POST /api/orchestration/projects/:id/architecture` with
 > `{architectId, status: approved|violations, findings}`. On approval the plan
 > moves to `reviewed` and the project to `pending-approval` for Director sign-off.
