@@ -10,6 +10,32 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-19] — Conversation Store: Native SQLite, Write Amplification Removed
+
+### Fixed
+
+- **A trivial assistant turn rewrote the 17.3 MB conversations database 15
+  times (~248 MB, ~6.5 s of blocking)** — `SqliteConversationStore` kept SQLite
+  in memory (sql.js) and rewrote the whole file on every write statement, so one
+  status update cost ~437 ms of synchronous I/O. The store now uses
+  `node:sqlite` in WAL mode (`synchronous=FULL`); `_persist` and its 11 call
+  sites are removed. Measured on the same turn: bytes written 247.7 MB →
+  424–476 KB, whole-file rewrites 15 → 0, first stream event 3,199 ms → 69–116 ms.
+  The existing database opened unchanged (integrity ok, `user_version` 5,
+  86 conversations / 907 messages / 466 executions preserved).
+
+### Added
+
+- **Whole-file persist instrumentation** — `recordPersist()` emits a bounded
+  aggregate with store, bytes, duration and call site. It measured the boot path
+  at 286 plans.db rewrites (~12.3 s of blocking), recorded as still open.
+
+### Changed
+
+- The shared migration engine runs unchanged against native SQLite through a
+  sql.js compatibility adapter, preserving checksums, applied-log verification
+  and the fail-closed gates.
+
 ## [2026-10-19] — Assistant SSE Turn-Start Visibility, Wedged API Instance
 
 ### Fixed

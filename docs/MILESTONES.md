@@ -7014,3 +7014,106 @@ tools). A tool-using turn remains unobserved.
   service prep) completes before the generator is first pulled.
 
 
+## VES-PERF-002 — Whole-File SQLite Persistence ✅ 2026-10-19 (`c781203`, `7a5618e`)
+
+**Status**: Defect found while investigating the reported assistant-turn delay.
+Instrumentation landed first (`c781203`); the conversation store was then moved
+to native SQLite (`7a5618e`).
+
+**Trigger**: the GA-SSE-002 correction left ~3.1 s of pre-token silence
+unexplained and recorded a wedged API instance writing ~30 MB/s with no file
+growing. This entry closes both.
+
+### Mechanism
+
+The sql.js-backed stores hold the database in memory and rewrite the entire file
+on every write statement (`db.export()` + `writeFileSync`). One small SQL write
+therefore costs O(database size) in block I/O:
+
+- `apps/api/src/workspace-context.ts` — `openSqlDb`/`persistOwnedDb` re-read the
+  file, hash it twice, export and rewrite it on every DML statement (plans.db);
+  `persistDb` rewrites in place (activity.db).
+- `packages/conversation-runtime/src/conversation-store.ts` — `_persist()`,
+  called from 11 mutation sites, rewrote the whole conversations.db.
+
+On a slow backing store the synchronous rewrite parks the event loop in
+uninterruptible I/O wait, which is the observed `Dsl rq_qos_wait` wedge: every
+request hangs until the write drains.
+
+### Measured (instrumented `[persist]` diagnostics)
+
+| Phase | Store | Writes | Bytes | Per write | Blocking |
+|-------|-------|--------|-------|-----------|----------|
+| Boot | plans.db 1.31 MB | 286 | 355 MB | mean 43 ms | ≈12.3 s |
+| One trivial turn | conversations.db 17.3 MB | 15 | 247.7 MB | mean 437 ms (max 468) | ≈6.5 s |
+| Idle | — | 0 | 0 | — | 0 |
+
+Call sites: `persistOwnedDb ← stmt.free ← dbRun` (the `@vestara/workspace`
+agent-storage and knowledge-graph-storage writes) for the boot burst;
+`SqliteConversationStore._persist ← create` for the turn. A wedged instance
+sustained 13.85 MB/s (48.0 GB lifetime) with `read_bytes` flat, rewriting
+conversations.db every ~1.5 s.
+
+### What changed
+
+- `c781203` — `recordPersist()` in `@vestara/sqlite-migrations`, wired into all
+  four writers. Bounded aggregate (50 writes or 30 s on an unref'd timer),
+  immediate warning at 500 ms or 4 MB, and a call-site sample. Diagnostics only;
+  persistence behaviour unchanged.
+- `7a5618e` — `SqliteConversationStore` opens `node:sqlite` in WAL mode
+  (`synchronous=FULL`). `_persist` and its 11 call sites removed.
+  `dbRun`/`dbGet`/`dbAll` keep their signatures, so call sites are unchanged; the
+  migration engine runs verbatim through a sql.js compatibility adapter.
+
+### Verification
+
+Same trivial turn, same script:
+
+| | sql.js | native WAL |
+|---|---|---|
+| bytes written | 247.7 MB | 424–476 KB |
+| whole-file rewrites | 15 | 0 |
+| first stream event | 3,199 ms | 69 / 95 / 116 ms |
+| headers | 19 ms | 6–9 ms |
+
+Existing database: `integrity_check` ok, `user_version` 5, 86 conversations /
+907 messages / 466 executions preserved, no re-migration, no quarantine;
+`PRAGMA journal_mode` reports `wal`. Tests: conversation-runtime 9/9, cli 13/13,
+api 233/234 (the single failure is the pre-existing cwd-sensitive
+`diagnostics-toolchain` test, which passes 8/8 from the repo root).
+
+### Corrections
+
+- The session store was initially believed to share conversations.db, which
+  would have made a one-sided fix unsafe. It is wired to
+  `conversations/saved-chats.db`; independently, every measured turn write was
+  exactly `bytes=17317888`, which rules out a 36 KB writer. No blocker existed.
+- The first adapter assumed `exec` only receives queries. Migration steps pass
+  multi-statement baseline DDL through it, which `prepare()` rejects; the
+  adapter now routes non-row-returning SQL to native `exec`.
+
+### Not claimed
+
+- First delta and end-to-end time are not attributed to this change. Across three
+  runs the delta ranged 2,970–14,977 ms and one run was slower than the pre-fix
+  measurement; only ~450 KB of local I/O remains, so the remainder is upstream
+  (runtime/model), not the store.
+- The sustained ~1.5 s write cadence of the wedged instance was not reproduced on
+  a fresh instance (idle: 0 bytes). The pacing loop remains unidentified — but
+  conversations.db can no longer amplify it into a wedge.
+- `tokens: 0` on persisted assistant rows remains unexplained (GA-EXEC-002).
+
+### Adjacent findings (recorded, not mutated)
+
+- **Boot still costs ≈286 plans.db rewrites (~12.3 s of blocking)** through
+  `openSqlDb`. Out of the approved scope; the same treatment (native SQLite or
+  coalescing) applies.
+- `session-store.ts` (saved-chats.db, 36 KB) and `user-profile-store.ts`
+  (prefs.db) keep the whole-file pattern on small separate files; session-store
+  writes in place rather than atomically.
+- The legacy-schema fallback in `addMessage` matches `no such column`, but both
+  sql.js and node:sqlite report `no column named` for an unknown INSERT column,
+  so the fallback appears unreachable. Pre-existing and unchanged by this work;
+  left alone.
+
+
