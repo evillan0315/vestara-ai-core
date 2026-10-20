@@ -55,6 +55,8 @@ export function Tooltip({
 }: TooltipProps) {
   const [open, setOpen] = useState(false);
   const openTimer = useRef<number | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
   const panelId = useId();
 
   const cancelPending = () => {
@@ -75,13 +77,12 @@ export function Tooltip({
   );
 
   useEffect(() => {
-    if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape' && openRef.current) setOpen(false);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, []);
 
   const requestOpen = () => {
     if (disabled) return;
