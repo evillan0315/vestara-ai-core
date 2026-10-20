@@ -34,6 +34,18 @@ function dbAll(db: any, sql: string, params?: any[]): any[] {
 
 let execCounter = 0;
 
+/**
+ * Model identifiers that were once seeded into persisted `agents` rows but are
+ * not present in the live provider catalog. Existing workspaces keep the stale
+ * pin forever because canonical reconciliation intentionally preserves
+ * user-configurable state; this map repairs only those known-bad identifiers
+ * (never a valid user choice).
+ */
+const LEGACY_MODEL_REPAIRS: Readonly<Record<string, string>> = {
+  'muse-spark-1.3-contributor-free': 'muse-spark-1.3-contributor',
+  'muse-spark-1.2-contributor-free': 'muse-spark-1.3-contributor',
+};
+
 export class AgentStorage {
   private db: any;
 
@@ -57,7 +69,9 @@ export class AgentStorage {
 
     // Ensure all canonical agents exist with correct origin
     for (const canonical of CANONICAL_AGENTS) {
-      const existing = dbGet(this.db, 'SELECT id, origin, runtime_agent FROM agents WHERE id = ?', [canonical.id]);
+      const existing = dbGet(this.db, 'SELECT id, origin, runtime_agent, provider, model FROM agents WHERE id = ?', [
+        canonical.id,
+      ]);
       if (!existing) {
         // Missing canonical agent → deterministic creation
         this.saveAgentSync(canonical);
@@ -74,6 +88,16 @@ export class AgentStorage {
         // (or overwritten with an empty value) — the registry is authority.
         if (canonical.runtimeAgent && existing.runtime_agent !== canonical.runtimeAgent) {
           dbRun(this.db, 'UPDATE agents SET runtime_agent = ? WHERE id = ?', [canonical.runtimeAgent, canonical.id]);
+        }
+        // Repair known-invalid model pins that predate the registry migration.
+        // Valid user-selected provider/model values are left untouched.
+        const repairedModelId = typeof existing.model === 'string' ? LEGACY_MODEL_REPAIRS[existing.model] : undefined;
+        if (repairedModelId) {
+          dbRun(this.db, 'UPDATE agents SET provider = ?, model = ? WHERE id = ?', [
+            canonical.provider ?? 'opencode-go',
+            canonical.model ?? repairedModelId,
+            canonical.id,
+          ]);
         }
       }
       // Already correct → no-op
