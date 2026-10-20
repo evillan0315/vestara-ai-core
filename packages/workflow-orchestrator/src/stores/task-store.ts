@@ -133,6 +133,22 @@ export class TaskStore {
     );
   }
 
+  /**
+   * Requeue a blocked task for another dispatch without bypassing the task
+   * state machine (`blocked → assigned`). Attempt accounting restarts so the
+   * bounded retry policy applies to the new run.
+   */
+  async requeue(id: string): Promise<WorkflowTask | null> {
+    dbRun(
+      this.db,
+      `UPDATE orchestrated_tasks
+       SET status = ?, attempt_count = 0, last_error = NULL, started_at = NULL, completed_at = NULL, updated_at = ?
+       WHERE id = ?`,
+      ['assigned', now(), id],
+    );
+    return this.get(id);
+  }
+
   async recordFailure(id: string, error: string, attempt: number): Promise<void> {
     dbRun(
       this.db,

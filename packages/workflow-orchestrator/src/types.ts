@@ -254,6 +254,7 @@ export type OrchestrationEvent =
         | 'task.failed'
         | 'task.blocked'
         | 'task.retrying'
+        | 'task.requeued'
         | 'task.revision'
         | 'task.approved'
         | 'task.cancelled'

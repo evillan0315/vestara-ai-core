@@ -178,6 +178,45 @@ describe('WorkflowOrchestrator — retries and failures', () => {
     expect(events.filter((event) => event.type === 'task.blocked')).toHaveLength(1);
   });
 
+  it('requeues a blocked task and dispatches it again on resume', async () => {
+    let calls = 0;
+    const dispatcher = new FakeDispatcher(() => {
+      calls += 1;
+      return calls <= 3
+        ? { status: 'failed', error: 'provider-failed' }
+        : { status: 'completed', agentId: 'developer-1' };
+    });
+    const { orchestrator, events } = await setup({ dispatcher });
+    const project = await driveToExecution(orchestrator);
+    await orchestrator.runExecution(project.id);
+
+    const blocked = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(blocked.status).toBe('blocked');
+    expect(blocked.attemptCount).toBe(3);
+
+    await orchestrator.requeueTask(project.id, blocked.id);
+
+    const requeued = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(requeued.status).toBe('assigned');
+    expect(requeued.attemptCount).toBe(0);
+    expect(requeued.lastError).toBeUndefined();
+    expect(events.filter((event) => event.type === 'task.requeued')).toHaveLength(1);
+
+    await orchestrator.resume(project.id);
+
+    const completed = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(completed.status).toBe('completed');
+    expect(calls).toBe(4);
+  });
+
+  it('refuses to requeue a task that is not blocked or failed', async () => {
+    const { orchestrator } = await setup();
+    const project = await driveToExecution(orchestrator);
+    const pending = (await orchestrator.snapshot(project.id)).tasks[0];
+
+    await expect(orchestrator.requeueTask(project.id, pending.id)).rejects.toThrow('not blocked or failed');
+  });
+
   it('does not re-dispatch terminal tasks on resume', async () => {
     const dispatcher = new FakeDispatcher(() => ({ status: 'failed', error: 'persistent' }));
     const { orchestrator } = await setup({ dispatcher });

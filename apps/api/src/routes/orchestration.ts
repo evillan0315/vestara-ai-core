@@ -175,6 +175,23 @@ export async function handleOrchestrationRoute(
     }
   }
 
+  // POST /api/orchestration/projects/:projectId/tasks/:taskId/retry
+  // Governed requeue for a task that exhausted its bounded retries.
+  const taskRetryMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/tasks\/([^/]+)\/retry$/);
+  if (taskRetryMatch && method === 'POST') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    try {
+      const snapshot = await orchestrator.requeueTask(
+        decodeURIComponent(taskRetryMatch[1]),
+        decodeURIComponent(taskRetryMatch[2]),
+      );
+      json(res, 200, { snapshot });
+    } catch (error) {
+      json(res, 409, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
+
   const projectMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)$/);
   if (projectMatch && method === 'GET') {
     const projectId = decodeURIComponent(projectMatch[1]);

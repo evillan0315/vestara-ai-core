@@ -84,6 +84,7 @@ const TASK_STATUS_FROM_EVENT: Partial<Record<OrchestrationEvent['type'], TaskSta
   'task.started': 'in-progress',
   'task.awaiting-verification': 'awaiting-verification',
   'task.retrying': 'retrying',
+  'task.requeued': 'assigned',
   'task.failed': 'failed',
   'task.blocked': 'blocked',
   'task.approval-requested': 'awaiting-approval',
@@ -452,6 +453,40 @@ export class WorkflowOrchestrator {
     return this.snapshot(projectId);
   }
 
+  /**
+   * Requeue a blocked or failed task for another dispatch.
+   *
+   * `resume` deliberately skips terminal task states, so a task that exhausted
+   * its bounded retries cannot recover through the normal execution loop. This
+   * is the governed operator path: it validates project/plan ownership, moves
+   * the task back to `assigned` via the state machine, resets attempt
+   * accounting, and records `task.requeued` for replay.
+   */
+  async requeueTask(projectId: string, taskId: string): Promise<ProjectSnapshot> {
+    const project = await this.mustGetProject(projectId);
+    if (project.phase !== 'executing') {
+      throw new Error(`Project ${projectId} is not executing (phase=${project.phase})`);
+    }
+    const task = await this.tasks.get(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    const plan = await this.plans.get(task.planId);
+    if (!plan || plan.projectId !== projectId) {
+      throw new Error(`Task ${taskId} does not belong to project ${projectId}`);
+    }
+    if (task.status !== 'blocked' && task.status !== 'failed') {
+      throw new Error(`Task ${taskId} is not blocked or failed (status=${task.status})`);
+    }
+    await this.tasks.requeue(taskId);
+    await this.events.append({
+      type: 'task.requeued',
+      projectId,
+      planId: task.planId,
+      taskId,
+      at: now(),
+    });
+    return this.snapshot(projectId);
+  }
+
   /** Idempotent re-entry: reload persisted state and continue in-progress work. */
   async resume(projectId: string): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
@@ -674,6 +709,20 @@ export class WorkflowOrchestrator {
         case 'task.retrying':
           applyTaskStatus(event, 'retrying');
           break;
+        case 'task.requeued': {
+          const task = taskById.get(event.taskId);
+          if (task)
+            taskById.set(event.taskId, {
+              ...task,
+              status: 'assigned',
+              attemptCount: 0,
+              lastError: undefined,
+              startedAt: undefined,
+              completedAt: undefined,
+              updatedAt: event.at,
+            });
+          break;
+        }
         case 'task.revision': {
           const task = taskById.get(event.taskId);
           if (task)

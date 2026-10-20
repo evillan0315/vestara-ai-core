@@ -195,6 +195,7 @@ export const WORKFLOW_OBSERVATION_TRIGGER_EVENTS: readonly OrchestrationEvent['t
   'task.failed',
   'task.blocked',
   'task.retrying',
+  'task.requeued',
   'task.revision',
   'task.approved',
   'task.cancelled',
