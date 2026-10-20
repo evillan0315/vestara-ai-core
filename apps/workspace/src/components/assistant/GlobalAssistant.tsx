@@ -138,13 +138,13 @@ function AssistantLauncher({
       aria-label={panelOpen ? 'Close assistant' : 'Open assistant'}
       aria-expanded={panelOpen}
       title={`${panelOpen ? 'Close Vestara Assistant' : 'Ask Vestara (Ctrl+J)'} · Drag to move, arrow keys nudge`}
-      className={`group flex h-12 w-12 touch-none select-none items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_var(--vestara-surface-overlay)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+      className={`group flex h-12 w-12 touch-none select-none items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent-text) shadow-[0_8px_32px_-6px_var(--vestara-accent),0_2px_8px_var(--vestara-surface-overlay)] ring-2 ring-(--vestara-accent-border-active) transition-all duration-200 hover:shadow-[0_10px_40px_-6px_var(--vestara-accent),0_0_20px_var(--vestara-accent-border-hover)] hover:scale-105 hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active) ${dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
       style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
-      {/* Soft halo glow */}
+      {/* Accent halo glow — solid accent at reduced opacity so the orb reads against any surface */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-1.5 rounded-full bg-(--vestara-accent-bg) blur-lg transition-opacity duration-300 group-hover:shadow-[0_0_24px_var(--vestara-accent-bg)]"
+        className="pointer-events-none absolute -inset-1.5 rounded-full bg-(--vestara-accent) opacity-30 blur-lg transition-opacity duration-300 group-hover:opacity-50 group-hover:shadow-[0_0_24px_var(--vestara-accent)]"
       />
       {/* Icon swaps with panel state */}
       <span className="relative flex items-center justify-center">
