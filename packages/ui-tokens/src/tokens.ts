@@ -29,9 +29,6 @@ export const COLOR = {
     red: '#f87171',
     blue: '#60a5fa',
     purple: '#a78bfa',
-    gold: '#c9a84c', // Legacy — DEPRECATED, use brand.amber
-    goldLight: '#fcf6ba', // Legacy — DEPRECATED
-    goldDark: '#b38728', // Legacy — DEPRECATED
   },
 
   // Semantic status colors (VES-DESIGN-002 §K)

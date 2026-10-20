@@ -89,6 +89,16 @@
   border-color: color-mix(in srgb, var(--files-tile-success-fg) 35%, transparent);
 }
 
+/* Files hero surface: the same layered accent wash as the canonical
+   PageHero banner and the Activity Room header — accent-cast gradients
+   over --vestara-hero-bg (fallback: surface canvas). */
+.files-hero-surface {
+  background:
+    radial-gradient(90% 130% at 85% 10%, color-mix(in srgb, var(--vestara-accent) 15%, transparent), transparent 60%),
+    radial-gradient(70% 100% at 15% 0%, color-mix(in srgb, var(--vestara-accent) 8%, transparent), transparent 55%),
+    var(--vestara-hero-bg, var(--vestara-surface-canvas));
+}
+
 [data-selected='true'] {
   box-shadow: inset var(--vestara-spacing-1) 0 0 var(--vestara-accent);
 }

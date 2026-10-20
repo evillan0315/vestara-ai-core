@@ -13,12 +13,14 @@
  *   @see docs/blueprint/VESTARA-OVERVIEW-SCREEN.md
  */
 
-import { lazy, Suspense, type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { DraggableDashboard } from '../../components/dashboard/DraggableDashboard.js';
 import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ContinueWorking } from './components/ContinueWorking';
 import { CollabPrepCard } from './components/CollabPrepCard';
+import { MilestonesSummary } from './components/MilestonesSummary';
+import { WorkspaceSnapshot } from './components/WorkspaceSnapshot';
 import { OverviewHero } from './components/OverviewHero';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
@@ -33,16 +35,6 @@ import { useMorningBriefing } from '../../hooks/useMorningBriefing';
 import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import '../../styles/marketplace.css';
 import './overview.tokens.css';
-
-const MilestonesSummary = lazy(async () => {
-  const module = await import('./components/MilestonesSummary');
-  return { default: module.MilestonesSummary };
-});
-
-const WorkspaceSnapshot = lazy(async () => {
-  const module = await import('./components/WorkspaceSnapshot');
-  return { default: module.WorkspaceSnapshot };
-});
 
 function LoadingSkeleton() {
   // Mirrors the loaded layout breakpoints to avoid layout shift.
@@ -85,10 +77,6 @@ function SnapshotBanner({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function PanelFallback() {
-  return <div className="mpg-skeleton h-32" role="status" aria-label="Loading overview panel" />;
-}
-
 export function OverviewScreen() {
   const { data, isLoading, error, refetch } = useOverview();
   const { briefing: morningBriefing, loading: morningLoading } = useMorningBriefing();
@@ -105,11 +93,7 @@ export function OverviewScreen() {
       continueWorking: <ContinueWorking items={viewData.continueWorking} />,
       todayFocus: <TodayFocus items={viewData.focus} />,
       recentActivity: <RecentActivity items={viewData.recentActivity} />,
-      milestones: (
-        <Suspense fallback={<PanelFallback />}>
-          <MilestonesSummary />
-        </Suspense>
-      ),
+      milestones: <MilestonesSummary />,
       systemStatus: <SystemStatus agents={viewData.agents} resources={viewData.resources} />,
       workspaceHealth: <WorkspaceHealth health={viewData.health} />,
     }),
@@ -211,9 +195,7 @@ export function OverviewScreen() {
             />
           </div>
         ) : (
-            <Suspense fallback={<PanelFallback />}>
-              <WorkspaceSnapshot />
-            </Suspense>
+          <WorkspaceSnapshot />
         )}
       </div>
     </WorkspacePanelLayout>

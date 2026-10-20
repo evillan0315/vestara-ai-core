@@ -647,7 +647,6 @@ export function FilesWorkspace({
         dirCount={dirCount}
         storageBytes={storageBytes}
         activeName={activeName}
-        onOpenSearch={() => setQuickOpen(true)}
         onNewFile={() => createInCurrentDir(false)}
         onNewFolder={() => createInCurrentDir(true)}
       />

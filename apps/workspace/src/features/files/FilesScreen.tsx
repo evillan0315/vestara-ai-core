@@ -72,8 +72,6 @@ export function FilesScreen() {
 
   return (
     <div className="ar-page files-enterprise flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <h1 className="sr-only">Files</h1>
-
       {(error || data.fromSnapshot) && (
         <div className="mb-3">
           <InsightBanner
@@ -88,7 +86,7 @@ export function FilesScreen() {
         </div>
       )}
 
-      <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden sm:mt-2">
+      <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         <FilesWorkspace
           workspaceName={data.workspaceName}
           live={!data.fromSnapshot}
