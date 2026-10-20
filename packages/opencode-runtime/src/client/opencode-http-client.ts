@@ -763,6 +763,8 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     return (async function* () {
       const response = await responsePromise;
       if (!response.ok || !response.body) {
+        // An unread error body keeps the upstream socket open — release it.
+        await response.body?.cancel().catch(() => undefined);
         throw mapHttpStatus(response.status, undefined);
       }
       const reader = response.body.getReader();
@@ -782,6 +784,12 @@ export class OpenCodeHttpClient implements OpenCodeClient {
           }
         }
       } finally {
+        // Cancel the body BEFORE releasing the reader lock. Releasing the lock
+        // alone leaves the HTTP response open: the socket stays established and
+        // the OpenCode server keeps the connection's event listener registered.
+        // Abandoned streams therefore accumulate one server-side listener each
+        // until the runtime trips Node's MaxListeners warning (11th listener).
+        await reader.cancel().catch(() => undefined);
         reader.releaseLock();
       }
     })();

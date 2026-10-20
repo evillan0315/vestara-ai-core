@@ -164,9 +164,19 @@ export class OpenCodeAdapter implements RuntimeExecutionPort {
       context,
     );
 
-    // Open the event stream and create the handle
-    const eventStream = this.config.client.openEventStream(context);
-    const observations = this.createObservationStream(request.id, ocSession.id, eventStream, resolvedBinding);
+    // Open the event stream and create the handle. The stream is bound to an
+    // AbortController so the transport can always be torn down — an abandoned
+    // SSE body keeps the OpenCode connection (and its server-side event
+    // listener) alive for the lifetime of the process.
+    const controller = new AbortController();
+    const eventStream = this.config.client.openEventStream(context, controller.signal);
+    const observations = this.createObservationStream(
+      request.id,
+      ocSession.id,
+      eventStream,
+      resolvedBinding,
+      controller,
+    );
 
     return {
       executionId: request.id,
@@ -174,6 +184,7 @@ export class OpenCodeAdapter implements RuntimeExecutionPort {
       binding: resolvedBinding,
       observations,
       cancel: async () => {
+        controller.abort();
         await this.config.client.abortSession(ocSession.id, context);
       },
     };
@@ -190,6 +201,24 @@ export class OpenCodeAdapter implements RuntimeExecutionPort {
     sessionId: string,
     eventStream: AsyncIterable<OpenCodeEvent>,
     _binding: RuntimeBinding,
+    controller: AbortController,
+  ): AsyncGenerator<ExecutionObservation> {
+    try {
+      yield* this.observeEvents(executionId, sessionId, eventStream);
+    } finally {
+      // The observation stream ends with the execution — abort the upstream
+      // transport so the OpenCode server releases the connection's listener.
+      controller.abort();
+    }
+  }
+
+  /**
+   * Translate the OpenCode event stream into canonical observations.
+   */
+  private async *observeEvents(
+    executionId: ExecutionId,
+    sessionId: string,
+    eventStream: AsyncIterable<OpenCodeEvent>,
   ): AsyncGenerator<ExecutionObservation> {
     const _context = makeContext(this.config);
     const deadline = Date.now() + (this.config.turnTimeoutMs ?? 300_000);
