@@ -2114,6 +2114,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         {execControlsOpen && (
           <ExecutionControlsPopover
             config={execConfig.config}
+            defaults={execConfig.defaults}
             isCustom={execConfig.isCustom}
             onTurnTimeoutChange={execConfig.setTurnTimeoutMs}
             onMaxToolCallsChange={execConfig.setMaxToolCalls}

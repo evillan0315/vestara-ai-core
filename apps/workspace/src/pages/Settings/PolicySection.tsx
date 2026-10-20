@@ -31,6 +31,12 @@ const POLICY_META: Partial<
 > = {
   providers: { title: 'AI Providers', description: 'Providers and models.', icon: 'assistant' },
   agents: { title: 'Agents', description: 'Agent execution policy.', icon: 'agents' },
+  'assistant-execution': {
+    title: 'Assistant Execution',
+    description:
+      'Per-turn budgets enforced by the assistant adapter. Saves to the workspace configuration; a per-turn composer override still wins.',
+    icon: 'assistant',
+  },
   browser: { title: 'Browser', description: 'Browser automation policy and driver.', icon: 'terminal' },
   filesystem: { title: 'Filesystem & Safety', description: 'Boundaries and risk controls.', icon: 'files' },
   verification: { title: 'Verification', description: 'Checks and evidence policy.', icon: 'workflows' },
@@ -82,6 +88,8 @@ const POLICY_LABELS: Record<string, string> = {
   'browser.idleTimeoutMs': 'Idle Timeout (ms)',
   'browser.screenshotRedaction': 'Screenshot Redaction',
   'advanced.experimentalFeatures': 'Experimental Features',
+  'assistantExecution.maxToolCalls': 'Max Tool Calls',
+  'assistantExecution.turnTimeoutMs': 'Turn Timeout (ms)',
 };
 
 const POLICY_HELP: Record<string, string> = {
@@ -106,6 +114,10 @@ const POLICY_HELP: Record<string, string> = {
   'browser.idleTimeoutMs': 'Close idle sessions after this many milliseconds.',
   'browser.screenshotRedaction': 'What to mask in captured screenshots.',
   'advanced.experimentalFeatures': 'Unlock features still under evaluation.',
+  'assistantExecution.maxToolCalls':
+    'Per-turn tool invocation budget. 1–200 = capped, 0 = unlimited. Overrides the adapter default (150); the composer gear still wins for a single turn.',
+  'assistantExecution.turnTimeoutMs':
+    'Hard cap per turn in milliseconds (10s–60m). Overrides the adapter default (60m).',
 };
 
 function PolicyField({

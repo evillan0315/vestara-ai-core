@@ -4,13 +4,19 @@ import { Badge, Button, EmptyState, Input, StatusIndicator, Tabs } from '@vestar
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
-import { WorkflowGraph } from '../components/workflow/WorkflowGraph';
+import { WorkflowGraph, type WorkflowGraphLayoutName } from '../components/workflow/WorkflowGraph';
 import { WorkflowSupportingPanels } from '../components/workflow/WorkflowSupportingPanels';
+import { WorkflowTaskList, type WorkflowTaskItem } from '../components/workflow/WorkflowTaskList';
 import { navIcon } from '../layouts/workspace-navigation';
 import OperationalWorkspaceLayout from '../layouts/OperationalWorkspaceLayout';
 import { type ApprovalGate, resolveApprovalGate } from '../lib/orchestration-approval';
 import { getNextAction, getNextActions, getProjectAction } from '../lib/orchestration-next-action';
 import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
+import {
+  ACTIVE_TASK_STATUSES,
+  ATTENTION_TASK_STATUSES,
+  COMPLETED_TASK_STATUSES,
+} from '../lib/task-status';
 import '../styles/workflow-page.css';
 import '../styles/activity-room.css';
 
@@ -104,6 +110,13 @@ const RAIL_FILTERS: Array<{ id: RailStatusFilter; label: string }> = [
   { id: 'blocked', label: 'Blocked' },
   { id: 'completed', label: 'Completed' },
   { id: 'attention', label: 'Needs approval' },
+];
+
+const GRAPH_LAYOUTS: ReadonlyArray<{ id: WorkflowGraphLayoutName; label: string; hint: string }> = [
+  { id: 'breadthfirst', label: 'Dependency', hint: 'Top-down dependency waves' },
+  { id: 'concentric', label: 'Concentric', hint: 'Tasks grouped by dependency depth' },
+  { id: 'grid', label: 'Grid', hint: 'Compact grid of every node' },
+  { id: 'circle', label: 'Circle', hint: 'Ring layout for wide plans' },
 ];
 
 interface WorkflowQuickAction {
@@ -449,7 +462,6 @@ type StatusTone = 'default' | 'success' | 'warning' | 'error' | 'info';
 /** Maps an orchestrator status/phase string to a Badge tone. */
 function statusTone(status: string): StatusTone {
   switch (status) {
-    case 'running':
     case 'completed':
     case 'approved':
       return 'success';
@@ -461,6 +473,7 @@ function statusTone(status: string): StatusTone {
     case 'pending-approval':
     case 'awaiting-verification':
       return 'warning';
+    case 'running':
     case 'executing':
     case 'verifying':
       return 'info';
@@ -543,13 +556,14 @@ export default function OrchestrationPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | undefined>();
+  const [graphLayout, setGraphLayout] = useState<WorkflowGraphLayoutName>('breadthfirst');
   const [activeTab, setActiveTab] = useState('overview');
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'node' | 'audit' | 'blocker' | 'actions'>('node');
   const [form, setForm] = useState({ name: '', goal: '', repoPath: '' });
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ summary: '', files: '', capabilities: '' }]);
   const [railQuery, setRailQuery] = useState('');
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [dismissedAttentionSignature, setDismissedAttentionSignature] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ projectId: string; gate: ApprovalGate } | null>(null);
@@ -648,12 +662,31 @@ export default function OrchestrationPage() {
     return map;
   }, [projects, metricsByProject, approvalsByProject]);
 
+  // Dismissal is scoped to the attention state it was dismissed for. When the
+  // count or the recommended target changes, the banner returns instead of
+  // staying hidden for the rest of the session.
+  const attentionSignature = useMemo(() => {
+    if (!nextAction) return null;
+    return `${dashboard.attention}|${nextAction.kind}|${nextAction.projectId ?? ''}`;
+  }, [dashboard.attention, nextAction]);
+
+  const attentionDismissed =
+    attentionSignature !== null && dismissedAttentionSignature === attentionSignature;
+
+  // A cleared attention state ends the dismissal episode, so the next round of
+  // blocked work is never silently suppressed by an old dismissal.
+  useEffect(() => {
+    if (dashboard.attention === 0 && dismissedAttentionSignature !== null) {
+      setDismissedAttentionSignature(null);
+    }
+  }, [dashboard.attention, dismissedAttentionSignature]);
+
   const nextActionBanner = useMemo(() => {
-    if (!nextAction || bannerDismissed) return null;
+    if (!nextAction || attentionDismissed) return null;
     // Don't show the empty-state synthetic action as a banner — it belongs in the empty state.
     if (projects.length === 0) return null;
     return nextAction;
-  }, [nextAction, bannerDismissed, projects.length]);
+  }, [nextAction, attentionDismissed, projects.length]);
 
   const visibleProjects = useMemo(() => {
     const needle = railQuery.trim().toLowerCase();
@@ -866,6 +899,36 @@ export default function OrchestrationPage() {
     : 0;
   const selectedTotal = selectedDetail ? selectedDetail.snapshot.tasks.length : 0;
   const selectedPct = selectedTotal > 0 ? Math.round((selectedDone / selectedTotal) * 100) : 0;
+
+  const selectedGraphMetrics = useMemo(() => {
+    const tasks = selectedDetail?.snapshot.tasks ?? [];
+    let active = 0;
+    let completed = 0;
+    let attention = 0;
+    for (const task of tasks) {
+      if (ACTIVE_TASK_STATUSES.has(task.status)) active += 1;
+      if (COMPLETED_TASK_STATUSES.has(task.status)) completed += 1;
+      if (ATTENTION_TASK_STATUSES.has(task.status)) attention += 1;
+    }
+    return { total: tasks.length, active, completed, attention };
+  }, [selectedDetail]);
+
+  const selectedTaskItems = useMemo<WorkflowTaskItem[]>(() => {
+    if (!selectedDetail) return [];
+    const artifacts = selectedDetail.snapshot.artifacts ?? [];
+    return selectedDetail.snapshot.tasks.map((task) => ({
+      id: task.id,
+      summary: task.summary,
+      description: task.description,
+      status: task.status,
+      dependencies: task.dependencies,
+      files: task.files,
+      revisionCount: task.revisionCount,
+      attemptCount: task.attemptCount,
+      artifactCount: artifacts.filter((artifact) => artifact.taskId === task.id).length,
+    }));
+  }, [selectedDetail]);
+
   const focusProjectTab = (tab: 'workflow-graph' | 'evidence', projectId?: string) => {
     // Prefer an explicitly-requested project, then the current selection,
     // then the most urgent recommendation — never silently fall back to the
@@ -1000,11 +1063,11 @@ export default function OrchestrationPage() {
 
   return (
     <div className="workflow-page">
-        <div className="flex flex-wrap items-start justify-between gap-[var(--vestara-spacing-3)]" aria-label="Workflow header">
+            <div className="flex flex-wrap items-start justify-between gap-[var(--vestara-spacing-3)]" aria-label="Orchestration header">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-2)]">
               <h1 className="max-w-xl truncate text-[length:var(--vestara-font-size-lg)] font-semibold tracking-tight text-[var(--vestara-text-primary)]">
-                {selectedProject?.name ?? 'Workflows'}
+                {selectedProject?.name ?? 'Orchestration'}
               </h1>
               {selectedProject && (
                 <>
@@ -1028,15 +1091,38 @@ export default function OrchestrationPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-2)]">
-            <button
-              type="button"
-              onClick={handleNextAction}
-              disabled={!nextAction}
-              title={nextAction ? `Next: ${nextAction.title}` : undefined}
-              className="cursor-pointer rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] transition-colors hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              ● {dashboard.attention} needs attention
-            </button>
+            {dashboard.attention > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Dismissed banners keep a compact entry point that restores
+                  // the banner rather than silently executing the action.
+                  if (attentionDismissed) {
+                    setDismissedAttentionSignature(null);
+                    return;
+                  }
+                  handleNextAction();
+                }}
+                disabled={!nextAction && !attentionDismissed}
+                title={
+                  attentionDismissed
+                    ? 'Show the attention banner'
+                    : nextAction
+                      ? `Next: ${nextAction.title}`
+                      : undefined
+                }
+                aria-label={
+                  attentionDismissed
+                    ? `Show attention banner: ${dashboard.attention} item${dashboard.attention === 1 ? '' : 's'} need attention`
+                    : `Review attention: ${dashboard.attention} item${dashboard.attention === 1 ? '' : 's'} need attention`
+                }
+                className="cursor-pointer rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] transition-colors hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {attentionDismissed
+                  ? `Attention · ${dashboard.attention}`
+                  : `● ${dashboard.attention} ${dashboard.attention === 1 ? 'needs' : 'need'} attention`}
+              </button>
+            )}
             <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-info)]">
               ● {dashboard.tasks.running} running
             </span>
@@ -1057,9 +1143,9 @@ export default function OrchestrationPage() {
               className="inline-flex items-center gap-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-wide text-[var(--vestara-status-success)]"
               role="status"
               aria-live="polite"
-              title={`Workflows: ${heroStatusLabel}`}
+              title={`Orchestration: ${heroStatusLabel}`}
             >
-              <StatusIndicator variant={loading ? 'idle' : dashboard.attention > 0 ? 'warn' : 'live'} size="xs" pulse={stats.running > 0} ariaLabel={`Workflows: ${heroStatusLabel}`} />
+              <StatusIndicator variant={loading ? 'idle' : dashboard.attention > 0 ? 'warn' : 'live'} size="xs" pulse={stats.running > 0} ariaLabel={`Orchestration: ${heroStatusLabel}`} />
               {loading ? 'Loading' : stats.running > 0 ? 'Live running' : heroStatusLabel}
             </span>
             {heroActions.map((action) => (
@@ -1107,7 +1193,7 @@ export default function OrchestrationPage() {
               </Button>
               <button
                 type="button"
-                onClick={() => setBannerDismissed(true)}
+                onClick={() => setDismissedAttentionSignature(attentionSignature)}
                 className="cursor-pointer rounded-[var(--vestara-radius)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]"
                 aria-label="Dismiss next action banner"
               >
@@ -1535,26 +1621,60 @@ export default function OrchestrationPage() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           ariaLabel="Workflow sections"
+          className="workflow-main-tabs"
         />
-        <div className="space-y-[var(--vestara-spacing-section)]">
+        <div className="workflow-main-body space-y-[var(--vestara-spacing-section)]">
           {activeTab === 'workflow-graph' ? (
               selectedDetail ? (
-                <WorkflowGraph
-                  chrome="canvas"
-                  height={560}
-                  graph={selectedGraph}
-                  error={selectedGraph ? undefined : 'Workflow graph is unavailable until a plan exists.'}
-                  selectedNodeId={selectedGraphNodeId}
-                  onNodeSelect={(node) => {
-                    setSelectedGraphNodeId(node?.id);
-                    if (node) setInspectorTab('node');
-                  }}
-                />
+                <>
+                  <div className="workflow-graph-command" role="group" aria-label="Graph summary and layout">
+                    <div className="workflow-graph-command__stats" role="status" aria-label="Graph summary">
+                      <span className="workflow-graph-metric" data-tone="muted">
+                        <strong>{selectedGraphMetrics.total}</strong> tasks
+                      </span>
+                      <span className="workflow-graph-metric" data-tone="info">
+                        <strong>{selectedGraphMetrics.active}</strong> active
+                      </span>
+                      <span className="workflow-graph-metric" data-tone="success">
+                        <strong>{selectedGraphMetrics.completed}</strong> completed
+                      </span>
+                      <span className="workflow-graph-metric" data-tone="warning">
+                        <strong>{selectedGraphMetrics.attention}</strong> needs attention
+                      </span>
+                    </div>
+                    <div className="workflow-graph-layouts" role="group" aria-label="Graph layout">
+                      {GRAPH_LAYOUTS.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className="workflow-graph-layout"
+                          aria-pressed={graphLayout === option.id}
+                          title={option.hint}
+                          onClick={() => setGraphLayout(option.id)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <WorkflowGraph
+                    chrome="canvas"
+                    layout={graphLayout}
+                    graph={selectedGraph}
+                    error={selectedGraph ? undefined : 'No dependency map yet — approve the plan to render the graph.'}
+                    selectedNodeId={selectedGraphNodeId}
+                    onNodeSelect={(node) => {
+                      setSelectedGraphNodeId(node?.id);
+                      if (node) setInspectorTab('node');
+                    }}
+                    className="workflow-graph-stage"
+                  />
+                </>
               ) : (
                 <EmptyState
                   icon={navIcon('workflows')}
                   title="No workflow selected"
-                  description="Select a project from the Projects rail to inspect its Workflow graph."
+                  description="Select a project from the Projects rail to inspect its orchestration graph."
                   action={
                     <Button variant="secondary" size="sm" onClick={selectRecommended} disabled={projects.length === 0}>
                       Select a workflow
@@ -1564,31 +1684,13 @@ export default function OrchestrationPage() {
               )
             ) : activeTab === 'tasks' ? (
               selectedDetail ? (
-                <div className="workflow-task-list" aria-label="Workflow tasks">
-                  {selectedDetail.snapshot.tasks.length === 0 ? (
-                    <div className="workflow-panel workflow-panel-empty p-[var(--vestara-spacing-page)]">No tasks are available in this snapshot.</div>
-                  ) : selectedDetail.snapshot.tasks.map((task) => (
-                    <button
-                      type="button"
-                      className="workflow-task-row"
-                      key={task.id}
-                      onClick={() => {
-                        setSelectedGraphNodeId(`workflow-task:${task.id}`);
-                        setActiveTab('workflow-graph');
-                      }}
-                    >
-                      <span className="workflow-task-row-main">
-                        <strong>{task.summary}</strong>
-                        {task.description && <small>{task.description}</small>}
-                        <span className="workflow-task-row-meta">
-                          <span className="workflow-status-chip" data-status={task.status}>{task.status.replaceAll('-', ' ')}</span>
-                          <span>{task.dependencies.length} prerequisite{task.dependencies.length === 1 ? '' : 's'}</span>
-                          <span>{(selectedDetail.snapshot.artifacts ?? []).filter((artifact) => artifact.taskId === task.id).length} artifacts</span>
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <WorkflowTaskList
+                  tasks={selectedTaskItems}
+                  onSelectTask={(taskId) => {
+                    setSelectedGraphNodeId(`workflow-task:${taskId}`);
+                    setActiveTab('workflow-graph');
+                  }}
+                />
               ) : (
                 <EmptyState
                   icon={navIcon('executions')}

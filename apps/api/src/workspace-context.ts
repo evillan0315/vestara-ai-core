@@ -941,6 +941,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       );
     },
   };
+  // GA-EXEC-003: constructed before the assistant executor so its turn-budget
+  // fallback can read Settings → Assistant Execution. Exposed on the context
+  // below (unchanged authority; only the construction point moved earlier).
+  const settings = new WorkspaceConfigurationService(abs, session.fingerprint.id);
   let assistantInteractionBroker = new AssistantInteractionBroker();
   const assistantConversationSessions = new AssistantConversationSessionRegistry();
   try {
@@ -976,6 +980,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       // capability policy) resolved from the live AgentDefinition. Same
       // authority the Activity Room reads for provider/model.
       resolveAgentPersona: (agentId) => resolveConversationPersona(agents, abs, agentId),
+      // GA-EXEC-003: Settings → Assistant Execution is the workspace fallback
+      // for turn budgets. A per-turn composer override still wins.
+      resolveExecutionDefaults: () => settings.assistantExecutionDefaults(),
       resolveProviderModel: (requestedModel, requestedProvider) =>
         assistantBindingResolver.resolve({ providerId: requestedProvider, modelId: requestedModel }),
       sessionRegistry: assistantConversationSessions,
@@ -1533,7 +1540,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     });
   }
   log('thread-recovery');
-  const settings = new WorkspaceConfigurationService(abs, session.fingerprint.id);
+  // `settings` is constructed above the assistant executor (GA-EXEC-003).
   const capabilityManager = new AgentCapabilityManager({ filesystem: filesystemRuntime });
 
   const implementationService = new ImplementationService({

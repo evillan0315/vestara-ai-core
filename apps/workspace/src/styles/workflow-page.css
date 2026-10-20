@@ -27,6 +27,24 @@
   padding: var(--vestara-spacing-section);
 }
 
+/* The tab strip keeps the same section rhythm as every other block on the
+   page — pinned above the scrolling body on desktop, in normal flow below. */
+.workflow-page .operational-workspace-layout__main {
+  gap: var(--vestara-spacing-section);
+}
+
+/* Graph stage: the canvas fills the visible row but never outgrows short
+   screens (Activity Room viewport-capped pattern). The inspector's bare
+   embed keeps its own compact height via its inline style. */
+.workflow-page .workflow-graph-stage {
+  min-width: 0;
+}
+
+.workflow-page .workflow-graph-stage .workflow-graph-canvas {
+  height: min(36rem, calc(100dvh - 26rem));
+  min-height: 22rem;
+}
+
 @media (min-width: 1024px) {
   .workflow-page {
     overflow: hidden;
@@ -48,12 +66,60 @@
     overflow: hidden;
   }
 
+  /* Every column fills the same row height. */
+  .workflow-page .operational-workspace-layout__work {
+    align-items: stretch;
+  }
+
   /* Rail + context stretch to the row and scroll internally. */
   .workflow-page .workflow-rail,
   .workflow-page .workflow-context {
     height: 100%;
     min-height: 0;
     overflow-y: auto;
+  }
+
+  /* Main column: the tab strip is pinned and the tab body owns the only
+     scroll region, so long task lists get a real scrollbar and can never
+     clip under — or push away — the tabs. */
+  .workflow-page .operational-workspace-layout__main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workflow-page .workflow-main-tabs {
+    flex-shrink: 0;
+  }
+
+  .workflow-page .workflow-main-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    /* Reserve the gutter so switching between tabs never shifts the layout. */
+    scrollbar-gutter: stable;
+    padding-bottom: var(--vestara-spacing-section);
+    scrollbar-width: thin;
+    scrollbar-color: var(--vestara-border-strong) transparent;
+  }
+
+  .workflow-page .workflow-main-body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .workflow-page .workflow-main-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .workflow-page .workflow-main-body::-webkit-scrollbar-thumb {
+    border-radius: var(--vestara-radius-full, 9999px);
+    background: var(--vestara-border-strong);
+  }
+
+  .workflow-page .workflow-main-body:hover::-webkit-scrollbar-thumb {
+    background: var(--vestara-accent-border-hover);
   }
 }
 
@@ -336,6 +402,164 @@
   background: var(--vestara-status-success);
 }
 
+/* ── Tasks tab ─────────────────────────────────────────────── */
+
+.workflow-task-surface {
+  display: grid;
+  min-width: 0;
+  gap: var(--vestara-spacing-section);
+}
+
+.workflow-task-summary {
+  display: grid;
+  min-width: 0;
+  gap: var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  padding: var(--vestara-spacing-section);
+  background:
+    radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--vestara-accent) 7%, transparent), transparent 60%),
+    var(--vestara-surface-panel);
+}
+
+.workflow-task-summary__metrics {
+  display: grid;
+  min-width: 0;
+  gap: var(--vestara-spacing-element);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workflow-task-summary__metric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--vestara-spacing-1);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  background: var(--vestara-surface-panel-raised);
+}
+
+.workflow-task-summary__metric[data-tone='info'] {
+  border-color: var(--vestara-status-info-border);
+  background: var(--vestara-status-info-bg);
+}
+
+.workflow-task-summary__metric[data-tone='warning'] {
+  border-color: var(--vestara-status-warning-border);
+  background: var(--vestara-status-warning-bg);
+}
+
+.workflow-task-summary__metric[data-tone='success'] {
+  border-color: var(--vestara-status-success-border);
+  background: var(--vestara-status-success-bg);
+}
+
+.workflow-task-summary__value {
+  color: var(--vestara-text-primary);
+  font-size: var(--vestara-font-size-lg);
+  font-weight: var(--vestara-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.workflow-task-summary__label {
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+}
+
+.workflow-task-summary__progress {
+  display: grid;
+  min-width: 0;
+  gap: var(--vestara-spacing-element);
+  align-content: center;
+}
+
+.workflow-task-summary__progress-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-element);
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+}
+
+.workflow-task-summary__progress-head span:last-child {
+  color: var(--vestara-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-task-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  padding: var(--vestara-spacing-element);
+  background: var(--vestara-surface-panel);
+}
+
+.workflow-task-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+
+.workflow-task-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-full, 9999px);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-muted);
+  background: transparent;
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-medium);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.workflow-task-filter:hover {
+  border-color: var(--vestara-accent-border-hover);
+  color: var(--vestara-text-secondary);
+}
+
+.workflow-task-filter:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.workflow-task-filter[aria-pressed='true'] {
+  border-color: var(--vestara-accent-border);
+  background: var(--vestara-accent-bg);
+  color: var(--vestara-text-primary);
+}
+
+.workflow-task-filter__count {
+  min-width: var(--vestara-spacing-5);
+  border-radius: var(--vestara-radius-full, 9999px);
+  padding: 0 var(--vestara-spacing-1);
+  color: var(--vestara-text-muted);
+  background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.workflow-task-filter[aria-pressed='true'] .workflow-task-filter__count {
+  color: var(--vestara-accent-text);
+}
+
+.workflow-task-toolbar__count {
+  margin-left: auto;
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .workflow-task-list {
   display: grid;
   gap: var(--vestara-spacing-element);
@@ -344,26 +568,108 @@
 .workflow-task-row {
   display: flex;
   min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--vestara-spacing-element);
+  align-items: flex-start;
+  gap: var(--vestara-spacing-section);
   border: 1px solid var(--vestara-border-subtle);
-  border-radius: var(--vestara-radius, 0.375rem);
-  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  border-inline-start: 3px solid var(--vestara-border-strong);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  padding: var(--vestara-spacing-3) var(--vestara-spacing-section);
   color: var(--vestara-text-secondary);
   background: var(--vestara-surface-panel-raised);
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .workflow-task-row:hover {
   border-color: var(--vestara-accent-border-hover);
+  background: var(--vestara-surface-panel);
   color: var(--vestara-text-primary);
 }
 
-.workflow-task-row-main {
+.workflow-task-row:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.workflow-task-row[data-tone='success'] {
+  border-inline-start-color: var(--vestara-status-success);
+}
+
+.workflow-task-row[data-tone='info'] {
+  border-inline-start-color: var(--vestara-status-info);
+}
+
+.workflow-task-row[data-tone='warning'] {
+  border-inline-start-color: var(--vestara-status-warning);
+}
+
+.workflow-task-row[data-tone='error'] {
+  border-inline-start-color: var(--vestara-status-error);
+}
+
+.workflow-task-row-glyph {
   display: grid;
+  width: var(--vestara-spacing-8);
+  height: var(--vestara-spacing-8);
+  flex: 0 0 auto;
+  place-items: center;
+  margin-top: var(--vestara-spacing-1);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-full, 9999px);
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-semibold);
+}
+
+.workflow-task-row-glyph[data-tone='success'] {
+  border-color: var(--vestara-status-success-border);
+  color: var(--vestara-status-success);
+  background: var(--vestara-status-success-bg);
+}
+
+.workflow-task-row-glyph[data-tone='info'] {
+  border-color: var(--vestara-status-info-border);
+  color: var(--vestara-status-info);
+  background: var(--vestara-status-info-bg);
+  animation: workflow-task-pulse 1.8s ease-in-out infinite;
+}
+
+.workflow-task-row-glyph[data-tone='warning'] {
+  border-color: var(--vestara-status-warning-border);
+  color: var(--vestara-status-warning);
+  background: var(--vestara-status-warning-bg);
+}
+
+.workflow-task-row-glyph[data-tone='error'] {
+  border-color: var(--vestara-status-error-border);
+  color: var(--vestara-status-error);
+  background: var(--vestara-status-error-bg);
+}
+
+@keyframes workflow-task-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.workflow-task-row-main {
+  display: flex;
   min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--vestara-spacing-1);
+}
+
+.workflow-task-row-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--vestara-spacing-element);
 }
 
@@ -371,11 +677,12 @@
   overflow-wrap: anywhere;
   color: var(--vestara-text-primary);
   font-size: var(--vestara-font-size-sm);
-  font-weight: var(--vestara-font-weight-medium);
+  font-weight: var(--vestara-font-weight-semibold);
 }
 
 .workflow-task-row-main small {
   overflow: hidden;
+  max-width: 100%;
   color: var(--vestara-text-muted);
   font-size: var(--vestara-font-size-xs);
   text-overflow: ellipsis;
@@ -389,6 +696,64 @@
   gap: var(--vestara-spacing-element);
   color: var(--vestara-text-muted);
   font-size: var(--vestara-font-size-xs);
+}
+
+.workflow-task-row-files {
+  overflow: hidden;
+  max-width: 20rem;
+  font-family: var(--vestara-font-mono, monospace);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-task-row-cta {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--vestara-accent-text);
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-medium);
+  white-space: nowrap;
+}
+
+.workflow-task-empty {
+  display: grid;
+  place-items: center;
+  gap: var(--vestara-spacing-section);
+  border: 1px dashed var(--vestara-border-default);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  padding: var(--vestara-spacing-page);
+  color: var(--vestara-text-muted);
+  background: var(--vestara-surface-canvas);
+  font-size: var(--vestara-font-size-sm);
+  text-align: center;
+}
+
+.workflow-task-empty__hint {
+  font-size: var(--vestara-font-size-xs);
+}
+
+@media (min-width: 640px) {
+  .workflow-task-summary__metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .workflow-task-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-task-row,
+  .workflow-task-filter {
+    transition: none;
+  }
+
+  .workflow-task-row-glyph[data-tone='info'] {
+    animation: none;
+  }
 }
 
 .workflow-project-selection-note {
@@ -428,6 +793,118 @@
   margin-top: var(--vestara-spacing-element);
   color: var(--vestara-text-secondary);
   font-size: var(--vestara-font-size-xs);
+}
+
+/* ── Workflow graph command bar ────────────────────────────── */
+
+.workflow-graph-command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  background: var(--vestara-surface-panel);
+}
+
+.workflow-graph-command__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+
+.workflow-graph-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--vestara-spacing-element);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-full, 9999px);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-muted);
+  background: var(--vestara-surface-panel-raised);
+  font-size: var(--vestara-font-size-xs);
+}
+
+.workflow-graph-metric strong {
+  color: var(--vestara-text-primary);
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-graph-metric[data-tone='info'] {
+  border-color: var(--vestara-status-info-border);
+  background: var(--vestara-status-info-bg);
+  color: var(--vestara-status-info);
+}
+
+.workflow-graph-metric[data-tone='success'] {
+  border-color: var(--vestara-status-success-border);
+  background: var(--vestara-status-success-bg);
+  color: var(--vestara-status-success);
+}
+
+.workflow-graph-metric[data-tone='warning'] {
+  border-color: var(--vestara-status-warning-border);
+  background: var(--vestara-status-warning-bg);
+  color: var(--vestara-status-warning);
+}
+
+.workflow-graph-metric[data-tone='error'] {
+  border-color: var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
+  color: var(--vestara-status-error);
+}
+
+.workflow-graph-metric[data-tone='info'] strong,
+.workflow-graph-metric[data-tone='success'] strong,
+.workflow-graph-metric[data-tone='warning'] strong,
+.workflow-graph-metric[data-tone='error'] strong {
+  color: inherit;
+}
+
+.workflow-graph-layouts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+
+.workflow-graph-layout {
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-full, 9999px);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-muted);
+  background: transparent;
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-medium);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.workflow-graph-layout:hover {
+  border-color: var(--vestara-accent-border-hover);
+  color: var(--vestara-text-secondary);
+}
+
+.workflow-graph-layout:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.workflow-graph-layout[aria-pressed='true'] {
+  border-color: var(--vestara-accent-border);
+  background: var(--vestara-accent-bg);
+  color: var(--vestara-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-graph-layout {
+    transition: none;
+  }
 }
 
 @media (min-width: 900px) {

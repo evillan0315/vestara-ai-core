@@ -30,8 +30,10 @@ Deep imports into `src` or `dist` are not public API.
 `SettingsValue`, `SettingsPlugin`, `SettingsProposal`, `ProposalType`,
 `ProposalStatus`, `AuditEntry`, `SettingsSearchResult`, `SettingsExportResult`,
 `SettingsImportResult`, `ValidationError`, `SettingsEvent`,
-`SettingsEventType`, and `SettingsEventHandler` define the framework's data
-boundary.
+`SettingsEventType`, `SettingsEventHandler`, `ShellAccentTheme`, and
+`ShellAppearanceSettings` define the framework's data
+boundary. `SHELL_APPEARANCE_DEFAULTS` and `SHELL_APPEARANCE_MODULE_ID`
+expose the shell appearance defaults and module identity.
 
 Registry and service-facing interfaces are exported as `ModuleRegistry`,
 `RouteRegistry`, `SectionRegistry`, `EntryRegistry`, `SettingsStore`,

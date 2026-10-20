@@ -137,9 +137,42 @@
   background: var(--vestara-status-running);
 }
 
+.workflow-legend-pending {
+  color: var(--vestara-status-pending);
+  background: var(--vestara-status-pending);
+}
+
+.workflow-legend-awaiting {
+  color: var(--vestara-status-warning);
+  background: var(--vestara-status-warning);
+}
+
 .workflow-legend-blocked {
   color: var(--vestara-status-error);
   background: var(--vestara-status-error);
+}
+
+/* Affordance chip: the canvas is interactive, the hint names the gesture
+   without competing with the legend (top-left) or minimap (bottom-right). */
+.workflow-graph-hint {
+  position: absolute;
+  top: var(--vestara-spacing-3);
+  right: var(--vestara-spacing-3);
+  z-index: 10;
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-full, 9999px);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-muted);
+  background: color-mix(in srgb, var(--vestara-surface-panel) 90%, transparent);
+  backdrop-filter: blur(8px);
+  font-size: var(--vestara-font-size-xs);
+  pointer-events: none;
+}
+
+@media (max-width: 639px) {
+  .workflow-graph-hint {
+    display: none;
+  }
 }
 
 .workflow-graph-control {

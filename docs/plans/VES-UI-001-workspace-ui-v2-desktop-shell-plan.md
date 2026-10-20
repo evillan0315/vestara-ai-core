@@ -16,7 +16,7 @@ next-review: 2026-11-01
 | Source prototype | `assets/templates/html/v2/start/workspace-ui-v2/` (Vite + React 18.3.1 + Tailwind 3.4, v7.15.112) |
 | Target | `apps/workspace` (`@vestara/workspace-ui`, React 19.2 + Tailwind v4 + MUI icons (currently v6.4.0), app v1.1.0) |
 | Implementation | NOT YET AUTHORIZED (phases execute on approval) |
-| Last Updated | 2026-10-18 |
+| Last Updated | 2026-10-20 (T10 docs + audit pass; status still PROPOSED — reviewer/verifier/Director pending) |
 
 > All UI work follows `docs/governance/UI-UX-GOVERNANCE.md` (tokens via
 > `var(--vestara-*)`, no hardcode, validate via `pnpm vds:validate`).
@@ -279,6 +279,7 @@ are the orchestration handles for reviewer/audit.
 | Auditor (self) | Path/claim verification — findings A1–A6 below, plan corrected | Done 2026-10-18 |
 | Auditor (self) | Plan-integrity audit vs repo + orchestration stores — findings A7–A11, plan corrected | Done 2026-10-19 |
 | Orchestrator | Re-registered plan through the API with G12/G13 scope (D2); old project cancelled | Done 2026-10-19 |
+| Developer (T10) | Docs + governance + audit pass: CSP-010/CSP-016 status notes, gate record + findings T10-B/A/O below (docs scope only, no implementation changes) | Done 2026-10-20 |
 | Reviewer | Governance + scope review (§11 checklist) | Pending |
 | Verifier | Independent audit (evidence vs claims, gates green) | Pending |
 | Director | Approval to execute (phases run only on approval) | Pending |
@@ -296,8 +297,35 @@ are the orchestration handles for reviewer/audit.
 | A7 | Plan claimed "17 `orchestration.*` events" for the project; **actual 0**. State lives in `plans.db`, but no event is correlated to `project-1792304306133-1`; `/audit` returns empty | High | **Root cause found.** The registration ran the `WorkflowOrchestrator` **library** directly (bypassing the API), supplying its own sink that appended to `engineering-events.db`. `SqliteEngineeringEventStore` is an in-memory sql.js DB persisted by **debounced whole-file atomic replacement** (`flushPersist`: `.tmp` → `renameSync`), and the live API (`apps/api/src/workspace-context.ts:624`) holds its **own** copy of the same file and re-writes it in full on every flush. The script never called `eventStore.close()` (the only deterministic flush), and any concurrent API flush replaces the entire file → the script's rows were lost. Corroborated: 30 event rows dated 2026-10-18 but **none at 06:18** (registration time; next is 06:22, `external-runtime.*`, API-originated); the last `orchestration.*` rows in the DB are 2026-09-14 (dogfood project, registered via the API). **Rule:** orchestration state must be mutated only through the API (single writer) — never open `.vestara/**` stores out-of-band while the API runs. **Resolved 2026-10-19:** re-registration through the API produced **17** correlated `orchestration.*` events for `project-1792412250418-1`; `/audit` is no longer empty. |
 | A8 | §1.2 cited `packages/ui-tokens/src/tokens.ts:748` for `ACCENT_PALETTES.shell`; actual line is **795** (748 = `purple:`) | Low | Corrected (§1.2) |
 | A9 | §1.1/G2 referenced `public/logo.svg`; prototype has no `public/` dir. Correct asset is `apps/workspace/public/logo.svg` (viewBox `512×512`); `assets/brand/logo.svg` differs (`605×571`) | Low | Corrected (§1.1) |
-| A10 | §1.2 asserted CSP-010 "Implemented v1.1"; `CSP-010-workspace-ui/README.md` frontmatter is `status: proposed` (body table says Implemented) | Low | Noted inline (§1.2); reconciled by T10 |
+| A10 | §1.2 asserted CSP-010 "Implemented v1.1"; `CSP-010-workspace-ui/README.md` frontmatter is `status: proposed` (body table says Implemented) | Low | Reconciled 2026-10-20 (T10): status notes added to CSP-010 + CSP-016 READMEs — frontmatter `proposed` is the *document* lifecycle state (all 23 CSPs share it; `implemented` would require `implementation-repository`/`implementation-commit` per `docs-automation.mjs`), body "Implemented (vX)" is the *capability* state. Frontmatter deliberately not flipped. Review dates refreshed to 2026-10-20 / 2026-11-20 |
 | A11 | T0.1 listed "expose the `shell` accent in the Settings accent picker" as work; already satisfied — `SettingsReferenceSurface.tsx:708` iterates `Object.entries(ACCENT_PALETTES)` (includes `shell`) | Low | Corrected to verify-only (§3 T0.1) |
+
+**T10 gate + audit record (2026-10-20 — developer, docs scope only; no implementation files touched):**
+
+| Gate | Result | Evidence |
+|---|---|---|
+| `pnpm lint:check` | ✅ pass | `Checked 1593 files … No fixes applied` |
+| `pnpm vds:validate` | ✅ pass | `VDS validation passed (VDS 1.1 · Workspace/TUI/CLI aligned)` |
+| `pnpm build` (`build-order.sh`) | ✅ pass | `tsc -b` clean, 121 buildable projects |
+| `pnpm dependencies:check` | ✅ pass | `Dependency boundaries valid across 122 workspace projects` |
+| `pnpm check:source-artifacts` | ✅ pass | `no generated .js/.js.map/.d.ts artifacts under src/ or __tests__/` |
+| `pnpm docs:govern` (strict validate + links + evidence) | ✅ pass | `validation: passed`, `links passed`, `Evidence manifests passed (1)` |
+| `pnpm test` (full, 215 files / 1720 tests) | ❌ **fail — see T10-B1** | 8 failed / 1710 passed; failures confined to 2 uncommitted VES-UI-001 files |
+| `documentation:check` (CI baseline gate) | ❌ **fail — see T10-B2** | `passed: false`, current 670 vs baseline 626 |
+| Reviewer HARDCODE scan (new shell scope) | ✅ pass with notes — see T10-O1/O2 | All Tailwind arbitraries via `var(--ds-*)` / `var(--vestara-*)`; no `console.log`/`TODO`; no `Math.random` in components |
+| `pnpm screenshots:ci` | ⚠️ not run — see T10-O3 | Playwright/browser run not attempted in this pass; left for T9/reviewer |
+
+**T10 findings (Execution Governance classification):**
+
+| ID | Classification | Finding | Evidence |
+|---|---|---|---|
+| T10-B1 | **BLOCKER** | `pnpm test` red: 8 failures in `DesktopTopBar.test.tsx` (5) + `StartupWallpaper.test.tsx` (3) — `ReferenceError: document is not defined`. Root cause: both new test files lack the `/** @vitest-environment jsdom */` pragma that existing passing UI tests (e.g. `useGAExecutionConfig.test.ts`) carry. Fix belongs to T9 (test scope), not T10 — recorded, not mutated. | Full-suite run 2026-10-20: `Test Files 2 failed \| 212 passed`; `Tests 8 failed \| 1710 passed` |
+| T10-B2 | **BLOCKER** | `documentation:check` red against baseline (`passed: false`, current 670 vs baseline 626, 43 introduced). Includes unknown API routes in `docs/MILESTONES.md` / `docs/blueprint/SETTINGS-ENV-E2*` and missing barrel export `SHELL_APPEARANCE_MODULE_ID` (`packages/settings-framework/API.md`) — correlated with uncommitted working-tree changes. The 2 findings on this plan doc itself (`/api/orchestration` route mentions, HEAD lines 310/314) pre-date T10 and are baseline drift, not working-tree regressions. Owner: docs/API owners; out of T10 docs-scope mutation authority — recorded, not mutated. | `documentation:check` 2026-10-20; `git show HEAD:…plan.md \| grep api/orchestration` |
+| T10-A1 | ADJACENT | Working tree deletes the A5 dead files (`apps/workspace/src/components/Sidebar.tsx`, `apps/workspace/src/pages/Overview/DecisionsCard.tsx` — gold-bearing, 0 imports). Confirm the deletions land with T0/T10 rather than re-tokenizing dead files. | `git status` 2026-10-20: `D` entries for both files |
+| T10-A2 | ADJACENT | CSP frontmatter `status: proposed` retained on all CSPs (not just CSP-010/016) — flipping to `implemented` would trip `docs:govern --strict` (`implementation-repository`/`implementation-commit` required). Reconciliation is editorial (status notes), not a status flip. | `scripts/docs-automation.mjs:91-107` |
+| T10-O1 | OBSERVATION | HARDCODE scan of uncommitted shell scope (`features/desktop-shell/`, `DesktopTopBar.tsx`, `StartupWallpaper.tsx`) is clean: hex appears only in prototype→token mapping comments and one palette-value assertion (`DESKTOP_SHELL_ACCENT.hex === '#2de8c3'`); `--ds-*` layer derives 1:1 from `--vestara-*`. | `rg` scan 2026-10-20 |
+| T10-O2 | OBSERVATION | `--ds-font-mono` carries a `'JetBrains Mono'` fallback literal inside `var()` (low confidence issue; matches plan §2 TYPOGRAPHY mapping). Reviewer may confirm the canonical mono token covers it. | `desktop-shell.tokens.css:53` |
+| T10-O3 | OBSERVATION | `screenshots:ci` and `documentation:check` bisection vs clean tree not performed (no `stash` — would disturb uncommitted T0–T8 work). T10-B2 may partly pre-date the working tree; confidence: medium that ≥1 finding correlates with uncommitted changes. | — |
 
 > Orchestration handles (re-registered 2026-10-19; supersedes the 2026-10-18 handles):
 > - Project: `project-1792412250418-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `architecture` — ready for review)
@@ -307,7 +335,7 @@ are the orchestration handles for reviewer/audit.
 > - Durable state: project/plan/tasks/artifacts persisted in `.vestara/plans/plans.db`.
 > - Audit trail: **present** — 17 correlated `orchestration.*` events
 >   (project.created, 3× phase.changed, analysis.completed, plan.generated,
->   11× task.created); `GET /api/orchestration/projects/project-1792412250418-1/audit`.
+>   11× task.created); `GET /api/orchestration/projects/:id/audit` (project `project-1792412250418-1`).
 >   Root-cause guard from A7 still applies: mutate only through the API.
 > - Superseded: `project-1792304306133-1` / `plan-1792304306496-1` /
 >   `task-1792304306501-1…11` cancelled 2026-10-19 (stale T0/T1 scope).

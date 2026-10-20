@@ -1522,6 +1522,7 @@ function M11CComposer({
            {execControlsOpen && (
              <ExecutionControlsPopover
                config={execConfig.config}
+               defaults={execConfig.defaults}
                isCustom={execConfig.isCustom}
                onTurnTimeoutChange={execConfig.setTurnTimeoutMs}
                onMaxToolCallsChange={execConfig.setMaxToolCalls}

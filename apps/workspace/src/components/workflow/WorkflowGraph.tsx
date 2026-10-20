@@ -16,14 +16,16 @@
  *   `<WorkflowGraph chrome="canvas" height={560} graph={graph} ... />`
  *
  * Live updates apply in place (viewport preserved, fit on first mount
- * only). Selecting a node dims the rest for focus. All styling resolves
+ * only). Nodes are freely draggable — a manual arrangement survives live
+ * data updates and remounts (per-graph position cache) until a different
+ * layout is picked. Selecting a node dims the rest for focus. All styling resolves
  * `--vestara-*` tokens at render time so dark/light follow automatically.
  * Node cards never fabricate data — they render label, kind, and status
  * from the projection only.
  */
 
 import cytoscape from 'cytoscape';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { WorkflowGraphNode, WorkflowGraphProjection } from '@vestara/workflow-orchestrator';
 import { navIcon } from '../../layouts/workspace-navigation';
 import { workflowGraphNodeForSelection, workflowGraphToCytoscapeElements } from '../../lib/workflow-graph-cytoscape';
@@ -374,6 +376,78 @@ function syncSelection(cy: cytoscape.Core, selectedNodeId?: string) {
   }
 }
 
+interface GraphNodePosition {
+  x: number;
+  y: number;
+}
+
+/**
+ * Per-graph manual-arrangement cache. Keyed by the sorted node-id set so an
+ * arrangement follows its workflow across live updates and remounts (e.g.
+ * tab switches) without ever touching domain state.
+ */
+const POSITION_CACHE = new Map<string, Record<string, GraphNodePosition>>();
+const POSITION_CACHE_LIMIT = 20;
+
+function positionCacheKey(ids: readonly string[]): string {
+  return [...ids].sort().join('|');
+}
+
+function readCachedPositions(ids: readonly string[]): Record<string, GraphNodePosition> | undefined {
+  return POSITION_CACHE.get(positionCacheKey(ids));
+}
+
+function writeCachedPositions(ids: readonly string[], positions: Record<string, GraphNodePosition>): void {
+  const key = positionCacheKey(ids);
+  POSITION_CACHE.delete(key);
+  POSITION_CACHE.set(key, positions);
+  while (POSITION_CACHE.size > POSITION_CACHE_LIMIT) {
+    const oldest = POSITION_CACHE.keys().next();
+    if (oldest.done) break;
+    POSITION_CACHE.delete(oldest.value);
+  }
+}
+
+function snapshotPositions(cy: cytoscape.Core): Record<string, GraphNodePosition> {
+  const positions: Record<string, GraphNodePosition> = {};
+  cy.nodes().forEach((node) => {
+    const position = node.position();
+    positions[node.id()] = { x: position.x, y: position.y };
+  });
+  return positions;
+}
+
+/**
+ * Initial spots for nodes added after the user arranged the canvas: under
+ * the average position of their known dependency predecessors, cascading
+ * from the viewport center when there is no known predecessor. Auto-layout
+ * stays out of the way so the manual arrangement is never disturbed.
+ */
+function positionsForAddedNodes(
+  graph: WorkflowGraphProjection,
+  addedIds: readonly string[],
+  known: Record<string, GraphNodePosition>,
+  fallback: GraphNodePosition,
+): Record<string, GraphNodePosition> {
+  const placed: Record<string, GraphNodePosition> = {};
+  addedIds.forEach((id, index) => {
+    const predecessors = graph.edges
+      .filter((edge) => edge.kind === 'depends_on' && edge.target === id && known[edge.source])
+      .map((edge) => known[edge.source]);
+    if (predecessors.length > 0) {
+      const averageX = predecessors.reduce((sum, position) => sum + position.x, 0) / predecessors.length;
+      const lowestY = Math.max(...predecessors.map((position) => position.y));
+      placed[id] = { x: averageX, y: lowestY + 120 };
+    } else {
+      placed[id] = {
+        x: fallback.x + ((index % 3) - 1) * 120,
+        y: fallback.y + Math.floor(index / 3) * 110,
+      };
+    }
+  });
+  return placed;
+}
+
 /** Status glyph for node cards: check, spinner, alert, or idle dot. */
 function NodeCardGlyph({ status }: { status: string }) {
   const tone = cardTone(status);
@@ -418,6 +492,10 @@ function NodeCard({
   dimmed,
   position,
   onSelect,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: {
   node: WorkflowGraphNode;
   meta: string;
@@ -425,15 +503,23 @@ function NodeCard({
   dimmed: boolean;
   position: { x: number; y: number };
   onSelect: (node: WorkflowGraphNode) => void;
+  onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => void;
+  onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => void;
+  onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => void;
+  onPointerCancel?: (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => void;
 }) {
   const tone = cardTone(node.status);
   return (
     <button
       type="button"
       onClick={() => onSelect(node)}
-      aria-label={`${node.kind} ${node.label}, status ${prettyStatus(node.status)}`}
+      onPointerDown={(event) => onPointerDown?.(event, node)}
+      onPointerMove={(event) => onPointerMove?.(event, node)}
+      onPointerUp={(event) => onPointerUp?.(event, node)}
+      onPointerCancel={(event) => onPointerCancel?.(event, node)}
+      aria-label={`${node.kind} ${node.label}, status ${prettyStatus(node.status)}. Drag to reposition.`}
       aria-pressed={selected}
-      className={`pointer-events-auto w-52 rounded-xl border bg-[var(--vestara-surface-panel)] p-3 text-left transition-opacity ${CARD_BORDER[tone]} ${CARD_GLOW[tone]} ${selected ? 'ring-2 ring-[var(--vestara-accent-primary)]' : ''} ${dimmed ? 'opacity-40' : ''}`}
+      className={`pointer-events-auto w-52 cursor-grab touch-none select-none rounded-xl border bg-[var(--vestara-surface-panel)] p-3 text-left transition-opacity active:cursor-grabbing ${CARD_BORDER[tone]} ${CARD_GLOW[tone]} ${selected ? 'ring-2 ring-[var(--vestara-accent-primary)]' : ''} ${dimmed ? 'opacity-40' : ''}`}
       style={{ position: 'absolute', left: position.x, top: position.y, transform: 'translate(-50%, -50%)' }}
     >
       <span className="flex items-start justify-between gap-2">
@@ -529,6 +615,8 @@ function GraphLegend() {
       <span><i className="workflow-legend-line workflow-legend-dependency" />Depends on</span>
       <span><i className="workflow-legend-swatch workflow-legend-completed" />Completed</span>
       <span><i className="workflow-legend-swatch workflow-legend-running" />Running</span>
+      <span><i className="workflow-legend-swatch workflow-legend-pending" />Pending</span>
+      <span><i className="workflow-legend-swatch workflow-legend-awaiting" />Needs approval</span>
       <span><i className="workflow-legend-swatch workflow-legend-blocked" />Blocker</span>
     </div>
   );
@@ -545,7 +633,7 @@ export function WorkflowGraph({
   description = DEFAULT_DESCRIPTION,
   showLegend = true,
   showControls = true,
-  layout = 'breadthfirst',
+  layout = 'circle',
   height,
   className = '',
   emptyMessage = DEFAULT_EMPTY,
@@ -559,6 +647,24 @@ export function WorkflowGraph({
   const [viewportTick, setViewportTick] = useState(0);
   const [zoomPct, setZoomPct] = useState(100);
   const rafQueuedRef = useRef(false);
+  // Manual arrangement owns node positions once the user grabs any node;
+  // the auto-layout only runs again on mount or an explicit layout change.
+  const userPositionedRef = useRef(false);
+  const prevLayoutRef = useRef(layout);
+  // A canvas drag ends with a tap-shaped release — ignore the tap that
+  // immediately follows a real drag so arranging never selects.
+  const lastDragEndRef = useRef(0);
+  // A card drag ends with a click — swallow the click that follows a move.
+  const suppressClickRef = useRef(false);
+  const cardDragRef = useRef<{
+    pointerId: number;
+    nodeId: string;
+    startClientX: number;
+    startClientY: number;
+    startModelX: number;
+    startModelY: number;
+    moved: boolean;
+  } | null>(null);
   const cards = nodeCards ?? chrome === 'canvas';
   const graphSignature = graph
     ? JSON.stringify({
@@ -574,6 +680,10 @@ export function WorkflowGraph({
     const container = containerRef.current;
     if (!container || !graph) {
       if (cyRef.current) {
+        writeCachedPositions(
+          cyRef.current.nodes().map((node) => node.id()),
+          snapshotPositions(cyRef.current),
+        );
         cyRef.current.destroy();
         cyRef.current = null;
       }
@@ -609,6 +719,7 @@ export function WorkflowGraph({
       setCyCore(cy);
 
       const handleTap = (event: cytoscape.EventObject) => {
+        if (Date.now() - lastDragEndRef.current < 350) return;
         const node = graphRef.current ? workflowGraphNodeForSelection(graphRef.current, event.target.id()) : null;
         onNodeSelectRef.current?.(node);
       };
@@ -623,17 +734,73 @@ export function WorkflowGraph({
       cy.on('mouseout', 'node', handleHoverOut);
       cy.on('pan zoom', queueViewportSync);
       cy.on('position', queueViewportSync);
+      cy.on('drag', 'node', () => {
+        userPositionedRef.current = true;
+      });
+      cy.on('dragfree', 'node', () => {
+        lastDragEndRef.current = Date.now();
+        const live = cyRef.current;
+        const projection = graphRef.current;
+        if (live && projection) {
+          writeCachedPositions(
+            live.nodes().map((node) => node.id()),
+            snapshotPositions(live),
+          );
+        }
+      });
       cy.fit(undefined, GRAPH_FIT_PADDING);
+      // A previous manual arrangement for this exact node set wins over the
+      // fresh auto-layout (e.g. returning from another tab).
+      const cached = readCachedPositions(graph.nodes.map((node) => node.id));
+      if (cached) {
+        cy.nodes().forEach((node) => {
+          const saved = cached[node.id()];
+          if (saved) node.position(saved);
+        });
+        userPositionedRef.current = true;
+        cy.fit(undefined, GRAPH_FIT_PADDING);
+      }
+      prevLayoutRef.current = layout;
       queueViewportSync();
     } else {
       // In-place live update: viewport preserved, no fit after first mount.
       const pan = cy.pan();
       const zoom = cy.zoom();
+      const knownPositions = snapshotPositions(cy);
+      const prevIds = new Set(Object.keys(knownPositions));
       cy.batch(() => {
         cy?.elements().remove();
         cy?.add(elements);
       });
-      cy.layout(buildLayout(layout)).run();
+      const layoutChanged = prevLayoutRef.current !== layout;
+      const addedIds = graph.nodes.filter((node) => !prevIds.has(node.id)).map((node) => node.id);
+      if (layoutChanged || !userPositionedRef.current) {
+        cy.layout(buildLayout(layout)).run();
+        if (layoutChanged) userPositionedRef.current = false;
+      } else {
+        cy.nodes().forEach((node) => {
+          const saved = knownPositions[node.id()];
+          if (saved) node.position(saved);
+        });
+        if (addedIds.length > 0) {
+          const extent = cy.extent();
+          const placed = positionsForAddedNodes(
+            graph,
+            addedIds,
+            knownPositions,
+            { x: (extent.x1 + extent.x2) / 2, y: (extent.y1 + extent.y2) / 2 },
+          );
+          for (const [id, position] of Object.entries(placed)) {
+            const added = cy.getElementById(id);
+            if (added.nonempty()) added.position(position);
+          }
+        }
+      }
+      prevLayoutRef.current = layout;
+      writeCachedPositions(
+        cy.nodes().map((node) => node.id()),
+        snapshotPositions(cy),
+      );
       cy.viewport({ zoom, pan });
     }
     syncSelection(cy, selectedNodeId);
@@ -651,7 +818,14 @@ export function WorkflowGraph({
 
   useEffect(
     () => () => {
-      cyRef.current?.destroy();
+      const cy = cyRef.current;
+      if (cy) {
+        writeCachedPositions(
+          cy.nodes().map((node) => node.id()),
+          snapshotPositions(cy),
+        );
+        cy.destroy();
+      }
       cyRef.current = null;
     },
     [],
@@ -670,6 +844,68 @@ export function WorkflowGraph({
   };
 
   const canvasStyle = height === undefined ? undefined : { height: typeof height === 'number' ? `${height}px` : height };
+
+  // Card (HTML overlay) dragging: the cards sit above the canvas so the
+  // gesture starts here, then moves the underlying cytoscape node in model
+  // coordinates. Below the movement threshold the gesture stays a click.
+  const handleCardPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const cy = cyRef.current;
+    if (!cy) return;
+    const element = cy.getElementById(node.id);
+    if (element.empty()) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const start = element.position();
+    cardDragRef.current = {
+      pointerId: event.pointerId,
+      nodeId: node.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startModelX: start.x,
+      startModelY: start.y,
+      moved: false,
+    };
+  };
+
+  const handleCardPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = cardDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const cy = cyRef.current;
+    if (!cy) return;
+    const deltaX = event.clientX - drag.startClientX;
+    const deltaY = event.clientY - drag.startClientY;
+    if (!drag.moved && Math.hypot(deltaX, deltaY) < 5) return;
+    drag.moved = true;
+    const element = cy.getElementById(drag.nodeId);
+    if (element.empty()) return;
+    const zoom = cy.zoom() || 1;
+    element.position({ x: drag.startModelX + deltaX / zoom, y: drag.startModelY + deltaY / zoom });
+    userPositionedRef.current = true;
+    setViewportTick((tick) => tick + 1);
+  };
+
+  const endCardDrag = (event: ReactPointerEvent<HTMLButtonElement>, swallowClick: boolean) => {
+    const drag = cardDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    cardDragRef.current = null;
+    if (!drag.moved) return;
+    const cy = cyRef.current;
+    if (cy) {
+      writeCachedPositions(
+        cy.nodes().map((node) => node.id()),
+        snapshotPositions(cy),
+      );
+    }
+    if (swallowClick) suppressClickRef.current = true;
+  };
+
+  const handleCardPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    endCardDrag(event, true);
+  };
+
+  const handleCardPointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    endCardDrag(event, false);
+  };
 
   // Positions read during render drive the HTML overlay + minimap.
   void viewportTick;
@@ -699,9 +935,17 @@ export function WorkflowGraph({
               dimmed={Boolean(selectedNodeId) && selectedNodeId !== node.id}
               position={rendered}
               onSelect={(selected) => {
+                if (suppressClickRef.current) {
+                  suppressClickRef.current = false;
+                  return;
+                }
                 const full = graphRef.current ? workflowGraphNodeForSelection(graphRef.current, selected.id) : null;
                 onNodeSelectRef.current?.(full);
               }}
+              onPointerDown={handleCardPointerDown}
+              onPointerMove={handleCardPointerMove}
+              onPointerUp={handleCardPointerUp}
+              onPointerCancel={handleCardPointerCancel}
             />
           );
         })}
@@ -799,6 +1043,11 @@ export function WorkflowGraph({
         {showLegend && (
           <div className="absolute left-3 top-3 z-10 rounded-[10px] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]/90 px-3 py-2 backdrop-blur">
             <GraphLegend />
+          </div>
+        )}
+        {!selectedNodeId && graph && graph.nodes.length > 0 && (
+          <div className="workflow-graph-hint" aria-hidden="true">
+            Select a node to inspect
           </div>
         )}
         {content}

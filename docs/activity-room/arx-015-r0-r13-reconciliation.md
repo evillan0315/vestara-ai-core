@@ -772,17 +772,21 @@ Fix 3 ADJACENT (declared-vs-enforced default drift).
 |-----|-------|--------|------------|
 | **Fix 1 — breach is terminal** | `apps/api/src/assistant-opencode-adapter.ts` (both budget call sites: `message.part.updated` running tool parts and `session.next.tool.*`) | On breach: yield the `error` chunk **and** set `termination = 'failed'` + `turnDone = true`. Previously the loop kept consuming events, so a later idle settlement produced `executionResult.termination = 'completed'` while the persisted message and execution status were `failed`, and `requiresAbort('completed')` skipped the session abort the 2026-09-13 comment claimed tool-limit performed. | `executionResult.termination = 'failed'`; `assistant.turn.abortSession` fires; the runtime stops executing tools after Vestara declares failure |
 | **Fix 2 — budget rides Activity Room turns** | `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` (`M11CComposer`) | Wires `useGAExecutionConfig` + `ExecutionControlsPopover`, renders the effective-budget chip, and sends `executionConfig` through the existing `postActivityMessage` contract (already accepted by `ActivityMessagePayload` and forwarded by `/api/messages` since the 2026-09-13 Fix 1). | Untouched stays the adapter default (150); the composer can set 1–200 or `0` (unlimited) |
-| **Fix 3 — default drift** | `packages/configuration/src/workspace-settings.ts` | `assistantExecution.maxToolCalls` `0` → `150`; `assistantExecution.turnTimeoutMs` `900_000` → `3_600_000`, mirroring the adapter. A comment records that these keys are declared-not-yet-consumed (the session-local hook is the live authority). | No silent “unlimited default” trap when the key is first wired |
+| **Fix 3 — default drift + Settings wiring** | `packages/configuration/src/workspace-settings.ts`, `apps/api/src/assistant-opencode-adapter.ts`, `apps/api/src/workspace-context.ts`, `apps/workspace/src/pages/Settings/**`, `apps/workspace/src/hooks/useGAExecutionConfig.ts` | `assistantExecution.maxToolCalls` `0` → `150`; `turnTimeoutMs` `900_000` → `3_600_000`. Added `assistantExecutionDefaults()` as the single read path, `resolveExecutionDefaults` on the adapter (`request.executionConfig > workspace setting > adapter default`, explicit `0` = unlimited), and persisted the Settings → Assistant Execution section through `PolicySection`/`settings-client`. The hook now loads the workspace baseline so the composer displays the number the server will enforce; a touched composer value still wins for that turn. | Editing the Settings page now changes the next turn; no silent “unlimited default” |
 
 **Default lineage (for the record):** `30` → `80` (2026-09-13 addenda) → `150` (current
 `DEFAULT_MAX_TOOL_CALLS`, overridable by `VESTARA_GA_MAX_TOOL_CALLS`; explicit `0` = unlimited). The `80`
 references above are historical, not current.
 
 **Verification:** `tsc -b apps/api` PASS · `tsc -b apps/workspace` PASS · `tsc -b packages/configuration` PASS ·
-`pnpm lint:check` PASS (1591 files) · `vitest` 45/45 across 8 files (`assistant-opencode-tool-budget.test.ts`,
-`useGAExecutionConfig.test.ts`, `ar-tools-001`, `assistant-edit-projection`, `assistant-identity-transport`,
-orchestration approval/gate) plus 44/44 adapter-adjacent suites (routing-convergence-001a/001c,
-runtime-question-response) · `pnpm vds:validate` PASS · `pnpm docs:validate` PASS · `pnpm docs:govern` PASS.
+`pnpm lint:check` PASS · `vitest` (`assistant-opencode-tool-budget` 7/7, `useGAExecutionConfig` 7/7,
+`assistant-execution-defaults` 3/3, adapter-adjacent suites 44/44) · `pnpm vds:validate` PASS ·
+`pnpm docs:validate` PASS · `pnpm docs:govern` PASS.
+
+**Live wiring evidence (2026-10-19):** API restarted onto the rebuilt `dist/` (pid 563492). Live `GET /api/settings`
+reported the reconciled defaults (`maxToolCalls: 150`, `turnTimeoutMs: 3_600_000`, source `default`). A
+`PATCH /api/settings` for `assistant-execution` then returned `maxToolCalls: 200`, source `workspace`; the section
+override was deleted afterwards, restoring source `default` and the pre-existing no-override state.
 
 **Known pre-existing drift (not introduced here):** `pnpm documentation:check` is red on this working tree with 41
 baseline-drift findings in unrelated documents (e.g. `docs/MILESTONES.md`, `docs/blueprint/SETTINGS-ENV-E2-*`);

@@ -31,23 +31,48 @@
 }
 
 /* ── Canvas artwork ──
-   Clean planet/mountain/valley artwork (no baked text) vendored from
-   assets/startup/vestara-desktop-02-screen.png (1671x941 baseline).
-   Text, logo, card, checklist, and status stay independently rendered
-   above a token scrim so runtime state can change. */
+    Clean planet/mountain/valley artwork (no baked text) sourced from
+    assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png
+    (1671x941 baseline, byte-identical to the previously vendored PNG).
+    VES-UI-001 T1/G12: served as ONE optimized size — AVIF (59 KB) →
+    WebP (65 KB) → PNG fallback (1.78 MB) via `<picture>` in
+    `StartupWallpaper.tsx` (`loading="lazy"`, `decoding="async"`).
+    Text, logo, card, checklist, and status stay independently rendered
+    above a token scrim so runtime state can change. */
 .st-canvas-artwork {
   background-color: var(--st-canvas-bg);
-  background-image:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--vestara-surface-canvas) 58%, transparent) 0%,
-      color-mix(in srgb, var(--vestara-surface-canvas) 28%, transparent) 42%,
-      color-mix(in srgb, var(--vestara-surface-canvas) 55%, transparent) 100%
-    ),
-    url('/startup/vestara-startup-bg.png');
-  background-size: cover, cover;
-  background-position: center, center 38%;
-  background-repeat: no-repeat, no-repeat;
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vestara-surface-canvas) 58%, transparent) 0%,
+    color-mix(in srgb, var(--vestara-surface-canvas) 28%, transparent) 42%,
+    color-mix(in srgb, var(--vestara-surface-canvas) 55%, transparent) 100%
+  );
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Wallpaper element — fills the positioned canvas behind the scrim. */
+.st-wallpaper {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+
+/* Reference framing: horizon bias carried over from the previous
+   `background-position: center 38%` treatment. */
+.st-wallpaper img {
+  object-position: center 38%;
+}
+
+/* Boot treatment (preserved from the v2 prototype `BootScreen`:
+   `opacity-[0.10] blur-[20px]`). Opacity matches `OPACITY[10]` in
+   @vestara/ui-tokens; the 20px blur is this surface's treatment value,
+   defined here (not consumed as a literal in JSX) per NO-HARDCODE. */
+.st-wallpaper--boot {
+  opacity: 0.1;
+  filter: blur(20px);
 }
 
 /* Cyan mark scope — the reference mark is cyan. Keeps the theme ramp

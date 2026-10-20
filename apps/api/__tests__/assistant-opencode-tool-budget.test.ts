@@ -46,13 +46,17 @@ function budgetClient(toolCalls: number) {
   return { client, aborts };
 }
 
-function executorFor(client: unknown) {
+function executorFor(
+  client: unknown,
+  resolveExecutionDefaults?: () => { maxToolCalls?: number; turnTimeoutMs?: number },
+) {
   return createAssistantOpenCodeExecutor({
     client: client as never,
     workspaceId: 'workspace-1',
     directory: '/repo',
     agent: 'vestara-assistant',
     resolveProviderModel: async () => undefined,
+    ...(resolveExecutionDefaults ? { resolveExecutionDefaults } : {}),
   });
 }
 
@@ -94,6 +98,44 @@ describe('GA-EXEC-003 tool-call budget termination', () => {
     expect(response.content).not.toContain('Tool call limit reached');
     expect(response.executionResult?.termination).toBe('completed');
     expect(response.executionResult?.toolCallCount).toBe(4);
+    expect(aborts).toEqual([]);
+  });
+
+  it('falls back to the workspace setting when the request omits a budget', async () => {
+    const { client, aborts } = budgetClient(5);
+    const response = await executorFor(client, () => ({ maxToolCalls: 3 })).complete(request(undefined));
+
+    expect(response.content).toContain('Tool call limit reached: 3 tool calls');
+    expect(response.executionResult?.termination).toBe('failed');
+    expect(aborts).toEqual([SESSION_ID]);
+  });
+
+  it('lets a per-turn request override the workspace setting', async () => {
+    const { client, aborts } = budgetClient(4);
+    const response = await executorFor(client, () => ({ maxToolCalls: 3 })).complete(request({ maxToolCalls: 5 }));
+
+    expect(response.content).not.toContain('Tool call limit reached');
+    expect(response.executionResult?.termination).toBe('completed');
+    expect(aborts).toEqual([]);
+  });
+
+  it('preserves an explicit 0 from the workspace setting as unlimited', async () => {
+    const { client, aborts } = budgetClient(4);
+    const response = await executorFor(client, () => ({ maxToolCalls: 0 })).complete(request(undefined));
+
+    expect(response.content).not.toContain('Tool call limit reached');
+    expect(response.executionResult?.termination).toBe('completed');
+    expect(aborts).toEqual([]);
+  });
+
+  it('ignores a failing settings resolver rather than failing the turn', async () => {
+    const { client, aborts } = budgetClient(2);
+    const response = await executorFor(client, () => {
+      throw new Error('settings unavailable');
+    }).complete(request(undefined));
+
+    expect(response.content).not.toContain('Tool call limit reached');
+    expect(response.executionResult?.termination).toBe('completed');
     expect(aborts).toEqual([]);
   });
 });

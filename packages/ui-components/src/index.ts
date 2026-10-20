@@ -162,9 +162,10 @@ export type {
   OperationalPanelTone,
   ProgressBarProps,
   ProgressBarSize,
+  SectionCardProps,
   StatCardProps,
 } from './workspace-chrome.js';
-export { Drawer, DrawerMenu, Modal, OperationalPanel, ProgressBar, StatCard } from './workspace-chrome.js';
+export { Drawer, DrawerMenu, Modal, OperationalPanel, ProgressBar, SectionCard, StatCard } from './workspace-chrome.js';
 
 // ─── Terminal drawer ───────────────────────────────────────────
 

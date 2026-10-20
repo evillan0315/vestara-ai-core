@@ -753,7 +753,7 @@ function PreferencesCard({
             <div className="grid st-gap-section">
               <TypographyPreview />
               <div className="grid st-gap-section sm:grid-cols-2">
-                <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
+                <InstantField label="Font family" helper="System stacks ship locally; web fonts fall back when unavailable.">
                   <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
                 </InstantField>
                 <InstantField label="Font size" helper="Base text size across surfaces.">

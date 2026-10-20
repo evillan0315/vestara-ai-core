@@ -47,6 +47,21 @@ export interface ResolvedConfiguration {
   readonly settings: readonly ResolvedSetting[];
 }
 
+/**
+ * GA-EXEC-003: the workspace-configured assistant turn budget. Only keys that
+ * resolved to a number are present; callers apply their own adapter defaults.
+ * `maxToolCalls: 0` is preserved — it means explicitly unlimited.
+ */
+export interface AssistantExecutionDefaults {
+  readonly maxToolCalls?: number;
+  readonly turnTimeoutMs?: number;
+}
+
+const ASSISTANT_EXECUTION_KEYS = {
+  maxToolCalls: 'assistantExecution.maxToolCalls',
+  turnTimeoutMs: 'assistantExecution.turnTimeoutMs',
+} as const;
+
 export interface SettingsPatch {
   readonly section: SettingsSectionId;
   readonly overrides: Readonly<Record<string, unknown>>;
@@ -253,13 +268,13 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
     defaultValue: 'off',
     validate: oneOf(['off', 'secrets', 'full']),
   },
-  // GA-EXEC-003: these declared keys must not contradict the enforced adapter
-  // limits (TURN_TIMEOUT_MS 60m / DEFAULT_MAX_TOOL_CALLS 150 in
-  // apps/api/src/assistant-opencode-adapter.ts). Nothing consumes them yet —
-  // the live authority is the session-local `useGAExecutionConfig` hook, which
-  // omits untouched values so the adapter default applies. `maxToolCalls: 0`
-  // here previously read as "unlimited default", which is the opposite of the
-  // enforced 150 and a silent trap for the first consumer to wire it.
+  // GA-EXEC-003: these keys must not contradict the enforced adapter limits
+  // (TURN_TIMEOUT_MS 60m / DEFAULT_MAX_TOOL_CALLS 150 in
+  // apps/api/src/assistant-opencode-adapter.ts). `assistantExecutionDefaults()`
+  // is the read path the adapter consumes as the workspace fallback:
+  // request.executionConfig > workspace setting > adapter default. An explicit
+  // maxToolCalls=0 remains a valid override meaning unlimited; it is not the
+  // default (the previous default of 0 was a silent "unlimited" trap).
   'assistantExecution.turnTimeoutMs': {
     section: 'assistant-execution',
     defaultValue: 3_600_000,
@@ -346,6 +361,22 @@ export class WorkspaceConfigurationService {
       overrideCount: Object.keys(workspace).length,
       settings,
     };
+  }
+
+  /**
+   * GA-EXEC-003: read the resolved `assistantExecution.*` budget so the
+   * workspace setting is authoritative for turns that do not carry a per-turn
+   * `executionConfig` (composer override). Dotted keys, single place — no
+   * consumer needs to know how settings are surfaced.
+   */
+  assistantExecutionDefaults(): AssistantExecutionDefaults {
+    const values = new Map(this.resolve().settings.map((setting) => [setting.key, setting.value]));
+    const defaults: { maxToolCalls?: number; turnTimeoutMs?: number } = {};
+    const maxToolCalls = values.get(ASSISTANT_EXECUTION_KEYS.maxToolCalls);
+    if (typeof maxToolCalls === 'number') defaults.maxToolCalls = maxToolCalls;
+    const turnTimeoutMs = values.get(ASSISTANT_EXECUTION_KEYS.turnTimeoutMs);
+    if (typeof turnTimeoutMs === 'number') defaults.turnTimeoutMs = turnTimeoutMs;
+    return defaults;
   }
 
   save(patch: SettingsPatch): ResolvedConfiguration {

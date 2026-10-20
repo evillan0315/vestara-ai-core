@@ -689,3 +689,14 @@ export function ProgressBar({ pct, size = 'sm' }: ProgressBarProps) {
     </div>
   );
 }
+
+// ─── SectionCard (v2 shell contract alias) ─────────────────────
+// The v2 desktop shell composes sections via `SectionCard`. In this
+// package `OperationalPanel` is that contract (SectionCard merged per
+// the header note) — re-exported under the canonical name so shell
+// hosts import one spelling. Gallery composition lives canonically in
+// `@vestara/marketplace-ui` (`GalleryCard`); it is not duplicated here
+// to avoid a new inter-package dependency.
+
+export type SectionCardProps = OperationalPanelProps;
+export const SectionCard = OperationalPanel;

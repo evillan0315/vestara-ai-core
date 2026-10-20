@@ -46,6 +46,8 @@ function formatLimit(value: number): string {
 
 interface ExecutionControlsPopoverProps {
   config: GAExecutionConfigState;
+  /** Workspace baseline from Settings; marks the truthful "default" value. */
+  defaults?: GAExecutionConfigState;
   isCustom: boolean;
   onTurnTimeoutChange: (value: number) => void;
   onMaxToolCallsChange: (value: number) => void;
@@ -56,6 +58,7 @@ interface ExecutionControlsPopoverProps {
 
 export function ExecutionControlsPopover({
   config,
+  defaults,
   isCustom,
   onTurnTimeoutChange,
   onMaxToolCallsChange,
@@ -127,7 +130,7 @@ export function ExecutionControlsPopover({
           max={BOUNDS.turnTimeoutMs.max}
           step={BOUNDS.turnTimeoutMs.step}
           format={formatTimeout}
-          defaultValue={DEFAULTS.turnTimeoutMs}
+          defaultValue={defaults?.turnTimeoutMs ?? DEFAULTS.turnTimeoutMs}
           onChange={onTurnTimeoutChange}
         />
 
@@ -139,7 +142,7 @@ export function ExecutionControlsPopover({
           max={BOUNDS.maxToolCalls.max}
           step={BOUNDS.maxToolCalls.step}
           format={formatLimit}
-          defaultValue={DEFAULTS.maxToolCalls}
+          defaultValue={defaults?.maxToolCalls ?? DEFAULTS.maxToolCalls}
           onChange={onMaxToolCallsChange}
         />
       </div>

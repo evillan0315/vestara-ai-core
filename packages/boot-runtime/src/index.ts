@@ -18,6 +18,24 @@ export const BOOT_STAGES = [
 export type BootStage = (typeof BOOT_STAGES)[number] | 'recovery';
 export type BootStateStatus = 'booting' | 'ready' | 'recovery' | 'failed';
 
+// ─── v2 shell phase bridge (VES-UI-001 T7) ─────────────────────
+// The v2 desktop shell runs `boot → login → desktop → shutdown`
+// (+ `locked`/`switch`). boot-runtime remains the OS-0 host boot
+// coordinator (BOOT_STAGES unchanged); this additive projection lets
+// shell hosts correlate host boot with the shell state machine
+// without mutating boot behavior.
+
+export const SHELL_PHASES = ['boot', 'login', 'desktop', 'shutdown', 'locked', 'switch'] as const;
+
+export type ShellPhase = (typeof SHELL_PHASES)[number];
+
+/** Correlate a host boot stage with the shell phase it unblocks. */
+export function shellPhaseForBootStage(stage: BootStage, status: BootStateStatus): ShellPhase {
+  if (status === 'recovery' || status === 'failed' || stage === 'recovery') return 'boot';
+  if (status === 'ready' || stage === 'workspace-ready') return 'login';
+  return 'boot';
+}
+
 export interface BootTransition {
   readonly stage: BootStage;
   readonly timestamp: string;

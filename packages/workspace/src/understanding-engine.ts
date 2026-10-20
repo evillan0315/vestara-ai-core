@@ -23,7 +23,7 @@ import type {
   WorkspaceObservation,
   WorkspaceUnderstanding,
 } from '@vestara/understanding';
-import type { DefaultUnderstandingAssembler } from './understanding-assembler.js';
+import type { DefaultUnderstandingAssembler } from './understanding-assembler';
 import type { WorkspaceSession } from './workspace-session';
 
 function tryExec(cmd: string, cwd: string): string | null {

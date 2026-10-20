@@ -46,10 +46,13 @@ export type {
   SettingsSection,
   // Value
   SettingsValue,
+  ShellAccentTheme,
+  ShellAppearanceSettings,
   UpdateModuleInput,
   // Validation
   ValidationError,
 } from './types.js';
+export { SHELL_APPEARANCE_DEFAULTS, SHELL_APPEARANCE_MODULE_ID } from './types.js';
 
 // ─── Implementations ─────────────────────────────────────────
 

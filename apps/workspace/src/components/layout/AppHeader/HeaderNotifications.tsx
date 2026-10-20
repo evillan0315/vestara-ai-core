@@ -1,9 +1,19 @@
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SIZING } from '@vestara/ui-tokens';
 import { useNotifications } from '../../../lib/notifications';
 
-export default function HeaderNotifications() {
+export interface HeaderNotificationsProps {
+  /**
+   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * 64px shell header (`cozy`, default). Compact renders a 24px bell;
+   * the dropdown panel is identical in both densities.
+   */
+  density?: 'cozy' | 'compact';
+}
+
+export default function HeaderNotifications({ density = 'cozy' }: HeaderNotificationsProps) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -19,6 +29,7 @@ export default function HeaderNotifications() {
   }, [open]);
 
   const unread = notifications.filter((n) => !n.read).slice(0, 10);
+  const compact = density === 'compact';
 
   return (
     <div ref={ref} className="relative">
@@ -27,12 +38,26 @@ export default function HeaderNotifications() {
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-controls="workspace-notifications"
-        className="relative flex items-center justify-center w-10 h-10 rounded-xl accent-btn transition-colors"
+        className={
+          compact
+            ? 'relative flex h-6 w-6 items-center justify-center rounded-md text-(--vestara-text-2) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)'
+            : 'relative flex items-center justify-center w-10 h-10 rounded-xl accent-btn transition-colors'
+        }
         aria-label="Notifications"
       >
-        <NotificationsRoundedIcon fontSize="small" />
+        {compact ? (
+          <NotificationsRoundedIcon sx={{ fontSize: SIZING.icon.xs }} />
+        ) : (
+          <NotificationsRoundedIcon fontSize="small" />
+        )}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-(--vestara-status-error) text-[10px] font-semibold text-white">
+          <span
+            className={
+              compact
+                ? 'absolute -top-1 -right-1 flex h-3 min-w-3 items-center justify-center rounded-full bg-(--vestara-status-error) px-0.5 font-mono font-semibold text-white text-(--vestara-font-size-micro)'
+                : 'absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-(--vestara-status-error) text-[10px] font-semibold text-white'
+            }
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

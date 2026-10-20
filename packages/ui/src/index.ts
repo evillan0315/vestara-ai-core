@@ -96,8 +96,10 @@ export type {
   CardPadding,
   CardProps,
   CardVariant,
+  GalleryCardProps,
+  SectionCardProps,
 } from './components/Card.js';
-export { Card, CardActions, CardContent, CardHeader } from './components/Card.js';
+export { Card, CardActions, CardContent, CardHeader, GalleryCard, SectionCard } from './components/Card.js';
 
 // ─── Layout Shell ──────────────────────────────────────────────
 

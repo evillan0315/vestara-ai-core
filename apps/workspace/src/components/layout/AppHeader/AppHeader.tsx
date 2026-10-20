@@ -1,72 +1,21 @@
-import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
-import LightModeRounded from '@mui/icons-material/LightModeRounded';
-import MenuRounded from '@mui/icons-material/MenuRounded';
+/**
+ * VES-UI-001 T1.5: AppHeader is now the 32px DesktopTopBar.
+ *
+ * This module keeps the stable `AppHeader` import path (consumed by
+ * `layouts/ShellLayout.tsx`) and delegates to `DesktopTopBar`. The legacy
+ * 64px (`h-16`) chrome is retired; the cozy `HeaderSearch`/`HeaderUserMenu`
+ * variants remain exported from their own modules for non-shell consumers.
+ *
+ * Architecture Traceability:
+ *   VES-UI-001 Phase 1 (T1.5 global chrome swap: `h-16` → `h-8`)
+ *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §4
+ */
+
 import type { FC } from 'react';
-import { useAuth } from '../../../lib/auth';
-import { useTheme } from '../../../lib/theme';
-import HeaderConnection from './HeaderConnection';
-import HeaderNotifications from './HeaderNotifications';
-import HeaderSearch from './HeaderSearch';
-import HeaderUserMenu from './HeaderUserMenu';
+import DesktopTopBar, { type DesktopTopBarProps } from './DesktopTopBar';
 
-interface AppHeaderProps {
-  mobileSidebarOpen?: boolean;
-  onMenuClick?: () => void;
-}
+export type AppHeaderProps = DesktopTopBarProps;
 
-const AppHeader: FC<AppHeaderProps> = ({ mobileSidebarOpen = false, onMenuClick }) => {
-  const { actor } = useAuth();
-  const { resolved, toggle } = useTheme();
-
-  return (
-    <header className="shell-topbar flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
-      {/* Left */}
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          aria-label="Toggle navigation"
-          aria-controls="workspace-navigation"
-          aria-expanded={mobileSidebarOpen}
-          title={mobileSidebarOpen ? 'Close navigation' : 'Open navigation'}
-          onClick={onMenuClick}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-(--vestara-text-2) transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus) lg:hidden"
-        >
-          <MenuRounded fontSize="small" />
-        </button>
-      </div>
-
-      {/* Center */}
-      <HeaderSearch />
-
-      {/* Activity indicator */}
-      <div className="hidden lg:flex items-center gap-1.5 mx-3">
-        <div className="flex items-end gap-[1px] h-4">
-          {[3, 5, 4, 6, 5, 7, 4].map((h, i) => (
-            <span key={i} className="w-[2px] rounded-sm bg-(--vestara-accent)" style={{ height: `${h}px`, opacity: 0.25 + i * 0.1 }} />
-          ))}
-        </div>
-      </div>
-
-      {/* Right */}
-
-      <div className="ml-auto flex items-center gap-3">
-        <HeaderConnection />
-
-        <HeaderNotifications />
-
-        <button
-          onClick={toggle}
-          type="button"
-          aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} theme`}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)"
-        >
-          {resolved === 'dark' ? <LightModeRounded fontSize="small" /> : <DarkModeRounded fontSize="small" />}
-        </button>
-
-        <HeaderUserMenu name={actor} />
-      </div>
-    </header>
-  );
-};
+const AppHeader: FC<AppHeaderProps> = (props) => <DesktopTopBar {...props} />;
 
 export default AppHeader;

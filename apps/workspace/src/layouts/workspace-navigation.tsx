@@ -16,7 +16,7 @@
  *   capabilityId is dropped only when that capability is parked.
  *
  * The curated VISIBLE set is the 5-item default sidebar:
- * Overview, Marketplace, Activity Room, Workflows, Settings.
+ * Overview, Marketplace, Activity Room, Orchestration, Settings.
  * Everything else is registered but hidden (secondary/discovery tiers), so the
  * command palette can still find it.
  */
@@ -154,20 +154,20 @@ export function navIcon(key: WorkspaceNavIcon): ReactNode {
 export { ApiRoundedIcon, ChatRoundedIcon, DnsRoundedIcon, LightbulbRoundedIcon, PublicRoundedIcon, ReceiptLongRoundedIcon, TuneRoundedIcon, VideoCallRoundedIcon };
 
 // ─── Registry ────────────────────────────────────────────────────
-// Default sidebar order: Overview, Marketplace, Activity Room, Workflows, Settings.
+// Default sidebar order: Overview, Marketplace, Activity Room, Orchestration, Settings.
 // Label/path remaps (ADAPT, not fabrication):
 //   Overview → /overview (canonical workspace landing template)
-//   Executions → /execution · Workflows → /orchestration (the flows surface)
+//   Executions → /execution · Orchestration → /orchestration (the flows surface)
 //   Files → /files (thin reuse of the execution FilesystemPanel; fixes the
 //     dead /files link QuickActions already points at)
 //   Tools → /api-builder (the existing tools surface)
 
 export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
-  // ── Primary (sidebar default: Overview, Marketplace, Activity Room, Workflows, Settings) ──
+  // ── Primary (sidebar default: Overview, Marketplace, Activity Room, Orchestration, Settings) ──
   { id: 'overview', label: 'Overview', path: '/overview', icon: 'home', group: 'workspace', order: 10, tier: 'primary', description: 'Workspace landing', keywords: ['home', 'overview', 'landing', 'start'], hero: { eyebrow: 'Welcome to Vestara', subtitle: 'Agents. Workflows. Tools. A more capable you.' } },
   { id: 'marketplace', label: 'Marketplace', path: '/marketplace', icon: 'marketplace', group: 'extend', order: 20, tier: 'primary', description: 'Discover and install engineering assets', keywords: ['marketplace', 'install', 'modules', 'assets', 'exchange'] },
   { id: 'activity', label: 'Activity Room', path: '/activity', icon: 'activity', group: 'workspace', order: 30, tier: 'primary', description: 'Live agent and workflow activity', keywords: ['activity', 'room', 'live', 'feed'] },
-  { id: 'orchestration', label: 'Workflows', path: '/orchestration', icon: 'workflows', group: 'build', order: 40, tier: 'primary', description: 'Automated workflows and orchestration', keywords: ['workflows', 'orchestration', 'flows', 'automate'] },
+  { id: 'orchestration', label: 'Orchestration', path: '/orchestration', icon: 'workflows', group: 'build', order: 40, tier: 'primary', description: 'Automated workflows and orchestration', keywords: ['workflows', 'orchestration', 'flows', 'automate'] },
   { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings', group: 'system', order: 50, tier: 'primary', description: 'Workspace configuration', keywords: ['settings', 'configuration', 'preferences', 'theme'] },
   // ── Secondary (hidden by default, reachable from parents + search) ──
   { id: 'global-assistant', label: 'Global Assistant', icon: 'assistant', group: 'workspace', order: 60, tier: 'secondary', description: 'Open the floating AI assistant', keywords: ['assistant', 'ai', 'chat', 'help'], action: 'open-assistant' },

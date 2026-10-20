@@ -124,9 +124,9 @@
 }
 
 /* Viewport-fit (desktop ≥1024px): the room spans exactly from below the
-   breadcrumbs to the viewport bottom — header h-16 (4rem) + container
+   breadcrumbs to the viewport bottom — header h-8 (2rem) + container
    pt-6 (1.5rem) + breadcrumbs (~1.5rem + mb-5) + container pb-8 (2rem)
-   = 10rem of shell chrome. The page owns no scroll here: hero/banners
+   = 8rem of shell chrome. The page owns no scroll here: hero/banners
    keep natural height, the working area takes the rest, the stream
    scrolls internally, and the composer stays pinned in view. A min-height
    floor keeps short viewports usable via the shell's page scroll. */

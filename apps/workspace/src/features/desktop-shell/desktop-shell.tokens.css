@@ -1,0 +1,109 @@
+/**
+ * VES-UI-001 T0: Desktop Shell Scoped Tokens
+ *
+ * Scoped `--ds-*` layer for the desktop shell. Every value derives from
+ * the canonical Vestara tokens (`--vestara-*`, generated from
+ * @vestara/ui-tokens) so mode (dark/light via [data-theme]) and the
+ * user-selected accent propagate automatically.
+ *
+ * Never hard-code palette hex here — reference canonical vars or
+ * color-mix() expressions over them.
+ */
+
+/* ── Dark appearance (default) ── */
+:root {
+  /* Surfaces — prototype #0a1214 / #0d191b / #111e20 / #132528 */
+  --ds-canvas-bg: var(--vestara-surface-canvas);
+  --ds-surface-bg: var(--vestara-shell-bg);
+  --ds-surface-raised: var(--vestara-surface-panel-raised);
+  --ds-surface-panel: var(--vestara-surface-panel);
+
+  /* Hairline — prototype #1a3a3d */
+  --ds-border: var(--vestara-border-subtle);
+  --ds-border-strong: var(--vestara-accent-border);
+
+  /* Accent — prototype #2de8c3 via ACCENT_PALETTES.shell */
+  --ds-accent: var(--vestara-accent);
+  --ds-accent-light: var(--vestara-accent-light);
+  --ds-accent-dark: var(--vestara-accent-dark);
+  --ds-accent-bg: var(--vestara-accent-bg);
+
+  /* Text ramp — prototype #e6fff9 / #c8ddd9 / #8ab3ad / #5a7a78 */
+  --ds-text: var(--vestara-text-primary);
+  --ds-text-secondary: var(--vestara-text-secondary);
+  --ds-text-muted: var(--vestara-text-muted);
+
+  /* Status — prototype #4ade80 / #ff5a5a / #facc15 */
+  --ds-success: var(--vestara-status-success);
+  --ds-error: var(--vestara-status-error);
+  --ds-warning: var(--vestara-status-warning);
+  --ds-success-bg: var(--vestara-status-success-bg);
+  --ds-error-bg: var(--vestara-status-error-bg);
+  --ds-warning-bg: var(--vestara-status-warning-bg);
+
+  /* Window chrome */
+  --ds-chrome-height: 2.25rem;
+  --ds-statusbar-height: 1.75rem;
+  --ds-topbar-height: 2rem;
+  --ds-dock-height: 3rem;
+  --ds-window-shadow: var(--vestara-elevation-lg);
+  --ds-focus-ring: var(--vestara-accent-border-active);
+
+  /* Typography — token stacks, never CDN links */
+  --ds-font-mono: var(--vestara-code-font-family, 'JetBrains Mono', monospace);
+  --ds-font-serif: var(--vestara-serif-font-family, ui-serif, Georgia, serif);
+}
+
+/* ── Light appearance ── */
+[data-theme='light'] {
+  --ds-canvas-bg: var(--vestara-surface-canvas);
+  --ds-surface-bg: var(--vestara-shell-bg);
+  --ds-surface-raised: var(--vestara-surface-panel-raised);
+  --ds-surface-panel: var(--vestara-surface-panel);
+}
+
+/* ── VES-UI-001 T3: window chrome motion ── */
+/* Transitions on `.ds-window` are already gated behind `motion-safe:` /
+ * `usePrefersReducedMotion` in `VestaraWindow.tsx`; this scoped rule is
+ * defense-in-depth so window chrome never animates under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .ds-window,
+  .ds-window *,
+  .ds-window *::before,
+  .ds-window *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── VES-UI-001 T4: boot/login motion ── */
+/* Governed replacement for the prototype `BootScreen` inline `<style>`
+ * `@keyframes pulseGlow` (plan G8). The glow derives from `--ds-accent`
+ * via `color-mix()` — never a hardcoded teal literal — so the user-selected
+ * accent propagates. `BootScreen` consumes `.ds-boot-logo` only. */
+@keyframes ds-pulse-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ds-accent) 35%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--ds-accent) 60%, transparent));
+  }
+}
+
+.ds-boot-logo {
+  animation: ds-pulse-glow 2.2s ease-in-out infinite;
+}
+
+/* Boot progress fill — accent bar with a token-derived glow.
+ * Width stays a dynamic inline style (geometry, not a visual literal). */
+.ds-boot-bar-fill {
+  background-color: var(--ds-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ds-accent) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-boot-logo {
+    animation: none !important;
+  }
+}

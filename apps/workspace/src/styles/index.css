@@ -38,10 +38,6 @@
   --color-zinc-50: #fafafa;
 
   /* ── Legacy brand colors (DEPRECATED — use status tokens) ── */
-  --vestara-gold: #c9a84c;
-  --vestara-gold-light: #fcf6ba;
-  --vestara-gold-dark: #b38728;
-  --vestara-gold-gradient: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728);
   --vestara-green: var(--vestara-status-success);
   --vestara-red: var(--vestara-status-error);
   --vestara-blue: var(--vestara-status-info);
@@ -246,7 +242,6 @@
   --color-zinc-50: #1a1a10;
 
   /* Legacy brand colors — light mode (DEPRECATED) */
-  --vestara-gold: #b8860b;
   --vestara-green: var(--vestara-status-success);
   --vestara-red: var(--vestara-status-error);
   --vestara-blue: var(--vestara-status-info);

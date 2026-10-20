@@ -299,3 +299,24 @@ export interface SettingsEvent {
 }
 
 export type SettingsEventHandler = (event: SettingsEvent) => void;
+
+// ─── Shell appearance contract (VES-UI-001 T7) ───────────────
+// Data contract backing the v2 desktop shell Settings surface
+// (shell/topbar/appearance controls). Pure types + defaults —
+// no UI imports; shell hosts bind these entries to real settings.
+
+export type ShellAccentTheme = 'shell' | 'amber' | 'teal' | 'emerald' | 'blue' | 'violet' | 'rose' | 'neutral';
+
+export interface ShellAppearanceSettings {
+  /** Accent palette id — v2 shell default is `shell` (teal V identity). */
+  readonly accentTheme: ShellAccentTheme;
+  /** 32px compact desktop top bar (v2 shell chrome). */
+  readonly compactTopBar: boolean;
+}
+
+export const SHELL_APPEARANCE_DEFAULTS: ShellAppearanceSettings = {
+  accentTheme: 'shell',
+  compactTopBar: true,
+} as const;
+
+export const SHELL_APPEARANCE_MODULE_ID = 'shell.appearance' as const;

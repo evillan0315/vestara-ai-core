@@ -12,28 +12,58 @@ import { useTheme } from '../../../lib/theme';
 export interface HeaderUserMenuProps {
   name: string;
   role?: string;
+  /**
+   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * 64px shell header (`cozy`, default). Compact renders the prototype
+   * avatar pill (h-6, 16px avatar, chevron only); the dropdown menu is
+   * identical in both densities.
+   */
+  density?: 'cozy' | 'compact';
 }
 
-export default function HeaderUserMenu({ name, role = 'Administrator' }: HeaderUserMenuProps) {
+export default function HeaderUserMenu({ name, role = 'Administrator', density = 'cozy' }: HeaderUserMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { resolved, toggle } = useTheme();
 
+  const compact = density === 'compact';
+
   return (
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-3 px-2 h-10 rounded-xl border border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+        aria-expanded={open}
+        aria-label={`Account: ${name}`}
+        className={
+          compact
+            ? 'flex h-6 items-center gap-1 rounded-full border border-(--vestara-accent-border) bg-(--vestara-surface) py-0 pr-1.5 pl-1 transition-colors hover:border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)'
+            : 'flex items-center gap-3 px-2 h-10 rounded-xl border border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer'
+        }
       >
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-(--vestara-accent) to-(--vestara-accent-dark) text-white">
-          <span className="text-xs font-bold">{name.charAt(0).toUpperCase()}</span>
+        <div
+          className={
+            compact
+              ? 'flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-(--vestara-accent) to-(--vestara-accent-dark) text-white'
+              : 'flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-(--vestara-accent) to-(--vestara-accent-dark) text-white'
+          }
+        >
+          <span className={compact ? 'font-mono font-bold text-(--vestara-font-size-micro)' : 'text-xs font-bold'}>
+            {name.charAt(0).toUpperCase()}
+          </span>
         </div>
-        <div className="hidden md:block text-left">
-          <div className="text-sm font-medium text-(--vestara-text)">{name}</div>
-          <div className="text-xs text-(--vestara-text-2)">{role}</div>
-        </div>
-        <KeyboardArrowDownRoundedIcon fontSize="small" className={`text-(--vestara-text-2) transition-transform ${open ? 'rotate-180' : ''}`} />
+        {!compact && (
+          <div className="hidden md:block text-left">
+            <div className="text-sm font-medium text-(--vestara-text)">{name}</div>
+            <div className="text-xs text-(--vestara-text-2)">{role}</div>
+          </div>
+        )}
+        <span className={compact ? 'flex text-(--vestara-font-size-caption) text-(--vestara-text-2)' : undefined}>
+          <KeyboardArrowDownRoundedIcon
+            fontSize={compact ? 'inherit' : 'small'}
+            className={`text-(--vestara-text-2) transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </span>
       </button>
 
       {open && (

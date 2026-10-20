@@ -149,3 +149,42 @@ export function CardContent({ className = '', children }: CardContentProps) {
 export function CardActions({ align = 'right', className = '', children }: CardActionsProps) {
   return <div className={`flex items-center gap-2 mt-3 ${ALIGN_STYLES[align]} ${className}`}>{children}</div>;
 }
+
+// ─── SectionCard (v2 shell contract) ───────────────────────────
+// Canonical section composition for the v2 desktop shell: titled Card
+// with optional subtitle/action over the panel token. Thin wrapper over
+// Card/CardHeader/CardContent — no new visual language.
+
+export interface SectionCardProps extends CardProps {
+  /** Section title rendered via CardHeader. */
+  title: ReactNode;
+  /** Optional subtitle rendered via CardHeader. */
+  subtitle?: ReactNode;
+  /** Optional header action (e.g., button, pill). */
+  action?: ReactNode;
+}
+
+export function SectionCard({ title, subtitle, action, children, ...rest }: SectionCardProps) {
+  return (
+    <Card {...rest}>
+      <CardHeader title={title} subtitle={subtitle} action={action} />
+      <div className="mt-3">
+        <CardContent>{children}</CardContent>
+      </div>
+    </Card>
+  );
+}
+
+// ─── GalleryCard (v2 shell contract) ───────────────────────────
+// Canonical gallery composition for card grids (Marketplace Discover,
+// Agent Workforce). Token-bound panel; accent wash is host-applied via
+// className so this primitive stays dependency-free.
+
+export interface GalleryCardProps extends CardProps {
+  /** Card content. */
+  children: ReactNode;
+}
+
+export function GalleryCard({ children, ...rest }: GalleryCardProps) {
+  return <Card {...rest}>{children}</Card>;
+}

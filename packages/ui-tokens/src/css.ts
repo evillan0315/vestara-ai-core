@@ -164,6 +164,9 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     // SIZING groups can follow as consumers adopt them.
     '--vestara-sizing-scroll-max-height': SIZING.scroll.maxHeight,
     '--vestara-sizing-scroll-dialog-max-height': SIZING.scroll.dialogMaxHeight,
+    // VES-UI-001 T1: desktop top bar geometry (theme-invariant).
+    '--vestara-sizing-topbar-height': SIZING.topbar.height,
+    '--vestara-sizing-topbar-spotlight-width': SIZING.topbar.spotlightWidth,
 
     // VES-DESIGN-005 §M: Discover gallery layout (theme-invariant geometry
     // sourced from MARKETPLACE_LAYOUT — identical in dark/light).

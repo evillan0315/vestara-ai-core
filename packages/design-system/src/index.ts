@@ -1,7 +1,17 @@
 // Renderer-neutral semantic design tokens for Vestara.
 // Shared by the Workspace UI (React/web) and the terminal TUI (OpenTUI/React).
 
-export type ColorTheme = 'gold' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose' | 'teal' | 'neutral' | 'orange';
+export type ColorTheme =
+  | 'gold'
+  | 'amber'
+  | 'emerald'
+  | 'blue'
+  | 'violet'
+  | 'rose'
+  | 'teal'
+  | 'neutral'
+  | 'orange'
+  | 'shell';
 
 export interface AccentPalette {
   readonly label: string;
@@ -104,6 +114,18 @@ export const ACCENT_PALETTES: Record<ColorTheme, AccentPalette> = {
     border: '#f9731640',
     borderHover: '#f9731680',
     borderActive: '#f97316',
+  },
+  // VES-UI-001 v2 shell contract: teal V identity (#2de8c3) on layered
+  // near-black surfaces. Mirrors ACCENT_PALETTES.shell in @vestara/ui-tokens.
+  shell: {
+    label: 'Vestara Shell',
+    hex: '#2de8c3',
+    light: '#5ff0d4',
+    dark: '#10b7a0',
+    bg: '#2de8c314',
+    border: '#2de8c340',
+    borderHover: '#2de8c380',
+    borderActive: '#2de8c3',
   },
 };
 
@@ -294,6 +316,26 @@ export const TUI_SEMANTIC_PALETTES: Record<ColorTheme, TuiSemanticPalette> = {
     info: '#60a5fa',
     focus: '#f97316',
   },
+  // VES-UI-001 v2 shell contract: shell accent on layered near-black
+  // surfaces (#0a1214 → #132528 per the prototype token mapping).
+  shell: {
+    accent: '#2de8c3',
+    accentBright: '#5ff0d4',
+    accentDim: '#10b7a0',
+    background: '#0a1214',
+    backgroundPanel: '#0d191b',
+    backgroundElement: '#111e20',
+    text: '#e6fff9',
+    textMuted: '#8ab3ad',
+    textDim: '#5a7a78',
+    border: '#1a3a3d',
+    borderActive: '#2de8c3',
+    success: '#4ade80',
+    warning: '#facc15',
+    error: '#ff5a5a',
+    info: '#60a5fa',
+    focus: '#2de8c3',
+  },
 };
 
 // ─── Entity / status presentation metadata (renderer-neutral) ──
@@ -386,10 +428,10 @@ export const TUI_NAV_KEYS: readonly string[] = TUI_NAVIGATION.map((item) => item
 
 // ─── Brand tokens ────────────────────────────────────────────
 
-export type { BrandColorToken, BrandTypographyToken } from './brand.js';
+export type { BrandColorToken, BrandTypographyToken } from './brand';
 export {
   VESTARA_BRAND_COLORS,
   VESTARA_TAGLINETypography,
   VESTARA_WORDMARKTypography,
   vestaraBrandTokens,
-} from './brand.js';
+} from './brand';

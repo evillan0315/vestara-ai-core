@@ -20,7 +20,7 @@ import { ApiEndpointField } from './ApiEndpointField.js';
 import NavigationSettings from './NavigationSettings.js';
 import EnvironmentVariables from './EnvironmentVariables.js';
 import SystemOverview from './SystemOverview.js';
-import { AssistantExecutionPanel, ToolVisibilityPanel } from './AI/AssistantExecution/AssistantExecutionSettings.js';
+import { ToolVisibilityPanel } from './AI/AssistantExecution/AssistantExecutionSettings.js';
 import { CISettings } from './CI/CISettings.js';
 import { CodexTransportPanel } from './CodexTransportPanel.js';
 import {
@@ -426,7 +426,7 @@ export default function SettingsPage() {
                   <div className="st-gap-section grid min-w-0 items-stretch lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_24rem]">
                     <PolicySection section="providers" configuration={data.configuration} onChanged={changed} className="lg:col-span-2" />
                     <PolicySection section="agents" configuration={data.configuration} onChanged={changed} className="st-card-secondary lg:col-span-2 xl:col-span-1" />
-                    <AssistantExecutionPanel className="lg:col-span-2" />
+                    <PolicySection section="assistant-execution" configuration={data.configuration} onChanged={changed} className="lg:col-span-2" />
                     <PolicySection section="browser" configuration={data.configuration} onChanged={changed} className="st-card-secondary lg:col-span-2 xl:col-span-1" />
                     <ToolVisibilityPanel className="lg:col-span-2 xl:col-span-3" />
                   </div>

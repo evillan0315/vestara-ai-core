@@ -15,6 +15,7 @@ import { useWorkspaceNavigation } from '../lib/navigation-store.js';
 import ShellRoot from './ShellRoot';
 import GlobalDrawerHost from './GlobalDrawerHost';
 import { GlobalDrawerProvider } from '../contexts/GlobalDrawerContext';
+import { DesktopShell } from '../features/desktop-shell/DesktopShell';
 
 /**
  * Workspace navigation comes from the canonical registry
@@ -38,6 +39,13 @@ export default function ShellLayout() {
 
   const navigation = useNavigation();
   const location = useLocation();
+
+  /**
+   * VES-UI-001 T4: DesktopShell gate. `?shell=desktop` runs the routed page
+   * inside the boot → login → desktop state machine (`DesktopShell`);
+   * without it the shell renders directly (existing behavior unchanged).
+   */
+  const desktopShellEnabled = new URLSearchParams(location.search).get('shell') === 'desktop';
 
   const toggleDesktopSidebar = () => {
     setDesktopSidebarCollapsed((prev) => {
@@ -91,7 +99,7 @@ export default function ShellLayout() {
               onNavigate={closeMobileSidebar}
             />
           }
-          header={<AppHeader mobileSidebarOpen={mobileSidebarOpen} onMenuClick={toggleMobileSidebar} />}
+          header={<AppHeader mobileSidebarOpen={mobileSidebarOpen} onMenuClick={toggleMobileSidebar} version="v1.0.0" />}
           mobileSidebarOpen={mobileSidebarOpen}
           onCloseMobileSidebar={closeMobileSidebar}
         >
@@ -99,9 +107,17 @@ export default function ShellLayout() {
               directly below the top bar. Route metadata, titles, navigation,
               and the useBreadcrumbs resolver are untouched — only the shared
               visual surface is removed. Pages keep their own heroes/headers. */}
-          <PageContainer fluid>
-            <Outlet />
-          </PageContainer>
+          {desktopShellEnabled ? (
+            <DesktopShell>
+              <PageContainer fluid>
+                <Outlet />
+              </PageContainer>
+            </DesktopShell>
+          ) : (
+            <PageContainer fluid>
+              <Outlet />
+            </PageContainer>
+          )}
         </ShellRoot>
 
         <CommandPalette />

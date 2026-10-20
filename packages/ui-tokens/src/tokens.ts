@@ -403,9 +403,20 @@ export const SIZING = {
     minHeight: '120px',
   },
   icon: {
+    xs: '12px',
     sm: '16px',
     md: '20px',
     lg: '24px',
+  },
+  // VES-UI-001 T1: 32px desktop top bar geometry (theme-invariant).
+  // The global shell header is h-8 (2rem); the centered Spotlight trigger
+  // keeps the prototype 200px width. Emitted as `--vestara-sizing-topbar-*`
+  // (see css.ts) so Tailwind classes reference vars, never literals.
+  topbar: {
+    /** Global shell header height — `h-8` in Tailwind spacing. */
+    height: '32px',
+    /** Centered Spotlight trigger width (prototype 200px pill). */
+    spotlightWidth: '200px',
   },
   // Scroll regions. Bounded in viewport units so a long list scrolls inside its
   // own block and the block's action bar stays reachable, instead of the block

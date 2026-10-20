@@ -37,6 +37,7 @@ export type {
   MarketplaceStatPillProps,
   MarketplaceToolbarProps,
   NavigateHandler,
+  SectionCardProps,
 } from './components.js';
 export {
   AssetCard,
@@ -57,6 +58,7 @@ export {
   MarketplaceStatPill,
   MarketplaceToolbar,
   RegistryHealthLamp,
+  SectionCard,
   TypeBadge,
   UpdateGroup,
 } from './components.js';

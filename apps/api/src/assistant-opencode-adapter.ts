@@ -204,6 +204,14 @@ export interface AssistantOpenCodeExecutorOptions {
   /** Hard cap for a single turn (ms). Default 5 minutes. */
   turnTimeoutMs?: number;
   /**
+   * GA-EXEC-003: workspace-configured turn budget (Settings → Assistant
+   * Execution), consulted only when the request omits the field. Precedence
+   * is request.executionConfig > workspace setting > adapter default. An
+   * explicit 0 from either source means unlimited. A resolver failure is
+   * logged and ignored — it must never fail the turn.
+   */
+  resolveExecutionDefaults?: () => { maxToolCalls?: number; turnTimeoutMs?: number };
+  /**
    * GA-CAP-003: Vestara-owned capability boundary for the Global Assistant.
    * When provided, permission requests are evaluated against this policy
    * before being surfaced to the user. ALLOW decisions are auto-approved,
@@ -596,12 +604,26 @@ export async function* runAssistantOpenCodeTurn(
   const { client, workspaceId, directory, turnTimeoutMs: defaultTimeout = TURN_TIMEOUT_MS } = options;
   // GA-EXEC-001: per-turn execution config from UI. Overrides defaults.
   const execCfg: GAExecutionConfig | undefined = request.executionConfig;
-  const turnTimeoutMs = execCfg?.turnTimeoutMs ?? defaultTimeout;
+  // GA-EXEC-003: workspace setting (Settings → Assistant Execution) is the
+  // fallback when the request omits a value, so the Settings page is
+  // authoritative instead of the session-local composer state. Precedence:
+  // request.executionConfig > workspace setting > adapter default. A failed
+  // settings read is logged and ignored — never fails the turn.
+  let configuredDefaults: { maxToolCalls?: number; turnTimeoutMs?: number } = {};
+  try {
+    configuredDefaults = options.resolveExecutionDefaults?.() ?? {};
+  } catch (error) {
+    options.logger?.warn('assistant.execution.defaults.failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  const turnTimeoutMs = execCfg?.turnTimeoutMs ?? configuredDefaults.turnTimeoutMs ?? defaultTimeout;
   // GA-EXEC-001: maxToolCalls is the canonical tool-invocation budget.
   // maxOperations was removed — it counted the same events as maxToolCalls.
-  // Falls back to DEFAULT_MAX_TOOL_CALLS (default 150). An explicit 0 sent by
-  // the UI is preserved as "unlimited", so untouched != explicitly unlimited.
-  const maxToolCalls = execCfg?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
+  // Falls back to DEFAULT_MAX_TOOL_CALLS (default 150). An explicit 0 from
+  // either source is preserved as "unlimited" (?? not ||), so untouched is
+  // never silently coerced to unlimited.
+  const maxToolCalls = execCfg?.maxToolCalls ?? configuredDefaults.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
   const context = { workspaceId, directory };
   const userText = lastUserText(request.messages);
   if (!userText) throw new Error('Assistant OpenCode turn requires a user message');

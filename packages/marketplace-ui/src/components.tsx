@@ -573,6 +573,15 @@ export function MarketplaceSection({ title, action, children }: MarketplaceSecti
   );
 }
 
+// ─── SectionCard (v2 shell contract alias) ─────────────────────
+// The v2 desktop shell composes sections via `SectionCard`. In the
+// gallery package that contract is `MarketplaceSection` (titled section
+// with optional action) — re-exported under the canonical name so
+// shell hosts import one spelling alongside `GalleryCard`.
+
+export type SectionCardProps = MarketplaceSectionProps;
+export const SectionCard = MarketplaceSection;
+
 // ─── v2 Hero ──────────────────────────────────────────────────────
 // Discover hero row: "Build More with Vestara" panel (3/4) with inline
 // search + futuristic blue geometric artwork (floating translucent
