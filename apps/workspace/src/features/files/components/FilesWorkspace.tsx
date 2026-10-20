@@ -398,10 +398,43 @@ export function FilesWorkspace({
     [entries, openFile, tabs],
   );
 
+  // Deep links (`/files?focus=<path>`, legacy `?path=`) run once per target,
+  // only after the tree resolves — otherwise a valid path would fabricate a
+  // bogus tab while entries are still loading.
+  const deepLinkHandled = useRef<string | null>(null);
+
   useEffect(() => {
-    const focusPathParam = searchParams.get('path');
-    if (focusPathParam) openSearchPath(focusPathParam);
-  }, [openSearchPath, searchParams]);
+    const target = searchParams.get('focus') ?? searchParams.get('path');
+    if (!target || deepLinkHandled.current === target || isLoading) return;
+    deepLinkHandled.current = target;
+    const entry = findByPath(entries, target);
+    if (entry) {
+      if (entry.kind === 'file') {
+        // Expand ancestors so the opened file is revealed in the tree.
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          let cur = target;
+          for (;;) {
+            const slash = cur.lastIndexOf('/');
+            if (slash < 0) break;
+            cur = cur.slice(0, slash);
+            next.add(cur);
+          }
+          return next;
+        });
+        openFile(entry);
+      } else {
+        setSegments(target.split('/').filter((segment) => segment.length > 0));
+        setFocusPath(target);
+        setSelectedPath(target);
+        setMode('files');
+      }
+      return;
+    }
+    // Not in the projection: with a truncated tree the file may still exist
+    // (the content API is authoritative), so open it best-effort.
+    if (truncated) openSearchPath(target);
+  }, [searchParams, entries, truncated, isLoading, openFile, openSearchPath]);
 
   // Content loading for the active tab (cached across switches).
   useEffect(() => {

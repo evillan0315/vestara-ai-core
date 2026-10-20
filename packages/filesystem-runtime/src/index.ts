@@ -498,6 +498,30 @@ export class FilesystemRuntime {
     }
   }
 
+  /**
+   * Binary-safe read returning base64-encoded bytes.
+   *
+   * `read()` decodes as UTF-8, which mangles binary files (invalid sequences
+   * become U+FFFD) — re-encoding that string to base64 yields bytes the
+   * browser cannot decode as an image/video/audio. This method goes through
+   * the identical governance flow (same `read` op, policy, approvals) but
+   * preserves raw bytes for preview endpoints.
+   */
+  async readBinary(filePath: string, agentId?: string): Promise<FsResult<string>> {
+    const op = makeOp('read', filePath, { agentId });
+    const evalResult = await this.evaluate(op);
+    if (!evalResult.allowed) return this.fail(op, evalResult.reason || 'Denied');
+    if (evalResult.requiresApproval) return this.pending(op, evalResult.reason || 'Requires approval');
+    try {
+      const absPath = this.resolve(filePath);
+      const data = fs.readFileSync(absPath).toString('base64');
+      this.emit(agentId, 'completed', 'file.read', `Read ${filePath}`, { filePath });
+      return this.success(op, data);
+    } catch (err) {
+      return this.fail(op, (err as Error).message);
+    }
+  }
+
   async write(
     filePath: string,
     content: string,

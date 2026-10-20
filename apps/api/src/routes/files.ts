@@ -193,33 +193,45 @@ export async function handleFilesRoute(
         return true;
       }
 
-      // Read file content
-      const readResult = await ctx.filesystemRuntime.read(requestedPath);
-      if (!readResult.ok || !readResult.data) {
-        json(res, 500, { error: 'Failed to read file', detail: readResult.error });
+      const mimeType = getMimeType(requestedPath);
+
+      if (isTextMime(mimeType)) {
+        // Read file content
+        const readResult = await ctx.filesystemRuntime.read(requestedPath);
+        if (!readResult.ok || !readResult.data) {
+          json(res, 500, { error: 'Failed to read file', detail: readResult.error });
+          return true;
+        }
+
+        json(res, 200, {
+          path: requestedPath,
+          size,
+          mimeType,
+          content: readResult.data,
+          previewAvailable: true,
+          encoding: 'utf-8',
+        });
         return true;
       }
 
-      const mimeType = getMimeType(requestedPath);
-      const content = readResult.data;
+      // Binary files must preserve raw bytes: reading as UTF-8 mangles them
+      // (invalid sequences become U+FFFD), so re-encoded base64 would not
+      // decode to a viewable image/video/audio. readBinary keeps governance
+      // identical (same `read` op) and returns base64 directly.
+      const binResult = await ctx.filesystemRuntime.readBinary(requestedPath);
+      if (!binResult.ok || binResult.data === undefined) {
+        json(res, 500, { error: 'Failed to read file', detail: binResult.error });
+        return true;
+      }
 
-      const responseBase = {
+      json(res, 200, {
         path: requestedPath,
         size,
         mimeType,
-        content,
         previewAvailable: true,
-        encoding: isTextMime(mimeType) ? 'utf-8' : 'base64',
-      } as const;
-
-      if (isTextMime(mimeType)) {
-        json(res, 200, responseBase);
-      } else {
-        json(res, 200, {
-          ...responseBase,
-          contentBase64: Buffer.from(content, 'utf-8').toString('base64'),
-        });
-      }
+        encoding: 'base64',
+        contentBase64: binResult.data,
+      });
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Invalid path';

@@ -95,19 +95,27 @@ export function FilePreview({
   const isAudio = previewType === 'audio';
   const isUnsupported = previewType === 'unsupported';
 
-  // Generate data URL for binary previews (images, video, audio)
+  // Generate an object URL for binary previews (images, video, audio).
+  // Creation and revocation live in one effect: revoking in a cleanup that
+  // re-runs on every dataUrl change would revoke the just-created URL
+  // before the media element loads it (every preview failing with
+  // "Image load failed" / unplayable media). The URL is revoked on unmount
+  // or when its source bytes change instead.
   useEffect(() => {
-    if ((isImage || isVideo || isAudio) && contentBase64 && !dataUrl) {
-      try {
-        const blob = base64ToBlob(contentBase64, mimeType);
-        const url = URL.createObjectURL(blob);
-        setDataUrl(url);
-        return () => URL.revokeObjectURL(url);
-      } catch {
-        setVideoError('Failed to load preview');
-      }
+    if (!(isImage || isVideo || isAudio) || !contentBase64) return;
+    let url: string | null = null;
+    try {
+      const blob = base64ToBlob(contentBase64, mimeType);
+      url = URL.createObjectURL(blob);
+      setDataUrl(url);
+    } catch {
+      setVideoError('Failed to load preview');
+      return;
     }
-  }, [contentBase64, mimeType, isImage, isVideo, isAudio, dataUrl]);
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [contentBase64, mimeType, isImage, isVideo, isAudio]);
 
   // Handle video/audio errors
   const handleMediaError = useCallback((e: React.SyntheticEvent<HTMLMediaElement>) => {
