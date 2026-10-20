@@ -13,6 +13,7 @@
  */
 
 import { useRef, useState } from 'react';
+import { PanelFooter, PanelHeader } from '@vestara/ui';
 import { navIcon } from '../../../layouts/workspace-navigation';
 import type { FileEntry, FilesFacet } from '../files.types';
 import { accentFor, FileTree } from './FileTree';
@@ -39,7 +40,6 @@ interface FileBrowserPanelProps {
   onOpenFile: (entry: FileEntry) => void;
   onMenu: (entry: FileEntry, x: number, y: number) => void;
   onMove: (sourcePath: string, destDir: FileEntry) => void;
-  onCollapse: () => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
 }
@@ -66,7 +66,6 @@ export function FileBrowserPanel({
   onOpenFile,
   onMenu,
   onMove,
-  onCollapse,
   onExpandAll,
   onCollapseAll,
 }: FileBrowserPanelProps) {
@@ -81,73 +80,62 @@ export function FileBrowserPanel({
 
   return (
     <div className="ar-panel flex h-full min-h-0 flex-col">
-      <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
-        <span className="ar-panel__label flex items-center gap-1.5">
-          <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
-            {navIcon('projects')}
-          </span>
-          File browser · {fileCount.toLocaleString()}
-        </span>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={onCollapse}
-            aria-label="Collapse file browser"
-            title="Collapse file browser"
-            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
-          >
-            <span aria-hidden="true">‹</span>
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setOptionsOpen((open) => !open)}
-              aria-label="Browser options"
-              aria-expanded={optionsOpen}
-              title="Browser options"
-              className={`grid h-6 min-w-[24px] place-items-center rounded-[var(--vestara-radius)] border px-1 transition-colors ${
-                optionsOpen
-                  ? 'border-[var(--vestara-marketplace-primary-border)] bg-[var(--vestara-marketplace-primary-bg)] text-[var(--vestara-marketplace-primary)]'
-                  : 'border-transparent text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]'
-              }`}
-            >
-              <span aria-hidden="true">⋯</span>
-            </button>
-            {optionsOpen && (
-              <>
-                <button type="button" aria-label="Close browser options" onClick={() => setOptionsOpen(false)} className="fixed inset-0 z-40 cursor-default bg-transparent" />
-                <div role="menu" aria-label="Browser options" className="absolute right-0 top-7 z-50 w-48 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-1 shadow-[var(--vestara-elevation-md)]">
-                  <p className="px-2.5 py-1 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-disabled)]">
-                    BROWSER OPTIONS
-                  </p>
-                  {(
-                    [
-                      { label: 'Directories first', active: dirsFirst, action: () => onDirsFirstChange(!dirsFirst) },
-                      { label: 'Show hidden files', active: showHidden, action: () => onShowHiddenChange(!showHidden) },
-                    ] as const
-                  ).map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        item.action();
-                        setOptionsOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between rounded-[var(--vestara-radius)] px-2.5 py-1.5 text-left text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
-                    >
-                      {item.label}
-                      {item.active && (
-                        <span aria-hidden="true" className="text-[var(--vestara-marketplace-primary)]">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <PanelHeader
+        title={`File browser · ${fileCount.toLocaleString()}`}
+        icon={navIcon('projects')}
+        actions={
+          <>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOptionsOpen((open) => !open)}
+                aria-label="Browser options"
+                aria-expanded={optionsOpen}
+                title="Browser options"
+                className={`grid h-6 min-w-[24px] place-items-center rounded-[var(--vestara-radius)] border px-1 transition-colors ${
+                  optionsOpen
+                    ? 'border-[var(--vestara-marketplace-primary-border)] bg-[var(--vestara-marketplace-primary-bg)] text-[var(--vestara-marketplace-primary)]'
+                    : 'border-transparent text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]'
+                }`}
+              >
+                <span aria-hidden="true">⋯</span>
+              </button>
+              {optionsOpen && (
+                <>
+                  <button type="button" aria-label="Close browser options" onClick={() => setOptionsOpen(false)} className="fixed inset-0 z-40 cursor-default bg-transparent" />
+                  <div role="menu" aria-label="Browser options" className="absolute right-0 top-7 z-50 w-48 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-1 shadow-[var(--vestara-elevation-md)]">
+                    <p className="px-2.5 py-1 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-disabled)]">
+                      BROWSER OPTIONS
+                    </p>
+                    {(
+                      [
+                        { label: 'Directories first', active: dirsFirst, action: () => onDirsFirstChange(!dirsFirst) },
+                        { label: 'Show hidden files', active: showHidden, action: () => onShowHiddenChange(!showHidden) },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          item.action();
+                          setOptionsOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between rounded-[var(--vestara-radius)] px-2.5 py-1.5 text-left text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                      >
+                        {item.label}
+                        {item.active && (
+                          <span aria-hidden="true" className="text-[var(--vestara-marketplace-primary)]">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        }
+      />
 
       {focusPath && (
         <div className="mx-2 mt-2 flex shrink-0 items-center justify-between gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-marketplace-primary-border)] bg-[var(--vestara-marketplace-primary-bg)] px-2.5 py-2">
@@ -225,7 +213,7 @@ export function FileBrowserPanel({
         </section>
       </div>
 
-      <div className="flex h-10 shrink-0 items-center justify-between border-t border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3">
+      <PanelFooter ariaLabel="Browser actions">
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -249,7 +237,7 @@ export function FileBrowserPanel({
         >
           <span aria-hidden="true">◉</span> Reveal
         </button>
-      </div>
+      </PanelFooter>
     </div>
   );
 }

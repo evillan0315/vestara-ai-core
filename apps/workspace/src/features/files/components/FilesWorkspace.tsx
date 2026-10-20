@@ -722,7 +722,6 @@ export function FilesWorkspace({
               onOpenFile={openFile}
               onMenu={showMenu}
               onMove={moveInto}
-              onCollapse={() => setBrowserCollapsed(true)}
               onExpandAll={expandAll}
               onCollapseAll={collapseAll}
             />
@@ -733,19 +732,39 @@ export function FilesWorkspace({
             className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-[var(--vestara-surface-canvas)]"
             aria-label="File work area"
           >
-          <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setBrowserCollapsed((collapsed) => !collapsed)}
+              aria-label={browserCollapsed ? 'Show file browser' : 'Hide file browser'}
+              title={browserCollapsed ? 'Show file browser' : 'Hide file browser'}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+            >
+              <span aria-hidden="true">{browserCollapsed ? '›' : '‹'}</span>
+            </button>
             <WorkspaceTabs
               tabs={WORK_MODE_TABS.map((item) => ({
                 id: item.id,
                 label: item.label,
+                title: item.title,
                 icon: item.icon,
                 ...(item.id === 'editor' && tabs.tabs.length > 0 ? { badge: tabs.tabs.length } : {}),
               }))}
               activeTab={mode}
               onTabChange={(tabId) => setMode(tabId as WorkMode)}
               ariaLabel="Work area modes"
+              variant="underline"
               className="min-w-0 flex-1"
             />
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed((collapsed) => !collapsed)}
+              aria-label={inspectorCollapsed ? 'Show file inspector' : 'Hide file inspector'}
+              title={inspectorCollapsed ? 'Show file inspector' : 'Hide file inspector'}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+            >
+              <span aria-hidden="true">{inspectorCollapsed ? '‹' : '›'}</span>
+            </button>
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -986,7 +1005,6 @@ export function FilesWorkspace({
               onDeselect={() =>
                 setSelectedPath(null)
               }
-              onCollapse={() => setInspectorCollapsed(true)}
             />
         }
       />
@@ -1089,7 +1107,6 @@ export function FilesWorkspace({
                 }}
                 onMenu={showMenu}
                 onMove={moveInto}
-                onCollapse={() => setMobilePanel(null)}
                 onExpandAll={expandAll}
                 onCollapseAll={collapseAll}
               />

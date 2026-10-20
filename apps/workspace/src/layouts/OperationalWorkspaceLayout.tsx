@@ -39,8 +39,6 @@ export interface OperationalWorkspaceLayoutProps {
    * borders — slot content brings its own card, e.g. ar-panel rail/context).
    */
   barePanes?: boolean;
-  /** Gutters between resizable panes. Default true (spacing-3). */
-  paneGap?: boolean;
   /** Uncontrolled initial widths (px) and clamps for the resizable work region. */
   defaultLeftWidth?: number;
   defaultRightWidth?: number;
@@ -72,7 +70,6 @@ export default function OperationalWorkspaceLayout({
   resizablePanes = false,
   paneStorageKey,
   barePanes = false,
-  paneGap = true,
   defaultLeftWidth,
   defaultRightWidth,
   minLeftWidth,
@@ -124,7 +121,6 @@ export default function OperationalWorkspaceLayout({
             rightAriaLabel={rightAriaLabel}
             storageKey={paneStorageKey}
             barePanes={barePanes}
-            paneGap={paneGap}
             leftClassName="operational-workspace-layout__rail"
             centerClassName="operational-workspace-layout__main"
             rightClassName="operational-workspace-layout__context"

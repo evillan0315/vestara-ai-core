@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { EmptyState, KeyValueList } from '@vestara/ui';
+import { EmptyState, KeyValueList, PanelHeader } from '@vestara/ui';
 import { navIcon } from '../../../layouts/workspace-navigation';
 import { formatBytes } from '../../../lib/diagnostics';
 import { executionApi, formatTime, type FsOperation } from '../../../lib/execution';
@@ -26,7 +26,6 @@ interface FileInspectorProps {
   onOpenInEditor: (entry: FileEntry) => void;
   onOpenDir: (entry: FileEntry) => void;
   onDeselect: () => void;
-  onCollapse?: () => void;
 }
 
 interface GitStatus {
@@ -40,7 +39,7 @@ interface GitStatus {
   readonly dirty: boolean;
 }
 
-export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselect, onCollapse }: FileInspectorProps) {
+export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselect }: FileInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>('details');
   const [activity, setActivity] = useState<readonly FsOperation[] | null>(null);
   const [git, setGit] = useState<GitStatus | null>(null);
@@ -80,14 +79,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
   if (!entry) {
     return (
       <div className="ar-panel flex min-h-0 flex-1 flex-col">
-        <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
-          <p className="ar-panel__label flex items-center gap-1.5">
-            <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
-              {navIcon('files')}
-            </span>
-            Inspector
-          </p>
-        </div>
+        <PanelHeader title="Inspector" icon={navIcon('files')} />
         <div className="p-3">
           <EmptyState title="Nothing selected" description="Select a file or folder to inspect it." />
         </div>
@@ -120,36 +112,23 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
 
   return (
     <div className="ar-panel flex min-h-0 flex-1 flex-col">
-      <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
-        <p className="ar-panel__label flex items-center gap-1.5">
-          <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
-            {navIcon('files')}
-          </span>
-          Inspector
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onDeselect}
-            aria-label="Clear selection"
-            title="Clear selection"
-            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
-          >
-            ✕
-          </button>
-          {onCollapse && (
+      <PanelHeader
+        title="Inspector"
+        icon={navIcon('files')}
+        actions={
+          <>
             <button
               type="button"
-              onClick={onCollapse}
-              aria-label="Collapse inspector"
-              title="Collapse inspector"
+              onClick={onDeselect}
+              aria-label="Clear selection"
+              title="Clear selection"
               className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
             >
-              ›
+              ✕
             </button>
-          )}
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <span
           aria-hidden="true"

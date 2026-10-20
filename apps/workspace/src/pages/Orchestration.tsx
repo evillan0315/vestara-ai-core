@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
-import { Badge, Button, EmptyState, Input, StatusIndicator, Tabs } from '@vestara/ui';
+import { Badge, Button, EmptyState, Input, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
@@ -1282,28 +1282,15 @@ export default function OrchestrationPage() {
           rightAriaLabel="Selected workflow"
           rail={
             <aside className="ar-panel workflow-rail" aria-label="Projects">
-              <div className="ar-panel__head sticky top-0 z-10 bg-[var(--ar-panel-bg)]">
-                <span className="ar-panel__label flex items-center gap-1.5">
-                  <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
-                    {navIcon('projects')}
-                  </span>
-                  Projects · {projects.length}
-                </span>
-                <span className="flex items-center gap-1">
+              <PanelHeader
+                title={`Projects · ${projects.length}`}
+                icon={navIcon('projects')}
+                actions={
                   <button type="button" className="workflow-tab-action" onClick={() => setCreateOpen(true)}>
                     + New
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setRailCollapsed(true)}
-                    aria-label="Hide Projects rail"
-                    title="Hide Projects rail"
-                    className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
-                  >
-                    <span aria-hidden="true">‹</span>
-                  </button>
-                </span>
-              </div>
+                }
+              />
               {loading ? (
                 <div className="space-y-[var(--vestara-spacing-2)]" role="status" aria-label="Loading projects">
                   {[1, 2, 3].map((i) => (
@@ -1379,30 +1366,17 @@ export default function OrchestrationPage() {
           }
           context={
             <aside className="ar-panel workflow-context" aria-label="Selected workflow">
-              <div className="ar-panel__head sticky top-0 z-10 bg-[var(--ar-panel-bg)]">
-                <span className="ar-panel__label flex items-center gap-1.5">
-                  <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
-                    {navIcon('workflows')}
-                  </span>
-                  Selected workflow
-                </span>
-                <span className="flex items-center gap-1.5">
-                  {selectedProject && (
+              <PanelHeader
+                title="Selected workflow"
+                icon={navIcon('workflows')}
+                actions={
+                  selectedProject && (
                     <Badge variant={statusTone(selectedProject.status)} size="sm" dot>
                       {selectedProject.status.replaceAll('-', ' ')}
                     </Badge>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setInspectorCollapsed(true)}
-                    aria-label="Hide workflow inspector"
-                    title="Hide workflow inspector"
-                    className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
-                  >
-                    <span aria-hidden="true">›</span>
-                  </button>
-                </span>
-              </div>
+                  )
+                }
+              />
               {!selectedProject ? (
                 <EmptyState
                   icon={navIcon('workflows')}
@@ -1649,13 +1623,34 @@ export default function OrchestrationPage() {
             </aside>
           }
         >
-        <WorkspaceTabs
-          tabs={workflowTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          ariaLabel="Workflow sections"
-          className="workflow-main-tabs"
-        />
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setRailCollapsed((collapsed) => !collapsed)}
+            aria-label={railCollapsed ? 'Show Projects rail' : 'Hide Projects rail'}
+            title={railCollapsed ? 'Show Projects rail' : 'Hide Projects rail'}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
+          >
+            <span aria-hidden="true">{railCollapsed ? '›' : '‹'}</span>
+          </button>
+          <WorkspaceTabs
+            tabs={workflowTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            ariaLabel="Workflow sections"
+            variant="underline"
+            className="workflow-main-tabs min-w-0 flex-1"
+          />
+          <button
+            type="button"
+            onClick={() => setInspectorCollapsed((collapsed) => !collapsed)}
+            aria-label={inspectorCollapsed ? 'Show workflow inspector' : 'Hide workflow inspector'}
+            title={inspectorCollapsed ? 'Show workflow inspector' : 'Hide workflow inspector'}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
+          >
+            <span aria-hidden="true">{inspectorCollapsed ? '‹' : '›'}</span>
+          </button>
+        </div>
         <div className="workflow-main-body space-y-[var(--vestara-spacing-section)]">
           {activeTab === 'workflow-graph' ? (
               selectedDetail ? (

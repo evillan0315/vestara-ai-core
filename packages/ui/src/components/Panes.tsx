@@ -119,14 +119,6 @@ export interface ThreePaneLayoutProps {
   resizable?: boolean;
 
   /**
-   * Gutters between panes (separators and expand strips sit inside the
-   * gutter). Default true — `gap-spacing-section`, the same rhythm as hero,
-   * alert, and toolbar stacking, so card panes read as floating cards with
-   * canvas showing through. Set false for flush rails.
-   */
-  paneGap?: boolean;
-
-  /**
    * Bare panes render without the default panel chrome (no rail background
    * or edge borders) so slot content can bring its own card treatment
    * (e.g. `ar-panel` rail/context cards). Separators and expand strips
@@ -364,7 +356,6 @@ export function ThreePaneLayout({
   storageKey,
   resizable = true,
   barePanes = false,
-  paneGap = true,
   stackBelow = 'lg',
   className = '',
   leftClassName = '',
@@ -585,7 +576,7 @@ export function ThreePaneLayout({
 
   return (
     <div
-      className={`flex h-full min-h-0 w-full min-w-0 flex-1 ${stacked ? 'flex-col' : 'flex-row'} ${paneGap ? 'gap-[var(--vestara-spacing-section)]' : ''} ${className}`}
+      className={`flex h-full min-h-0 w-full min-w-0 flex-1 gap-[var(--vestara-spacing-element)] ${stacked ? 'flex-col' : 'flex-row'} ${className}`}
     >
       {showLeft && (
         <div
@@ -615,6 +606,62 @@ export function ThreePaneLayout({
           {right}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── PanelHeader / PanelFooter ─────────────────────────────
+// Sticky sidebar chrome shared by file, orchestration, and activity
+// panels: uppercase label with a left icon, right-side actions, and an
+// opaque backdrop so scrolled rows stay readable underneath. The backdrop
+// resolves the panel background var with a surface fallback so the header
+// stays seamless on any card treatment.
+
+export interface PanelHeaderProps {
+  /** Title node (label text, counts). */
+  title: ReactNode;
+  /** Icon rendered left of the title. */
+  icon?: ReactNode;
+  /** Right-side actions (collapse toggles, menus, badges). */
+  actions?: ReactNode;
+  /** Additional classes. */
+  className?: string;
+}
+
+export function PanelHeader({ title, icon, actions, className = '' }: PanelHeaderProps) {
+  return (
+    <div
+      className={`sticky top-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--vestara-border-subtle)] bg-[var(--ar-panel-bg,var(--vestara-surface-panel))] px-3 pb-2 pt-2 ${className}`}
+    >
+      <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--vestara-accent)]">
+        {icon && (
+          <span aria-hidden="true" className="inline-flex shrink-0 items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+            {icon}
+          </span>
+        )}
+        <span className="min-w-0 truncate">{title}</span>
+      </span>
+      {actions && <span className="flex shrink-0 items-center gap-1">{actions}</span>}
+    </div>
+  );
+}
+
+export interface PanelFooterProps {
+  /** Footer content (action groups, status). */
+  children: ReactNode;
+  /** Accessible label for the footer region. */
+  ariaLabel?: string;
+  /** Additional classes. */
+  className?: string;
+}
+
+export function PanelFooter({ children, ariaLabel, className = '' }: PanelFooterProps) {
+  return (
+    <div
+      aria-label={ariaLabel}
+      className={`sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--vestara-border-subtle)] bg-[var(--ar-panel-bg,var(--vestara-surface-panel))] px-3 py-2 ${className}`}
+    >
+      {children}
     </div>
   );
 }

@@ -158,6 +158,8 @@ export type {
   PageHeaderProps,
   PageProps,
   PageTitleProps,
+  PanelFooterProps,
+  PanelHeaderProps,
   SplitDirection,
   SplitPaneProps,
   ThreePaneLayoutProps,
@@ -168,6 +170,8 @@ export {
   PageActions,
   PageHeader,
   PageTitle,
+  PanelFooter,
+  PanelHeader,
   SplitPane,
   ThreePaneLayout,
 } from './components/Panes.js';
