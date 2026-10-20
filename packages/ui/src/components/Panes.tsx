@@ -370,19 +370,11 @@ export function ThreePaneLayout({
 
   const [internalLW, setInternalLW] = useState<number>(() => {
     const persisted = readPersistedPaneState(leftControlled ? undefined : storageKey);
-    return clampPane(
-      persisted.lw ?? toPanePx(leftWidth ?? defaultLeftWidth, 280),
-      minLeftWidth,
-      maxLeftWidth,
-    );
+    return clampPane(persisted.lw ?? toPanePx(leftWidth ?? defaultLeftWidth, 280), minLeftWidth, maxLeftWidth);
   });
   const [internalRW, setInternalRW] = useState<number>(() => {
     const persisted = readPersistedPaneState(rightControlled ? undefined : storageKey);
-    return clampPane(
-      persisted.rw ?? toPanePx(rightWidth ?? defaultRightWidth, 320),
-      minRightWidth,
-      maxRightWidth,
-    );
+    return clampPane(persisted.rw ?? toPanePx(rightWidth ?? defaultRightWidth, 320), minRightWidth, maxRightWidth);
   });
   const [internalLC, setInternalLC] = useState<boolean>(() => {
     const persisted = readPersistedPaneState(leftCollapseControlled ? undefined : storageKey);
@@ -394,9 +386,7 @@ export function ThreePaneLayout({
   });
 
   const lw = leftControlled ? clampPane(toPanePx(leftWidth, 280), minLeftWidth, maxLeftWidth) : internalLW;
-  const rw = rightControlled
-    ? clampPane(toPanePx(rightWidth, 320), minRightWidth, maxRightWidth)
-    : internalRW;
+  const rw = rightControlled ? clampPane(toPanePx(rightWidth, 320), minRightWidth, maxRightWidth) : internalRW;
   const lc = leftCollapseControlled ? (leftCollapsed ?? false) : internalLC;
   const rc = rightCollapseControlled ? (rightCollapsed ?? false) : internalRC;
 
@@ -514,6 +504,7 @@ export function ThreePaneLayout({
     const max = side === 'left' ? maxLeftWidth : maxRightWidth;
     const collapsible = side === 'left' ? collapsibleLeft : collapsibleRight;
     return (
+      // biome-ignore lint/a11y/useSemanticElements: adjustable pane divider follows the separator slider pattern (focusable, arrow-key resizing, valuemin/max/now) — an <hr> thematic break cannot carry the resize interaction
       <div
         key={`${side}-separator`}
         role="separator"
@@ -579,32 +570,32 @@ export function ThreePaneLayout({
       className={`flex h-full min-h-0 w-full min-w-0 flex-1 gap-[var(--vestara-spacing-element)] ${stacked ? 'flex-col' : 'flex-row'} ${className}`}
     >
       {showLeft && (
-        <div
+        <section
           aria-label={leftAriaLabel}
           style={stacked ? undefined : { width: `${lw}px` }}
           className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden ${stacked ? 'border-b' : ''} ${leftChrome} ${leftClassName}`}
         >
           {left}
-        </div>
+        </section>
       )}
       {leftExpandable && renderExpandStrip('left')}
       {left !== undefined && left !== null && !lc && !stacked && resizable && renderSeparator('left')}
-      <div
+      <section
         aria-label={centerAriaLabel}
         className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${centerChrome} ${centerClassName}`}
       >
         {center}
-      </div>
+      </section>
       {right !== undefined && right !== null && !rc && !stacked && resizable && renderSeparator('right')}
       {rightExpandable && renderExpandStrip('right')}
       {showRight && (
-        <div
+        <section
           aria-label={rightAriaLabel}
           style={stacked ? undefined : { width: `${rw}px` }}
           className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden ${stacked ? 'border-t' : ''} ${rightChrome} ${rightClassName}`}
         >
           {right}
-        </div>
+        </section>
       )}
     </div>
   );
@@ -657,12 +648,12 @@ export interface PanelFooterProps {
 
 export function PanelFooter({ children, ariaLabel, className = '' }: PanelFooterProps) {
   return (
-    <div
+    <section
       aria-label={ariaLabel}
       className={`sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--vestara-border-subtle)] bg-[var(--ar-panel-bg,var(--vestara-surface-panel))] px-3 py-2 ${className}`}
     >
       {children}
-    </div>
+    </section>
   );
 }
 
