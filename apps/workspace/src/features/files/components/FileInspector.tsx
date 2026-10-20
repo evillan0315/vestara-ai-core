@@ -110,10 +110,8 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-[44px] shrink-0 items-center justify-between border-b border-[var(--vestara-border-subtle)] px-3">
-        <p className="font-mono text-[length:var(--vestara-font-size-xs)] font-medium tracking-widest text-[var(--vestara-text-muted)]">
-          INSPECTOR
-        </p>
+      <div className="ar-panel__head shrink-0 px-3 pt-2">
+        <p className="ar-panel__label">Inspector</p>
         <div className="flex items-center gap-1">
           <button
             type="button"

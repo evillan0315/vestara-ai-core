@@ -2,39 +2,25 @@
  * FILES-PAGE-001: File browser sidebar panel.
  *
  * Reference chrome over the governed FileTree projection: header with
- * count + collapse + options menu, facet pills, path filter, focus-mode
- * banner, partial-tree warning, recent files, tree, and footer actions.
+ * count + collapse + options menu, focus-mode banner, partial-tree warning,
+ * recent files, tree, and footer actions. Filtering lives in the page-level
+ * FilesFilterToolbar (orchestration-rail pattern); the query/facet values
+ * still flow through here into the tree projection.
  * Every control mutates real workspace state — no decorative buttons.
  *
  * Architecture Traceability:
  *   VES-FILES-001: Vestara Files (browser + ops stacked)
  */
 
-import { useMemo, useRef, useState } from 'react';
-import type {
-  FileEntry,
-  FilesDensity,
-  FilesFacet,
-  FilesRecentFile,
-  FilesSort,
-} from '../files.types';
-import { flattenEntries } from '../file-tree-utils';
+import { useRef, useState } from 'react';
+import type { FileEntry, FilesFacet } from '../files.types';
 import { accentFor, FileTree } from './FileTree';
-
-const FACETS: ReadonlyArray<{ id: FilesFacet; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'file', label: 'Files' },
-  { id: 'dir', label: 'Folders' },
-  { id: 'code', label: 'Code' },
-  { id: 'docs', label: 'Docs' },
-];
 
 interface FileBrowserPanelProps {
   readonly entries: readonly FileEntry[];
   readonly fileCount: number;
   readonly selectedPath: string | null;
   readonly activePath: string | null;
-  readonly recent: readonly FilesRecentFile[];
   readonly recentEntries: readonly FileEntry[];
   readonly isLoading: boolean;
   readonly fromSnapshot: boolean;
@@ -48,15 +34,9 @@ interface FileBrowserPanelProps {
   onFocusPathChange: (path: string | null) => void;
   /** Directory path the partial-tree warning can focus, if any. */
   readonly focusTarget: string | null;
-  readonly sort: FilesSort;
-  onSortChange: (sort: FilesSort) => void;
-  readonly density: FilesDensity;
-  onDensityChange: (density: FilesDensity) => void;
   readonly dirsFirst: boolean;
   onDirsFirstChange: (group: boolean) => void;
   onShowHiddenChange: (show: boolean) => void;
-  onQueryChange: (value: string) => void;
-  onFacetChange: (facet: FilesFacet) => void;
   onSelect: (entry: FileEntry) => void;
   onOpenFile: (entry: FileEntry) => void;
   onMenu: (entry: FileEntry, x: number, y: number) => void;
@@ -83,15 +63,9 @@ export function FileBrowserPanel({
   focusPath,
   onFocusPathChange,
   focusTarget,
-  sort,
-  onSortChange,
-  density,
-  onDensityChange,
   dirsFirst,
   onDirsFirstChange,
   onShowHiddenChange,
-  onQueryChange,
-  onFacetChange,
   onSelect,
   onOpenFile,
   onMenu,
@@ -103,19 +77,6 @@ export function FileBrowserPanel({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const facetCounts = useMemo(() => {
-    const all = flattenEntries(entries);
-    const counts: Record<FilesFacet, number> = { all: all.length, file: 0, dir: 0, code: 0, docs: 0 };
-    for (const entry of all) {
-      if (entry.kind === 'file') counts.file += 1;
-      if (entry.kind === 'dir') counts.dir += 1;
-      const { accent } = accentFor(entry);
-      if (accent === 'var(--vestara-accent)') counts.code += 1;
-      else if (accent === 'var(--vestara-status-warning)') counts.docs += 1;
-    }
-    return counts;
-  }, [entries]);
-
   const revealSelected = () => {
     bodyRef.current
       ?.querySelector('[data-selected="true"]')
@@ -124,15 +85,8 @@ export function FileBrowserPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-[44px] shrink-0 items-center justify-between border-b border-[var(--vestara-border-subtle)] px-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="font-mono text-[length:var(--vestara-font-size-xs)] font-medium tracking-widest text-[var(--vestara-text-muted)]">
-            FILE BROWSER
-          </span>
-          <span className="rounded border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)] px-1.5 py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-            {fileCount.toLocaleString()} files
-          </span>
-        </div>
+      <div className="ar-panel__head shrink-0 px-3 pt-2">
+        <span className="ar-panel__label">File browser · {fileCount.toLocaleString()}</span>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -167,13 +121,6 @@ export function FileBrowserPanel({
                   </p>
                   {(
                     [
-                      { label: 'Sort by name', active: sort === 'name', action: () => onSortChange('name') },
-                      { label: 'Sort by modified', active: sort === 'modified', action: () => onSortChange('modified') },
-                      {
-                        label: `Density: ${density === 'list' ? 'List' : 'Grid'}`,
-                        active: false,
-                        action: () => onDensityChange(density === 'list' ? 'grid' : 'list'),
-                      },
                       { label: 'Directories first', active: dirsFirst, action: () => onDirsFirstChange(!dirsFirst) },
                       { label: 'Show hidden files', active: showHidden, action: () => onShowHiddenChange(!showHidden) },
                     ] as const
@@ -199,79 +146,6 @@ export function FileBrowserPanel({
             )}
           </div>
         </div>
-      </div>
-
-      <div className="shrink-0 border-b border-[var(--vestara-border-subtle)] px-3 py-2.5">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by type">
-          {FACETS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onFacetChange(item.id)}
-              aria-pressed={facet === item.id}
-              title={`${facetCounts[item.id].toLocaleString()} ${item.label.toLowerCase()} entries`}
-              className={`rounded-full border px-2.5 py-1 font-mono text-[length:var(--vestara-font-size-xs)] transition-colors ${
-                facet === item.id
-                  ? 'border-[var(--vestara-marketplace-primary)] bg-[var(--vestara-marketplace-primary)] font-medium text-[var(--vestara-on-accent)]'
-                  : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-muted)] hover:border-[var(--vestara-border-default)] hover:text-[var(--vestara-text-secondary)]'
-              }`}
-            >
-              {item.label} · {facetCounts[item.id].toLocaleString()}
-            </button>
-          ))}
-        </div>
-        <div className="mt-2 flex items-center gap-1" role="group" aria-label="Sort browser">
-          {(
-            [
-              { id: 'name', label: 'Name' },
-              { id: 'modified', label: 'Modified' },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSortChange(item.id)}
-              aria-pressed={sort === item.id}
-              title={`Sort by ${item.label.toLowerCase()}`}
-              className={`rounded-[var(--vestara-radius)] border px-2 py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] transition-colors ${
-                sort === item.id
-                  ? 'border-[var(--vestara-marketplace-primary-border)] bg-[var(--vestara-marketplace-primary-bg)] text-[var(--vestara-marketplace-primary)]'
-                  : 'border-transparent text-[var(--vestara-text-disabled)] hover:text-[var(--vestara-text-secondary)]'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onDensityChange(density === 'list' ? 'grid' : 'list')}
-            title={`Switch to ${density === 'list' ? 'grid' : 'list'} density`}
-            className="ml-auto rounded-[var(--vestara-radius)] border border-transparent px-2 py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-disabled)] hover:text-[var(--vestara-text-secondary)]"
-          >
-            {density === 'list' ? 'List' : 'Grid'}
-          </button>
-        </div>
-        <div className="relative mt-2.5">
-          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[length:var(--vestara-font-size-sm)] text-[var(--vestara-text-disabled)]">
-            ⌕
-          </span>
-          <label className="sr-only" htmlFor="files-browser-filter">
-            Filter in browser
-          </label>
-          <input
-            id="files-browser-filter"
-            type="search"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Filter in browser… (⌘K for ranked search)"
-            className="h-7 w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] pl-8 pr-3 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-primary)] placeholder:text-[var(--vestara-text-disabled)] focus:border-[var(--vestara-marketplace-primary-border)] focus:outline-none"
-          />
-        </div>
-        {query.trim() && (
-          <p className="mt-1.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]" aria-live="polite">
-            Filtering by “{query.trim()}” — tree auto-expands to matches
-          </p>
-        )}
       </div>
 
       {focusPath && (

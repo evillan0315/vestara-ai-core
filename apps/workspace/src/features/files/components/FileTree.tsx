@@ -245,8 +245,11 @@ export function FileTree({
         className="min-h-0 flex-1 overflow-auto py-1"
       >
         {isLoading && (
-          <li className="p-4 text-sm text-[var(--vestara-text-muted)]" aria-live="polite">
-            Loading workspace tree…
+          <li className="space-y-1.5 p-2" aria-live="polite" aria-label="Loading workspace tree">
+            {['88%', '64%', '76%', '58%', '82%'].map((width, i) => (
+              <div key={i} aria-hidden="true" className="mpg-skeleton h-6" style={{ width }} />
+            ))}
+            <span className="sr-only">Loading workspace tree…</span>
           </li>
         )}
         {!isLoading && rows.length === 0 && (

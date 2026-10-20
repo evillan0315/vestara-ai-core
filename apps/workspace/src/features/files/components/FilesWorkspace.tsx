@@ -20,10 +20,16 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { EmptyState } from '@vestara/ui';
+import { EmptyState, ThreePaneLayout } from '@vestara/ui';
+import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { useFileOperationsChannel } from '../../../contexts/FileOperationsContext';
+import { WorkspaceTabs } from '../../../components/ui/WorkspaceTabs';
+import { navIcon } from '../../../layouts/workspace-navigation';
 import {
   classifyFile,
   type FileClassification,
@@ -41,6 +47,7 @@ import { DirectoryTable } from './DirectoryTable';
 import { EditorStatusFooter } from './EditorStatusFooter';
 import { FileBrowserPanel } from './FileBrowserPanel';
 import { FileOperationsBar } from './FileOperationsBar';
+import { FilesFilterToolbar } from './FilesFilterToolbar';
 import { FileInspector } from './FileInspector';
 import { FilePreview } from './FilePreview';
 import { FileQuickOpen } from './FileQuickOpen';
@@ -49,6 +56,13 @@ import { FilesHeader } from './FilesHeader';
 import { MultiTabHeader } from './MultiTabHeader';
 
 type WorkMode = 'files' | 'editor' | 'preview' | 'search';
+
+const WORK_MODE_TABS: ReadonlyArray<{ id: WorkMode; label: string; title: string; icon: ReactNode }> = [
+  { id: 'files', label: 'Files', title: 'Directory browser', icon: navIcon('files') },
+  { id: 'editor', label: 'Editor', title: 'Multi-tab editor', icon: <CodeRoundedIcon fontSize="small" /> },
+  { id: 'preview', label: 'Preview', title: 'Read-only preview', icon: <VisibilityOutlinedIcon fontSize="small" /> },
+  { id: 'search', label: 'Search', title: 'Runtime content search', icon: <SearchOutlinedIcon fontSize="small" /> },
+];
 
 interface LoadedContent {
   content?: string;
@@ -77,22 +91,6 @@ interface FilesWorkspaceProps {
   readonly onChanged: () => void;
   readonly onRefresh: () => void;
 }
-
-const MODES: ReadonlyArray<{
-  id: WorkMode;
-  label: string;
-  title: string;
-}> = [
-  { id: 'files', label: 'Files', title: 'Directory browser' },
-  { id: 'editor', label: 'Editor', title: 'Multi-tab editor' },
-  { id: 'preview', label: 'Preview', title: 'Read-only preview' },
-  { id: 'search', label: 'Search', title: 'Runtime content search' },
-];
-
-const BROWSER_WIDTH_MIN = 220;
-const BROWSER_WIDTH_MAX = 440;
-const INSPECTOR_WIDTH_MIN = 280;
-const INSPECTOR_WIDTH_MAX = 420;
 
 function classifyEntry(entry: FileEntry): FileClassification {
   return classifyFile(
@@ -299,24 +297,6 @@ export function FilesWorkspace({
 
   const collapseAll = useCallback(() => {
     setExpanded(new Set());
-  }, []);
-
-  const startResize = useCallback((side: 'left' | 'right', clientX: number, base: number) => {
-    const onMove = (event: MouseEvent) => {
-      if (side === 'left') {
-        setLeftWidth(Math.max(BROWSER_WIDTH_MIN, Math.min(BROWSER_WIDTH_MAX, base + (event.clientX - clientX))));
-      } else {
-        setRightWidth(
-          Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, base - (event.clientX - clientX))),
-        );
-      }
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
   }, []);
 
   const toggleFullscreen = useCallback(() => {
@@ -657,19 +637,40 @@ export function FilesWorkspace({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {!browserCollapsed ? (
-          <aside
-            className="flex min-h-0 shrink-0 flex-col border-r border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]"
-            style={{ width: `${leftWidth}px` }}
-            aria-label="File browser panel"
-          >
-            <FileBrowserPanel
+      <FilesFilterToolbar
+        query={query}
+        onQueryChange={setQuery}
+        facet={facet}
+        onFacetChange={setFacet}
+        entries={entries}
+        showHidden={showHidden}
+        density={density}
+        onDensityChange={setDensity}
+      />
+
+      <ThreePaneLayout
+        leftWidth={leftWidth}
+        onLeftWidthChange={setLeftWidth}
+        rightWidth={rightWidth}
+        onRightWidthChange={setRightWidth}
+        minLeftWidth={220}
+        maxLeftWidth={440}
+        minRightWidth={280}
+        maxRightWidth={420}
+        leftCollapsed={browserCollapsed}
+        onLeftCollapsedChange={setBrowserCollapsed}
+        rightCollapsed={inspectorCollapsed}
+        onRightCollapsedChange={setInspectorCollapsed}
+        leftAriaLabel="File browser panel"
+        centerAriaLabel="File work area"
+        rightAriaLabel="File inspector panel"
+        stackBelow={false}
+        left={
+          <FileBrowserPanel
               entries={visibleEntries}
               fileCount={fileCount}
               selectedPath={selectedPath}
               activePath={activeTabPath}
-              recent={recent}
               recentEntries={recentEntries}
               isLoading={isLoading}
               fromSnapshot={fromSnapshot}
@@ -682,15 +683,9 @@ export function FilesWorkspace({
               focusPath={focusPath}
               onFocusPathChange={setFocusPath}
               focusTarget={focusTarget}
-              sort={sort}
-              onSortChange={setSort}
-              density={density}
-              onDensityChange={setDensity}
               dirsFirst={dirsFirst}
               onDirsFirstChange={setDirsFirst}
               onShowHiddenChange={setShowHidden}
-              onQueryChange={setQuery}
-              onFacetChange={setFacet}
               onSelect={selectEntry}
               onOpenFile={openFile}
               onMenu={showMenu}
@@ -699,74 +694,35 @@ export function FilesWorkspace({
               onExpandAll={expandAll}
               onCollapseAll={collapseAll}
             />
-          </aside>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setBrowserCollapsed(false)}
-            aria-label="Expand file browser"
-            title="Expand file browser"
-            className="grid w-9 shrink-0 place-items-center border-r border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+        }
+        center={
+          <section
+            ref={centerRef}
+            className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-[var(--vestara-surface-canvas)]"
+            aria-label="File work area"
           >
-            <span aria-hidden="true">›</span>
-          </button>
-        )}
-
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize file browser"
-          onMouseDown={(event) => startResize('left', event.clientX, leftWidth)}
-          className="group flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center"
-        >
-          <div className="w-[1px] bg-[var(--vestara-border-subtle)] transition-all group-hover:w-[3px] group-hover:bg-[var(--vestara-marketplace-primary)]" aria-hidden="true" />
-        </div>
-
-        <section
-          ref={centerRef}
-          className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--vestara-surface-canvas)]"
-          aria-label="File work area"
-        >
-          <div className="flex h-[44px] shrink-0 items-center gap-0 overflow-x-auto border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]">
-            <div className="flex h-full items-center gap-0.5 pl-2" role="tablist" aria-label="Work area modes">
-              {MODES.map((item) => {
-                const active = mode === item.id;
-                const count = item.id === 'editor' && tabs.tabs.length > 0 ? tabs.tabs.length : null;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    title={item.title}
-                    onClick={() => setMode(item.id)}
-                    className={`flex h-[32px] items-center gap-1.5 rounded-[var(--vestara-radius)] border px-3 text-[length:var(--vestara-font-size-xs)] transition-colors ${
-                      active
-                        ? 'border-[var(--vestara-border-default)] bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-primary)]'
-                        : 'border-transparent text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-secondary)]'
-                    }`}
-                  >
-                    {item.label}
-                    {count !== null && (
-                      <span className="rounded bg-[var(--vestara-surface-canvas)] px-1 py-0 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-marketplace-primary)]">
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1 pr-2">
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
-                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
-                className="grid h-7 w-7 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
-              >
-                <span aria-hidden="true">{isFullscreen ? '✕' : '⛶'}</span>
-              </button>
-            </div>
+          <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
+            <WorkspaceTabs
+              tabs={WORK_MODE_TABS.map((item) => ({
+                id: item.id,
+                label: item.label,
+                icon: item.icon,
+                ...(item.id === 'editor' && tabs.tabs.length > 0 ? { badge: tabs.tabs.length } : {}),
+              }))}
+              activeTab={mode}
+              onTabChange={(tabId) => setMode(tabId as WorkMode)}
+              ariaLabel="Work area modes"
+              className="min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen work area'}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+            >
+              <span aria-hidden="true">{isFullscreen ? '✕' : '⛶'}</span>
+            </button>
           </div>
 
           {breadcrumbPath && (
@@ -972,25 +928,10 @@ export function FilesWorkspace({
               />
             )}
           </div>
-        </section>
-
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize inspector"
-          onMouseDown={(event) => startResize('right', event.clientX, rightWidth)}
-          className="group flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center"
-        >
-          <div className="w-[1px] bg-[var(--vestara-border-subtle)] transition-all group-hover:w-[3px] group-hover:bg-[var(--vestara-marketplace-primary)]" aria-hidden="true" />
-        </div>
-
-        {!inspectorCollapsed ? (
-          <aside
-            className="flex min-h-0 shrink-0 flex-col overflow-y-auto border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]"
-            style={{ width: `${rightWidth}px` }}
-            aria-label="File inspector panel"
-          >
-            <FileInspector
+          </section>
+        }
+        right={
+          <FileInspector
               entry={selectedEntry}
               ops={ops}
               onOpenInEditor={(entry) =>
@@ -1015,19 +956,8 @@ export function FilesWorkspace({
               }
               onCollapse={() => setInspectorCollapsed(true)}
             />
-          </aside>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setInspectorCollapsed(false)}
-            aria-label="Expand inspector"
-            title="Expand inspector"
-            className="grid w-9 shrink-0 place-items-center border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-          >
-            <span aria-hidden="true">‹</span>
-          </button>
-        )}
-      </div>
+        }
+      />
 
       <div
         className="flex gap-2 xl:hidden"
@@ -1104,7 +1034,6 @@ export function FilesWorkspace({
                 fileCount={fileCount}
                 selectedPath={selectedPath}
                 activePath={activeTabPath}
-                recent={recent}
                 recentEntries={recentEntries}
                 isLoading={isLoading}
                 fromSnapshot={fromSnapshot}
@@ -1117,15 +1046,9 @@ export function FilesWorkspace({
                 focusPath={focusPath}
                 onFocusPathChange={setFocusPath}
                 focusTarget={focusTarget}
-                sort={sort}
-                onSortChange={setSort}
-                density={density}
-                onDensityChange={setDensity}
                 dirsFirst={dirsFirst}
                 onDirsFirstChange={setDirsFirst}
                 onShowHiddenChange={setShowHidden}
-                onQueryChange={setQuery}
-                onFacetChange={setFacet}
                 onSelect={(entry) => {
                   selectEntry(entry);
                   setMobilePanel(null);
@@ -1328,9 +1251,12 @@ function PreviewLoader({
 
   if (!state) {
     return (
-      <p className="animate-pulse p-4 text-sm text-[var(--vestara-text-muted)]">
-        Loading preview…
-      </p>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-4" role="status" aria-live="polite" aria-label="Loading preview">
+        <div aria-hidden="true" className="mpg-skeleton h-8 w-1/3" />
+        <div aria-hidden="true" className="mpg-skeleton h-4 w-2/3" />
+        <div aria-hidden="true" className="mpg-skeleton min-h-0 flex-1" />
+        <span className="sr-only">Loading preview…</span>
+      </div>
     );
   }
 

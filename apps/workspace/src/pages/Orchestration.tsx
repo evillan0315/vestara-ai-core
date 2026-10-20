@@ -1263,6 +1263,16 @@ export default function OrchestrationPage() {
         </div>
 
         <OperationalWorkspaceLayout
+          resizablePanes
+          paneStorageKey="vestara:orchestration:panes"
+          defaultLeftWidth={300}
+          minLeftWidth={220}
+          maxLeftWidth={480}
+          defaultRightWidth={384}
+          minRightWidth={280}
+          maxRightWidth={560}
+          leftAriaLabel="Projects"
+          rightAriaLabel="Selected workflow"
           rail={
             <aside className="ar-panel workflow-rail" aria-label="Projects">
               <div className="ar-panel__head">

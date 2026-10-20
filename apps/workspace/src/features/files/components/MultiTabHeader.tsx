@@ -10,6 +10,7 @@
 
 import { useCallback, useRef } from 'react';
 import type { EditorTab } from '../hooks/useEditorTabs';
+import { getFileTypeIcon } from '../file-icons';
 
 interface MultiTabHeaderProps {
   readonly tabs: readonly EditorTab[];
@@ -88,6 +89,9 @@ export function MultiTabHeader({ tabs, activePath, isDirty, onSelect, onCloseReq
                   }`}
                   title={dirty ? 'Unsaved changes' : undefined}
                 />
+                <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center text-[var(--vestara-text-muted)]">
+                  {getFileTypeIcon(tab.name, 'file')}
+                </span>
                 <span className="max-w-40 truncate font-mono">{tab.name}</span>
               </button>
               <button

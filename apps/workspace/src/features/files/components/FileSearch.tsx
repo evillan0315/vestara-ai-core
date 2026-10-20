@@ -133,7 +133,16 @@ export function FileSearch({ onOpenPath }: FileSearchProps) {
         </p>
       )}
       <div className="min-h-0 flex-1 overflow-auto" aria-live="polite">
-        {error && <p className="text-sm text-[var(--vestara-status-error)]" role="alert">{error}</p>}
+        {error && (
+          <div
+            className="flex items-center gap-2 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] p-3"
+            role="alert"
+            aria-label="File search error"
+          >
+            <span aria-hidden="true" className="shrink-0 text-[length:var(--vestara-font-size-sm)] text-[var(--vestara-status-error)]">⚠</span>
+            <p className="min-w-0 flex-1 text-sm text-[var(--vestara-status-error)]">{error}</p>
+          </div>
+        )}
         {results !== null && !error && results.length === 0 && (
           <EmptyState title="No matches" description={`Nothing matched “${searchedQuery || query.trim()}”. Try ⌘K for filename search.`} />
         )}
