@@ -28,6 +28,7 @@ interface DirectoryTableProps {
   readonly showHidden: boolean;
   readonly dirsFirst: boolean;
   onSegmentsChange: (segments: readonly string[]) => void;
+  onSortChange: (sort: FilesSort) => void;
   onSelect: (entry: FileEntry) => void;
   onOpenFile: (entry: FileEntry) => void;
   onMenu: (entry: FileEntry, x: number, y: number) => void;
@@ -60,6 +61,7 @@ export function DirectoryTable({
   showHidden,
   dirsFirst,
   onSegmentsChange,
+  onSortChange,
   onSelect,
   onOpenFile,
   onMenu,
@@ -193,10 +195,22 @@ export function DirectoryTable({
           <table className="w-full border-collapse text-left text-sm">
             <thead className="sticky top-0 bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)]">
               <tr className="border-b border-[var(--vestara-border-subtle)] text-xs uppercase tracking-wider text-[var(--vestara-text-muted)]">
-                <th scope="col" className="px-3 py-2 font-semibold">Name</th>
+                <th scope="col" aria-sort={sort === 'name' ? 'ascending' : 'none'} className="px-3 py-2 font-semibold">
+                  <button type="button" onClick={() => onSortChange('name')} title="Sort by name" className="hover:text-[var(--vestara-text-primary)]">
+                    Name{sort === 'name' ? ' ↓' : ''}
+                  </button>
+                </th>
                 <th scope="col" className="hidden px-3 py-2 font-semibold sm:table-cell">Type</th>
-                <th scope="col" className="hidden px-3 py-2 text-right font-semibold md:table-cell">Size</th>
-                <th scope="col" className="hidden px-3 py-2 text-right font-semibold lg:table-cell">Modified</th>
+                <th scope="col" aria-sort={sort === 'size' ? 'descending' : 'none'} className="hidden px-3 py-2 text-right font-semibold md:table-cell">
+                  <button type="button" onClick={() => onSortChange('size')} title="Sort by size" className="hover:text-[var(--vestara-text-primary)]">
+                    Size{sort === 'size' ? ' ↓' : ''}
+                  </button>
+                </th>
+                <th scope="col" aria-sort={sort === 'modified' ? 'descending' : 'none'} className="hidden px-3 py-2 text-right font-semibold lg:table-cell">
+                  <button type="button" onClick={() => onSortChange('modified')} title="Sort by modified" className="hover:text-[var(--vestara-text-primary)]">
+                    Modified{sort === 'modified' ? ' ↓' : ''}
+                  </button>
+                </th>
                 <th scope="col" className="w-10 px-1 py-2"><span className="sr-only">Row actions</span></th>
               </tr>
             </thead>

@@ -93,6 +93,14 @@
   box-shadow: inset var(--vestara-spacing-1) 0 0 var(--vestara-accent);
 }
 
+/* Quick-open + search match highlight — token-derived, no hex literals. */
+.files-mark {
+  background: var(--vestara-accent-bg);
+  color: var(--vestara-text-primary);
+  border-radius: var(--vestara-radius-sm);
+  padding-inline: var(--vestara-spacing-1);
+}
+
 [data-active='true']:not([data-selected='true']) {
   box-shadow: inset var(--vestara-spacing-1) 0 0 var(--vestara-border-strong);
 }

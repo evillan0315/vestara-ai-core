@@ -119,8 +119,23 @@ export function FileTree({
 
   const rows = useMemo(() => {
     const visible = showHidden ? entries : entries.filter((e) => !e.name.startsWith('.'));
-    const all = flattenVisible(visible, expanded);
     const q = query.trim().toLowerCase();
+    // When filtering, auto-expand so matches in collapsed folders stay reachable.
+    let effectiveExpanded = expanded;
+    if (q) {
+      const auto = new Set(expanded);
+      const walkDirs = (list: readonly FileEntry[]) => {
+        for (const entry of list) {
+          if (entry.kind === 'dir') {
+            auto.add(entry.path);
+            if (entry.children) walkDirs(entry.children);
+          }
+        }
+      };
+      walkDirs(visible);
+      effectiveExpanded = auto;
+    }
+    const all = flattenVisible(visible, effectiveExpanded);
     const matches = (entry: FileEntry): boolean => {
       if (!showHidden && entry.name.startsWith('.')) return false;
       if (facet === 'file' && entry.kind !== 'file') return false;
@@ -156,7 +171,7 @@ export function FileTree({
       else next.add(path);
       return next;
     });
-  }, []);
+  }, [setExpanded]);
 
   const focusRow = useCallback((index: number) => {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-row-index="${index}"]`);
@@ -194,7 +209,7 @@ export function FileTree({
         }
       }
     },
-    [rows, expanded, focusRow, onOpenFile],
+    [rows, expanded, focusRow, onOpenFile, setExpanded],
   );
 
   const resolvedRecent = useMemo(() => {

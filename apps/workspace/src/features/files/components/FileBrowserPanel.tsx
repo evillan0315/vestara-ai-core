@@ -10,7 +10,7 @@
  *   VES-FILES-001: Vestara Files (browser + ops stacked)
  */
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type {
   FileEntry,
   FilesDensity,
@@ -18,6 +18,7 @@ import type {
   FilesRecentFile,
   FilesSort,
 } from '../files.types';
+import { flattenEntries } from '../file-tree-utils';
 import { accentFor, FileTree } from './FileTree';
 
 const FACETS: ReadonlyArray<{ id: FilesFacet; label: string }> = [
@@ -101,6 +102,19 @@ export function FileBrowserPanel({
 }: FileBrowserPanelProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const facetCounts = useMemo(() => {
+    const all = flattenEntries(entries);
+    const counts: Record<FilesFacet, number> = { all: all.length, file: 0, dir: 0, code: 0, docs: 0 };
+    for (const entry of all) {
+      if (entry.kind === 'file') counts.file += 1;
+      if (entry.kind === 'dir') counts.dir += 1;
+      const { accent } = accentFor(entry);
+      if (accent === 'var(--vestara-accent)') counts.code += 1;
+      else if (accent === 'var(--vestara-status-warning)') counts.docs += 1;
+    }
+    return counts;
+  }, [entries]);
 
   const revealSelected = () => {
     bodyRef.current
@@ -195,15 +209,47 @@ export function FileBrowserPanel({
               type="button"
               onClick={() => onFacetChange(item.id)}
               aria-pressed={facet === item.id}
+              title={`${facetCounts[item.id].toLocaleString()} ${item.label.toLowerCase()} entries`}
               className={`rounded-full border px-2.5 py-1 font-mono text-[length:var(--vestara-font-size-xs)] transition-colors ${
                 facet === item.id
                   ? 'border-[var(--vestara-marketplace-primary)] bg-[var(--vestara-marketplace-primary)] font-medium text-[var(--vestara-on-accent)]'
                   : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-muted)] hover:border-[var(--vestara-border-default)] hover:text-[var(--vestara-text-secondary)]'
               }`}
             >
+              {item.label} · {facetCounts[item.id].toLocaleString()}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-1" role="group" aria-label="Sort browser">
+          {(
+            [
+              { id: 'name', label: 'Name' },
+              { id: 'modified', label: 'Modified' },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSortChange(item.id)}
+              aria-pressed={sort === item.id}
+              title={`Sort by ${item.label.toLowerCase()}`}
+              className={`rounded-[var(--vestara-radius)] border px-2 py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] transition-colors ${
+                sort === item.id
+                  ? 'border-[var(--vestara-marketplace-primary-border)] bg-[var(--vestara-marketplace-primary-bg)] text-[var(--vestara-marketplace-primary)]'
+                  : 'border-transparent text-[var(--vestara-text-disabled)] hover:text-[var(--vestara-text-secondary)]'
+              }`}
+            >
               {item.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => onDensityChange(density === 'list' ? 'grid' : 'list')}
+            title={`Switch to ${density === 'list' ? 'grid' : 'list'} density`}
+            className="ml-auto rounded-[var(--vestara-radius)] border border-transparent px-2 py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-disabled)] hover:text-[var(--vestara-text-secondary)]"
+          >
+            {density === 'list' ? 'List' : 'Grid'}
+          </button>
         </div>
         <div className="relative mt-2.5">
           <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[length:var(--vestara-font-size-sm)] text-[var(--vestara-text-disabled)]">
@@ -217,10 +263,15 @@ export function FileBrowserPanel({
             type="search"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Filter in browser…"
+            placeholder="Filter in browser… (⌘K for ranked search)"
             className="h-7 w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] pl-8 pr-3 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-primary)] placeholder:text-[var(--vestara-text-disabled)] focus:border-[var(--vestara-marketplace-primary-border)] focus:outline-none"
           />
         </div>
+        {query.trim() && (
+          <p className="mt-1.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]" aria-live="polite">
+            Filtering by “{query.trim()}” — tree auto-expands to matches
+          </p>
+        )}
       </div>
 
       {focusPath && (

@@ -143,6 +143,8 @@ export function FilesWorkspace({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewContent, setPreviewContent] = useState<
     (LoadedContent & {
+      /** Which tab path this preview state belongs to — never render it for another path. */
+      path: string;
       error: string | null;
       isLoading: boolean;
     }) | null
@@ -413,6 +415,7 @@ export function FilesWorkspace({
     if (cached) {
       setPreviewContent({
         ...cached,
+        path: activeTabPath,
         error: null,
         isLoading: false,
       });
@@ -420,11 +423,13 @@ export function FilesWorkspace({
     }
 
     let cancelled = false;
+    const path = activeTabPath;
 
     setPreviewContent({
+      path,
       classification: activeTabEntry
         ? classifyEntry(activeTabEntry)
-        : classifyFile('application/octet-stream', activeTabPath),
+        : classifyFile('application/octet-stream', path),
       size: activeTabEntry?.size ?? 0,
       error: null,
       isLoading: true,
@@ -433,7 +438,7 @@ export function FilesWorkspace({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/files/content?path=${encodeURIComponent(activeTabPath)}`,
+          `/api/files/content?path=${encodeURIComponent(path)}`,
         );
 
         const data = await response.json();
@@ -453,15 +458,16 @@ export function FilesWorkspace({
           contentBase64: data.contentBase64,
           classification: classifyFile(
             data.mimeType,
-            activeTabPath,
+            path,
           ),
           size: data.size,
         };
 
-        contentCache.current.set(activeTabPath, loaded);
+        contentCache.current.set(path, loaded);
 
         setPreviewContent({
           ...loaded,
+          path,
           error: null,
           isLoading: false,
         });
@@ -530,9 +536,39 @@ export function FilesWorkspace({
     [ops],
   );
 
-  const editorContent = activeTabPath
-    ? tabs.drafts[activeTabPath] ?? previewContent?.content
+  // Only the preview state fetched for the active tab may feed the editor.
+  // During a tab switch the previous tab's content is still in state for one
+  // render — using it would mount the new tab's editor with stale content,
+  // which the draft-lifting effect would then persist as the new tab's draft
+  // (off-by-one tab content). Until the active tab's own state arrives the
+  // editor shows loading instead. The loader cache is read synchronously
+  // (pure read, no mutation) so switching between already-loaded tabs is
+  // instant with no loading flash.
+  const previewForActive =
+    previewContent && previewContent.path === activeTabPath
+      ? previewContent
+      : null;
+
+  const cachedActive = activeTabPath
+    ? contentCache.current.get(activeTabPath)
     : undefined;
+
+  const view =
+    previewForActive ??
+    (activeTabPath && cachedActive
+      ? {
+          ...cachedActive,
+          path: activeTabPath,
+          error: null as string | null,
+          isLoading: false,
+        }
+      : null);
+
+  const editorContent = activeTabPath
+    ? tabs.drafts[activeTabPath] ?? view?.content
+    : undefined;
+
+  const editorIsLoading = activeTabPath ? !view || view.isLoading : false;
 
   const previewEntry =
     selectedEntry?.kind === 'file'
@@ -731,6 +767,7 @@ export function FilesWorkspace({
                 showHidden={showHidden}
                 dirsFirst={dirsFirst}
                 onSegmentsChange={setSegments}
+                onSortChange={setSort}
                 onSelect={selectEntry}
                 onOpenFile={openFile}
                 onMenu={showMenu}
@@ -755,7 +792,7 @@ export function FilesWorkspace({
                       key={activeTabPath}
                       filePath={activeTabPath}
                       classification={
-                        previewContent?.classification ??
+                        view?.classification ??
                         (activeTabEntry
                           ? classifyEntry(activeTabEntry)
                           : classifyFile(
@@ -765,17 +802,15 @@ export function FilesWorkspace({
                       }
                       content={editorContent}
                       contentBase64={
-                        previewContent?.contentBase64
+                        view?.contentBase64
                       }
                       size={
-                        previewContent?.size ??
+                        view?.size ??
                         activeTabEntry?.size ??
                         0
                       }
-                      error={previewContent?.error}
-                      isLoading={
-                        previewContent?.isLoading ?? false
-                      }
+                      error={view?.error}
+                      isLoading={editorIsLoading}
                       onSave={(newContent) => {
                         const nextSize = new Blob([
                           newContent,
@@ -784,7 +819,7 @@ export function FilesWorkspace({
                           contentCache.current.get(
                             activeTabPath,
                           ) ??
-                          previewContent ?? {
+                          view ?? {
                             classification:
                               activeTabEntry
                                 ? classifyEntry(
@@ -811,24 +846,37 @@ export function FilesWorkspace({
                         );
                         setPreviewContent({
                           ...loaded,
+                          path: activeTabPath,
                           error: null,
                           isLoading: false,
                         });
                         tabs.markSaved(activeTabPath);
                         onChanged();
                       }}
-                      onDraftChange={(draft) =>
+                      onDraftChange={(draft) => {
+                        // Ignore the mount-time echo while the active file has
+                        // not loaded yet: the editor briefly mounts with no
+                        // content and would otherwise persist the previous
+                        // tab's content as this tab's draft, permanently
+                        // shadowing the real load.
+                        const persisted = contentCache.current.get(
+                          activeTabPath,
+                        )?.content;
+                        if (
+                          persisted === undefined &&
+                          view?.content === undefined
+                        ) {
+                          return;
+                        }
                         tabs.setDraft(
                           activeTabPath,
                           draft,
                           draft !==
-                            (contentCache.current.get(
-                              activeTabPath,
-                            )?.content ??
-                              previewContent?.content ??
+                            (persisted ??
+                              view?.content ??
                               ''),
-                        )
-                      }
+                        );
+                      }}
                       onCursorChange={(line, column) =>
                         setCursor({
                           line,
@@ -837,12 +885,12 @@ export function FilesWorkspace({
                       }
                     />
 
-                    {previewContent &&
-                      !previewContent.isLoading &&
-                      !previewContent.error &&
-                      previewContent.classification
+                    {view &&
+                      !view.isLoading &&
+                      !view.error &&
+                      view.classification
                         .previewType === 'text' &&
-                      previewContent.content !==
+                      view.content !==
                         undefined && (
                         <EditorStatusFooter
                           filePath={activeTabPath}
@@ -852,12 +900,12 @@ export function FilesWorkspace({
                           line={cursor.line}
                           column={cursor.column}
                           language={
-                            previewContent
+                            view
                               .classification
                               .languageHint
                           }
                           sizeBytes={
-                            previewContent.size
+                            view.size
                           }
                         />
                       )}
@@ -1095,6 +1143,9 @@ export function FilesWorkspace({
       {quickOpen && (
         <FileQuickOpen
           entries={entries}
+          recentEntries={recentEntries}
+          recentPaths={recent.map((item) => item.file)}
+          activePath={activeTabPath}
           onOpenFile={openFile}
           onOpenDir={openDir}
           onClose={() => setQuickOpen(false)}
