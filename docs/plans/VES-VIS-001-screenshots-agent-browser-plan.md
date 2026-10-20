@@ -1,20 +1,21 @@
 ---
 title: VES-VIS-001 — Screenshots on agent-browser (Restructure Plan)
 version: 1.2.0
-status: planned
+status: superseded
 owner: vestara
-last-reviewed: 2026-10-13
-next-review: 2026-11-12
+last-reviewed: 2026-10-21
+next-review: 2026-11-21
 ---
 
 # VES-VIS-001 — Screenshots on agent-browser (Restructure Plan)
 
-## Status: FUTURE PLAN — not authorized for implementation
+## Status: SUPERSEDED — visual governance removed (2026-10-21)
 
-The Playwright harness (`apps/workspace/tests/visual/`) stays canonical until
-this plan is authorized and its P0 spike answers the open unknowns below. No
-`screenshots:*` script, CI workflow, or baseline changes ship under this plan
-until cutover (P3).
+Visual governance was removed on 2026-10-21: ADR-108 and the
+`visual-regression.yml` CI gate are deleted, and no visual verification is
+required for agent verification. This plan is **not authorized** and must not be
+executed. It is retained as the engineering record of the harness findings
+(F1–F13) for the local, non-gated `screenshots:*` diagnostics.
 
 ## 1. Audit — screenshot creation as found (2026-10-12)
 

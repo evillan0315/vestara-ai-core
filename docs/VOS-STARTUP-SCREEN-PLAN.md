@@ -194,8 +194,7 @@ indicator must remain independently rendered so runtime state can change.
 3. **Builder integration** — image builder installs the above; VM boot shows
    zero Ubuntu/Debian branding end-to-end.
 4. **Verification (VM-first per `VOS-LIVE-001Q`)** — QEMU boot: first-boot
-   path, login-success path, offline/degraded path; Playwright
-   `screenshots:ci` baselines for the new route.
+   path, login-success path, offline/degraded path.
 5. **Milestone proposal** — propose a sub-milestone (e.g. under
    `VOS-LIVE-001I`/`VOS-LIVE-001J` or a PCS-017 addendum) in
    `packages/workspace/src/milestone-service.ts`; do not hand-edit

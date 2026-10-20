@@ -126,7 +126,6 @@ What did we decide? Be specific.
 | **ADR-105** | **Event-Sourced Engineering Graph** | **accepted** | **2026-08-01** | [adr/ADR-105-event-sourced-engineering-graph.md](adr/ADR-105-event-sourced-engineering-graph.md) |
 | **ADR-106** | **Provider-Neutral Engineering Provider Runtime** | **accepted** | **2026-08-01** | [adr/ADR-106-provider-neutral-engineering-provider-runtime.md](adr/ADR-106-provider-neutral-engineering-provider-runtime.md) |
 | **ADR-107** | **Workspace UI and CLI as Shared Runtime Clients** | **proposed** | **2026-08-01** | [adr/ADR-107-workspace-ui-and-cli-as-shared-runtime-clients.md](adr/ADR-107-workspace-ui-and-cli-as-shared-runtime-clients.md) |
-| **ADR-108** | **Visual Evidence and Screenshot Verification** | **accepted** | **2026-08-01** | [adr/ADR-108-visual-evidence-and-screenshot-verification.md](adr/ADR-108-visual-evidence-and-screenshot-verification.md) |
 | **ADR-109** | **Blueprint Implementation-Alignment Metadata and Versioned Reconcilement** | **accepted** | **2026-08-01** | [adr/ADR-109-blueprint-implementation-alignment-metadata.md](adr/ADR-109-blueprint-implementation-alignment-metadata.md) |
 | **ADR-110** | **Blueprint Volume Renumbering** | **accepted** | **2026-08-01** | [adr/ADR-110-blueprint-volume-renumbering.md](adr/ADR-110-blueprint-volume-renumbering.md) |
 | **ADR-111** | **Agent-Harness-Centered Runtime Architecture** | **accepted** | **2026-08-01** | [adr/ADR-111-agent-harness-centered-runtime-architecture.md](adr/ADR-111-agent-harness-centered-runtime-architecture.md) |

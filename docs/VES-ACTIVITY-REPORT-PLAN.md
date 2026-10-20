@@ -67,8 +67,7 @@ No report icon or report view exists today — this is new surface, not a refact
    renders in-range activities with details expansion; fixture-backed tests
    for presets, custom windows, invalid ranges, and empty-range state.
 4. **Verification** — `lint:check`, `vds:validate`, scoped vitest (new +
-   existing activity drawer/date tests), Playwright `screenshots:ci`
-   baseline for the drawer state.
+   existing activity drawer/date tests).
 5. **Milestone close-out** — flip `AR-REPORT` to `completed` only when all
    four phases meet criteria; Dashboard progress follows automatically.
 

@@ -1,15 +1,18 @@
 ---
 title: EVIDENCE-UX-001 — Visual Evidence Artifacts: Audit + Implementation Plan
 version: 1.0.0
-status: proposed
+status: superseded
 owner: vestara
-last-reviewed: 2026-09-04
-next-review: 2026-10-04
+last-reviewed: 2026-10-21
+next-review: 2026-11-21
 ---
 
 # EVIDENCE-UX-001 — Visual Evidence Artifacts: Audit + Implementation Plan
 
-**Status:** AUDIT (no implementation — stop boundary applies)
+**Status:** SUPERSEDED — visual governance removed (2026-10-21). ADR-108 and
+the visual-regression CI gate are deleted; this audit/plan is not authorized
+and must not be implemented. Retained as the engineering record of the visual
+evidence surface.
 **Date:** 2026-09-04
 **Baseline:** GA-UX-PREMIUM M4A accepted at `e7f80d6`
 **Scope:** audit + architecture + implementation plan. The Evidence domain was

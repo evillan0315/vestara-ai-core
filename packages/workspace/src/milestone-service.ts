@@ -665,7 +665,7 @@ const MILESTONES: Milestone[] = [
     era: 'Activity Room',
     status: 'in_progress',
     description:
-      'Date-range activity report: header report icon opens the reusable Drawer with a timeline view of in-range activities and report details (see docs/VES-ACTIVITY-REPORT-PLAN.md). Backend range query + drawer timeline landed 2026-10-11; verification phase (vds:validate, screenshots:ci baseline) remains.',
+      'Date-range activity report: header report icon opens the reusable Drawer with a timeline view of in-range activities and report details (see docs/VES-ACTIVITY-REPORT-PLAN.md). Backend range query + drawer timeline landed 2026-10-11; verification phase (vds:validate) remains.',
   },
   // CI Observation & Verification
   {

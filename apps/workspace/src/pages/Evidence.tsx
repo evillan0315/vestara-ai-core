@@ -638,7 +638,7 @@ export default function EvidencePage() {
           <div>
             <h2 className="text-sm font-semibold text-(--vestara-text)">Visual Baselines</h2>
             <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
-              Human-reviewed governance — candidates are only promoted through approve/reject (PCS-026 §9)
+              Candidates are only promoted through approve/reject (PCS-026 §9)
             </p>
           </div>
           <button

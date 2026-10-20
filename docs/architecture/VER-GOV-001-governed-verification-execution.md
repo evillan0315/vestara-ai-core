@@ -73,8 +73,7 @@ type VerificationOperationKind =
   | 'test'
   | 'verify'
   | 'typecheck'
-  | 'lint'
-  | 'visual-regression';
+  | 'lint';
 ```
 
 Lifecycle:
@@ -95,7 +94,7 @@ Implementation is gated in the following order. Each phase must be evidenced bef
 
 | Phase | Deliverable | Gate |
 |---|---|---|
-| **VER-GOV-001A** | Execution ownership audit; zero mutation | Every build/test/typecheck/lint/verify/visual/package/workspace path is mapped with requester, spawn authority, owner, state, persistence, events, result, evidence, cancellation, timeout, and bypass risk |
+| **VER-GOV-001A** | Execution ownership audit; zero mutation | Every build/test/typecheck/lint/verify/package/workspace path is mapped with requester, spawn authority, owner, state, persistence, events, result, evidence, cancellation, timeout, and bypass risk |
 | **VER-GOV-001B** | Canonical verification contracts | Operation kinds, lifecycle, lineage, result, evidence, and policy contracts compile without runtime behavior changes |
 | **VER-GOV-001C** | `VerificationCoordinator` | Request, queue, acquire, execute, observe, cancel, complete, fail, timeout, and recover have one authoritative path |
 | **VER-GOV-001D** | Lease and queue governance | Global lease, identity-bearing queue entries, owner/task visibility, queue position, and deterministic progression work under contention |

@@ -24,3 +24,9 @@ next-review: 2026-11-20
 > `implementation-repository` / `implementation-commit` per
 > `scripts/docs-automation.mjs`). The table's "Implemented (v1.1)" is the
 > *capability* implementation state. See VES-UI-001 plan finding A10.
+>
+> **Note (VES-UI-002 U5, 2026-10-21):** shell bridge mapping is Vitest-guarded
+> (`packages/boot-runtime/__tests__/shell-bridge.test.ts`, 7 green). There is no
+> Playwright visual gate: the visual-regression workflow and its governance were
+> removed, and `pnpm screenshots:*` remains a local-only diagnostic. The Tauri
+> bundle ships the same `../dist` output the web build serves.

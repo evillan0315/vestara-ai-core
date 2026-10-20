@@ -3,7 +3,6 @@
 > Engineering workspace runtime — CLI, HTTP + WebSocket API, and Workspace UI for repository comprehension, planning, implementation, verification, and multi-agent orchestration. Telegram is a first-class participation surface.
 
 [![CI](https://github.com/evillan0315/vestara-ai-core/actions/workflows/ci.yml/badge.svg)](https://github.com/evillan0315/vestara-ai-core/actions/workflows/ci.yml)
-[![Visual Regression](https://github.com/evillan0315/vestara-ai-core/actions/workflows/visual-regression.yml/badge.svg)](https://github.com/evillan0315/vestara-ai-core/actions/workflows/visual-regression.yml)
 [![Node](https://img.shields.io/badge/node-22%2B-brightgreen)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-12-orange)](https://pnpm.io)
 [![TypeScript](https://img.shields.io/badge/typescript-5.9-blue)](https://www.typescriptlang.org)
@@ -127,7 +126,7 @@ Implementation: `packages/telegram-integration/src/` (adapter, pairing, commands
 - **Conversational onboarding** — guided first-run experience (v4.0)
 - **Provider platform** — 200+ provider catalog with OpenCode adapter (`/api/opencode/*` boundary, `/api/providers` compat)
 - **OS integration** — Plymouth/GRUB boot theme, systemd units, image builder (`os/`, `VOS-BOOT-001`)
-- **Quality infrastructure** — benchmarks, visual regression (Playwright), docs governance gates
+- **Quality infrastructure** — benchmarks, docs governance gates
 
 Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) · [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · [`docs/MILESTONES.md`](docs/MILESTONES.md)
 
@@ -146,7 +145,7 @@ Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STAT
 
 ![Approved startup baseline (desktop-1920 dark)](apps/workspace/tests/visual/.artifacts/baselines/startup.desktop-1920.dark.png)
 
-*Approved `screenshots:ci` baseline — live P2 readiness rows (core/workspace/desktop complete without a session) over the canvas artwork. All 8 `startup.*` baselines compare-green.*
+*Startup page render (desktop-1920 dark) — live P2 readiness rows (core/workspace/desktop complete without a session) over the canvas artwork.*
 
 ---
 
@@ -215,10 +214,6 @@ pnpm test -- packages/foo/__tests__/thing.test.ts
 
 # Fast pre-pass (excludes docs, e2e, repo-intelligence suites)
 pnpm test:fast
-
-# Visual regression (Playwright, Chromium)
-pnpm screenshots:ci            # check
-pnpm screenshots:update        # approve new baselines
 
 # Benchmarks
 pnpm benchmark
@@ -333,7 +328,7 @@ Testing notes:
 - Stop dev services before full runs — a live API mutates the repo (docs frontmatter, activity DBs) and perturbs baseline tests
 - DB tests use in-memory `sql.js`; Playwright owns `apps/workspace/tests/visual/**/*.spec.*` (vitest excludes them)
 
-CI ([`ci.yml`](.github/workflows/ci.yml)): `install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard → build → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict) → benchmarks. Desktop shell builds in a separate job; visual regression in its own workflow.
+CI ([`ci.yml`](.github/workflows/ci.yml)): `install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard → build → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict) → benchmarks. Desktop shell builds in a separate job.
 
 ---
 

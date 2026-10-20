@@ -1,5 +1,10 @@
 # Setup Guide
 
+> **Local-only diagnostic.** The visual governance layer (ADR-108 and the
+> `visual-regression.yml` workflow) was removed on 2026-10-21. This harness is
+> not run in CI, is not a verification gate, and is not required for agent
+> verification. Run it only when you explicitly want a local pixel comparison.
+
 ## Prerequisites
 
 - Node.js 22+, pnpm

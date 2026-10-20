@@ -41,7 +41,6 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 | Dev (API+UI) | `pnpm dev` (API in background on 3001 with `.env`, UI on 5173; kills API when UI exits) |
 | API only | `pnpm dev:api` (`node --env-file=.env apps/api/dist/index.js`) |
 | UI only | `pnpm --filter @vestara/workspace-ui dev` |
-| Visual regression | `pnpm screenshots:ci` (Playwright check) / `pnpm screenshots:update` (approve baselines) |
 | OpenCode contracts | `pnpm --filter @vestara/opencode-runtime opencode:spec:generate` |
 
 Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck` script).
@@ -56,7 +55,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 - `pnpm test:e2e:workflow` is a vitest suite (`packages/workflow-orchestrator/__tests__/e2e`). `pnpm test:e2e:workflow:real-agent` (`scripts/wfo-e2e-002b-live.ts`) hits real LLMs via `.env` — not part of `pnpm test`, don't run casually.
 - Stop dev services (`pnpm services:stop`, or confirm port 3001 is down) before full runs — a live API runtime mutates the repo concurrently (docs frontmatter, activity DBs) and perturbs baseline tests (entry-point counts, checksums, drift guards).
 - DB tests use in-memory `sql.js`; shim is `types/sql-js.d.ts`.
-- `screenshots:check` is a visual-test typecheck (`tsc -p tsconfig.visual.json`), not a test run.
+- `screenshots:*` scripts are local-only diagnostics (`tsc -p tsconfig.visual.json` typecheck, Playwright capture). They are **not** a verification gate, are not run in CI, and are not required for agent verification.
 - Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}`.
 
 ## Guardrails to Not Break
@@ -69,7 +68,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 ## CI (`/.github/workflows/ci.yml`)
 
-`install --frozen-lockfile` → `dependencies:check` → `agents:check` (all 4 runtimes: OpenCode + Codex + Claude + Gemini) → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
+`install --frozen-lockfile` → `dependencies:check` → `agents:check` (all 4 runtimes: OpenCode + Codex + Claude + Gemini) → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell.
 
 ## Runtime Env
 

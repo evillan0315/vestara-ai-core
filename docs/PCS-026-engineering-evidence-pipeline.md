@@ -16,7 +16,7 @@ next-review: 2026-10-04
 |-------|-------|
 | ID | PCS-026 |
 | Name | Engineering Evidence Pipeline |
-| Status | Implemented — pipeline, confidence, visual comparison, baselines governance, API + Workspace evidence viewer delivered |
+| Status | Implemented — pipeline, confidence, API + Workspace evidence viewer delivered |
 | Owner | Chief Architect |
 | Prerequisite | PCS-005 Verify, PCS-017 Execution Engine, PCS-025 Multi-Agent Project Management, ADR-104 (Evidence-Based Verification), ADR-121 (change.* projection) |
 | Scope | Collect → normalize → content-address → manifest → bundle → replay + confidence across verification, filesystem, command/test, and browser evidence |
@@ -45,12 +45,10 @@ protocol**:
 - a verification run produces one **immutable verification bundle**;
 - bundles are **replayable** (artifact replay deterministically, execution
   replay only when its dependencies are captured);
-- confidence is **derived** from evidence quality and coverage, not asserted;
-- human-reviewed visual baselines are a **governance action**, never silently
-  mutated by an agent.
+- confidence is **derived** from evidence quality and coverage, not asserted.
 
 The central contract is a **`VerificationEvidenceBundle`** — not an individual
-screenshot, test result, or manifest.
+artifact, test result, or manifest.
 
 ## 2. Pipeline
 
@@ -234,7 +232,7 @@ The verifier composes collectors; it does not reach into their implementations.
 Every evidence item records **who** produced it, **which execution** produced
 it, **which command/operation** created it, **when**, **in which environment**,
 its **content hash**, and its **relationship to other evidence**. This prevents
-a screenshot or test result from becoming an unexplained detached artifact.
+an artifact or test result from becoming an unexplained detached artifact.
 Provenance is written into the store as artifact metadata and surfaced on every
 `EvidenceReference` in the bundle.
 
@@ -289,19 +287,15 @@ Each factor carries a `rationale`; `limitations` surface what was not captured
 (e.g., "no browser evidence", "execution replay not guaranteed — repository
 state not pinned").
 
-## 9. Capability 6 — Human-Reviewed Visual Baselines
+## 9. Capability 6 — Visual Comparison (Runtime Capability, Not Governed)
 
-Visual comparison explicitly supports three states:
-
-```text
-No baseline    → candidate generated → human review required
-Approved       → comparison performed → pass/fail/needs-review
-Rejected       → candidate retained as evidence → not promoted
-```
-
-Baseline approval is a **governance action**, never something an agent silently
-performs. This is slice 2; the state model and governance boundary are defined
-now, the browser capture is implemented later.
+Visual comparison (pixel diff with tolerance) and baseline storage remain
+implemented runtime components in `packages/evidence` (`visual.ts`,
+`baseline-store.ts`), collected by the browser evidence path. **No visual
+governance applies**: there is no baseline-approval workflow, no CI visual
+gate, and no visual verification requirement for agent or operator
+verification. Visual output is an artifact like any other and never implies a
+verdict.
 
 ## 10. Sequencing
 
@@ -352,8 +346,8 @@ VerificationEvidenceBundle
 ```
 
 **Slice 2 (next)** — browser/screenshot leg: browser lifecycle, viewport
-matrices, timing stability, animation suppression, masking, baseline
-governance, and visual-diff tolerances.
+matrices, timing stability, animation suppression, masking, and visual-diff
+tolerances.
 
 ### Slice 1 Delivery Record (2026-08-03)
 
@@ -371,8 +365,8 @@ governance, and visual-diff tolerances.
 ### Slice 2 Delivery Record (2026-08-03)
 
 - `VisualComparisonEngine` (pngjs pixel diff with per-channel tolerance and diff
-  ratio/mask) and `BaselineStore` (governance: candidates recorded, only
-  `approve`/`reject` promote — never a collector).
+  ratio/mask) and `BaselineStore` (candidates recorded; only `approve`/`reject`
+  promote — never a collector).
 - `VisualEvidenceCollector` captures a screenshot through an injected
   `ScreenshotSource` (browser adapter such as Playwright), content-addresses it,
   and compares against the approved baseline → `pass`/`fail`/`needs-review`.
@@ -393,7 +387,7 @@ governance, and visual-diff tolerances.
 - **Baseline review UI** (`apps/workspace/src/pages/Evidence.tsx`): the Evidence
   page lists `GET /api/evidence/baselines` records with per-scenario status,
   inline candidate screenshot replay (`/api/evidence/artifacts/:digest`), and
-  Approve/Reject buttons that POST to the governance endpoints. Approved
+  Approve/Reject buttons that POST to the baseline-review endpoints. Approved
   records show reviewer + timestamp; a new candidate against an approved
   baseline surfaces as an update action.
 - **Scenario matrix** (`apps/api/src/evidence/visual-scenarios.ts`):
@@ -402,7 +396,7 @@ governance, and visual-diff tolerances.
   `{ route/url, viewport, theme, tolerance }`), so a single `VESTARA_SCREENSHOT_URL`
   enables a routes × viewports × themes matrix. The legacy
   `VESTARA_SCREENSHOT_ROUTE` / `VESTARA_SCREENSHOT_THEME` single scenario remains
-  the fallback; `scenarioKey()` keeps baseline governance per scenario.
+  the fallback; `scenarioKey()` keeps baseline state per scenario.
 - 8 resolver tests (API) + 4 baseline-review UI tests (Workspace).
 
 ### Browser / Computer-Use Tool Providers (2026-08-05)
@@ -496,7 +490,6 @@ governance, and visual-diff tolerances.
 | Detached evidence summaries | content-addressing + provenance on every reference |
 | Confidence as assertion | derived six-factor scoring with rationale + limitations |
 | Overclaimed execution replay | replay descriptor lists exactly which requirements are captured |
-| Baseline mutation by agents | baseline approval is a governance action (human only) |
 | Slice-2 scope creep (browser) | browser/screenshot/visual deferred to slice 2 |
 
 ---

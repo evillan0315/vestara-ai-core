@@ -1,9 +1,8 @@
 /**
- * PCS-026 §9 — human-reviewed visual baselines.
+ * PCS-026 §9 — visual comparison baselines.
  *
- * Baselines are a governance artifact: they are only promoted through an
- * explicit approve/reject action (a human or a governance endpoint), never by a
- * collector. Persisted as JSON alongside the manifest store.
+ * Baselines are only promoted through an explicit approve/reject action, never
+ * by a collector. Persisted as JSON alongside the manifest store.
  */
 
 import * as fs from 'node:fs';

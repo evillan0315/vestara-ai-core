@@ -460,8 +460,6 @@ STREAM-CONTROL, VISUAL-EDIT-SCOPE.
 - No horizontal scroll at any viewport; interactive targets ≥44px.
 - Escape/scrim/selection close drawers and sheets; reopen restores the prior
   selection; the command bar never scrolls away.
-- `pnpm screenshots:ci` passes for the activity route across the viewport
-  matrix (baselines updated intentionally in AR-13/AR-14).
 - `pnpm --filter @vestara/workspace-ui test` passes.
 
 ---
@@ -521,7 +519,6 @@ status/attention tones, focus-visible), STREAM-PERF-001.
 - `data-ve-target`/`data-ve-name`/`data-ve-instance` remain on stream, message,
   event, and composer surfaces; `visual-edit.spec.ts` passes.
 - Contrast checks (axe) pass for status/attention tones.
-- `pnpm screenshots:ci` passes with the approved baselines.
 - `pnpm lint:check && pnpm build && pnpm test` passes.
 
 ---
@@ -543,8 +540,7 @@ behavior. Produce the acceptance evidence named in section 4.
 - `pnpm lint:check && pnpm build && pnpm test` green.
 - `pnpm test -- apps/api` green (server query scope, AR-08).
 - `pnpm docs:validate` reports no errors for the touched docs.
-- Playwright visual suite (`pnpm screenshots:ci`) green across the viewport ×
-  theme matrix with approved baselines; `visual-edit.spec.ts` green.
+- `visual-edit.spec.ts` green (local Playwright diagnostic; not a CI gate).
 - A checkable matrix proving each of the twelve protected behaviors is intact
   (test references or verifier evidence per behavior).
 - Spec section 8 acceptance criteria all satisfied: regions render at target
@@ -578,7 +574,7 @@ behavior. Produce the acceptance evidence named in section 4.
    scope and live in the URL.
 10. **All twelve protected behaviors** pass their verification references.
 11. **Gates green:** `pnpm lint:check`, `pnpm build`, `pnpm test`, `pnpm test --
-    apps/api`, `pnpm docs:validate`, `pnpm screenshots:ci`, `visual-edit.spec.ts`.
+    apps/api`, `pnpm docs:validate`.
 
 ### 4.2 Material uncertainties (decisions that must resolve during execution)
 
@@ -628,7 +624,6 @@ pnpm build
 pnpm test                          # full Vitest suite (activity slices included)
 pnpm test -- apps/api              # server query scope (AR-08)
 pnpm docs:validate                 # governed docs (this plan + spec touched)
-pnpm screenshots:ci                # visual regression matrix (baselines approved via pnpm screenshots:update)
 pnpm --filter @vestara/workspace-ui test -- activity          # page-level slices
 pnpm --filter @vestara/workspace-ui test -- activity-messaging # AAR-001E / receipts
 pnpm --filter @vestara/workspace-ui test -- activity-scope     # URL scope / filters

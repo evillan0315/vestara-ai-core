@@ -296,8 +296,7 @@ zero errors in changed files).
 - Available scripts (selection relevant to this milestone): `dev`
   (API :3001 + UI :5173), `dev:api`, `dev:ui`, `build`
   (`build:references` → generate + `tsc -b`), `test` (`vitest run`),
-  `lint` / `lint:check` (biome), `screenshots:ci` / `screenshots:update`
-  (Playwright visual regression), `dependencies:check`,
+  `lint` / `lint:check` (biome), `dependencies:check`,
   `check:source-artifacts`. Full list captured from the root manifest
   during implementation.
 

@@ -11,7 +11,7 @@ next-review: 2026-11-01
 
 | Field | Value |
 |---|---|
-| Status | PROPOSED — awaiting reviewer + audit |
+| Status | PROPOSED — awaiting reviewer + audit. The visual gate was removed with the visual governance layer on 2026-10-21, so the remaining gates are the non-visual ones (lint, build, test, docs) |
 | Scope | New Workspace UI v2 desktop shell (web-first, then OS port) + governed refactor of aligned packages |
 | Source prototype | `assets/templates/html/v2/start/workspace-ui-v2/` (Vite + React 18.3.1 + Tailwind 3.4, v7.15.112) |
 | Target | `apps/workspace` (`@vestara/workspace-ui`, React 19.2 + Tailwind v4 + MUI icons (currently v6.4.0), app v1.1.0) |
@@ -198,16 +198,14 @@ Port the validated shell to `os/` (Tauri/OS-0 host, not in pnpm workspaces):
 shared where possible; only hardware-adjacent calls differ. Confirm target host
 (Tauri vs OS-0 systemd/Plymouth) before starting.
 
-## 9. Phase 6 — Tests, visual regression, audit (2–3 days)
+## 9. Phase 6 — Tests, audit (2–3 days)
 
 1. **T6.1 Unit/integration.** Vitest for state machine, window manager,
    TopBar, SystemMenu, each package (mocked fetch). Update existing header tests
    for 32px.
-2. **T6.2 Visual regression.** `pnpm screenshots:ci`; approve baselines via
-   `pnpm screenshots:update`.
-3. **T6.3 Governance.** `pnpm lint:check`, `pnpm vds:validate`, `pnpm build`,
+2. **T6.2 Governance.** `pnpm lint:check`, `pnpm vds:validate`, `pnpm build`,
    `pnpm test`, `pnpm documentation:check`, `pnpm docs:govern` — all green.
-4. **T6.4 Reviewer + audit pass.** Reviewer agent checks UI/UX Governance
+3. **T6.3 Reviewer + audit pass.** Reviewer agent checks UI/UX Governance
    (HARDCODE flag); verifier runs the audit checklist below; findings filed as
    BLOCKER/ADJACENT/OBSERVATION per Execution Governance.
 
@@ -236,7 +234,6 @@ Run in order; any failure is a BLOCKER:
 - [ ] `pnpm dependencies:check` — boundaries hold
 - [ ] `pnpm check:source-artifacts` — no stray `src/*.js`
 - [ ] `pnpm documentation:check` + `pnpm docs:govern` — if docs touched
-- [ ] `pnpm screenshots:ci` — no unapproved regressions
 - [ ] Reviewer HARDCODE scan — no `#hex`, `bg-[#...]`, `style={{color:}}`, arbitrary `text-[12px]`
 - [ ] `VestaraMark` reused inline (never `<img src>` for the logo)
 - [ ] No hardcoded arrays in JSX (fixtures only)

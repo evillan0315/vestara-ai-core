@@ -119,7 +119,7 @@ Rules:
 | **M5** | Workspace status rail | New read-only status card fed by existing projections (gateway, provider router, DB, extensions) | Values are projections, never fabricated; "unavailable" when absent |
 | **M6** | Capabilities grid | NEW 4-card grid fed by capability catalog | Cards map to catalog entries; no inline arrays in JSX |
 | **M7** | Composer + thread polish | Copy/placeholder/spacing aligned to template; send/stop preserved | SSE streaming unchanged (GA-SSE-002) |
-| **M8** | Motion + a11y | Restrained transitions; focus order; reduced-motion | `screenshots:ci` + a11y checks pass |
+| **M8** | Motion + a11y | Restrained transitions; focus order; reduced-motion | a11y checks pass |
 
 Sequencing: M1 → M2 are prerequisites; M3–M7 may proceed in parallel; M8 closes.
 
@@ -148,7 +148,6 @@ Sequencing: M1 → M2 are prerequisites; M3–M7 may proceed in parallel; M8 clo
 
 - `pnpm vds:validate` — assistant tokens present; Workspace/TUI/CLI aligned.
 - `pnpm lint:check` + `pnpm build` + `pnpm test` — no regressions.
-- `pnpm screenshots:ci` — assistant surface baselines (expanded + floating + collapsed rail).
 - Manual: provider selector reflects configured provider; rail grouping; composer send/stop; reduced-motion.
 
 ---

@@ -113,6 +113,7 @@ envelope for CI or agent consumers.
 
 ## CI
 
-`.github/workflows/visual-regression.yml`: install → build UI → install
-browsers → `screenshots:ci` → upload report artifact → comment on PR → fail on
-regression.
+None. The `visual-regression.yml` workflow was removed on 2026-10-21 with the
+visual governance layer (ADR-108). This harness is a **local-only diagnostic**:
+it is not run in CI, it is not a verification gate, and it is not required for
+agent verification.
