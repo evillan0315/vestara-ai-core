@@ -314,7 +314,7 @@ function NextActionsPanel({ actions, onSelect }: {
   );
 }
 
-function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph }: {
+function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
@@ -325,6 +325,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
   onToggle: (projectId: string) => void;
   onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
   onOpenGraph: (projectId: string) => void;
+  onExecuteAction: (projectId: string, kind: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-[var(--vestara-spacing-3)]">
@@ -352,7 +353,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
                 {action?.actionable && (
                   <span
                     className="inline-flex items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-status-warning)]"
-                    title={action.title}
+                    title={`${action.title} — ${action.detail}`}
                   >
                     ⚡ {actionableCount}
                   </span>
@@ -398,7 +399,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
               </Button>
             </div>
 
-            {action && !expanded && (
+            {action && (
               <div
                 className={`mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border px-2.5 py-[var(--vestara-spacing-element)] ${
                   action.actionable
@@ -406,6 +407,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
                     : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]'
                 }`}
                 role="status"
+                title={action.detail}
               >
                 <span
                   className={`truncate text-[length:var(--vestara-font-size-xs)] ${
@@ -418,7 +420,8 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
                 </span>
                 <button
                   type="button"
-                  onClick={() => onToggle(project.id)}
+                  onClick={() => onExecuteAction(project.id, action.kind)}
+                  aria-label={`${action.ctaLabel} for ${project.name}`}
                   className="shrink-0 cursor-pointer font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] hover:underline"
                 >
                   {action.ctaLabel}
@@ -558,7 +561,7 @@ export default function OrchestrationPage() {
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | undefined>();
   const [graphLayout, setGraphLayout] = useState<WorkflowGraphLayoutName>('breadthfirst');
   const [activeTab, setActiveTab] = useState('overview');
-  const [inspectorTab, setInspectorTab] = useState<'overview' | 'node' | 'audit' | 'blocker' | 'actions'>('node');
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'node' | 'audit' | 'blocker' | 'actions'>('overview');
   const [form, setForm] = useState({ name: '', goal: '', repoPath: '' });
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ summary: '', files: '', capabilities: '' }]);
   const [railQuery, setRailQuery] = useState('');
@@ -813,30 +816,40 @@ export default function OrchestrationPage() {
     }
   };
 
-  const handleNextAction = useCallback(() => {
-    if (!nextAction) return;
-    const { kind, projectId } = nextAction;
-    // Empty-state synthetic action — open the create modal.
+  // Shared router for any per-project recommended action (rail cards, overview
+  // queue, inspector queue, banner). Banner owns the single primary CTA; the
+  // others are secondary entry points that deep-link to the same target.
+  const handleProjectAction = (projectId: string, kind: string) => {
     if (kind === 'start' && !projectId) {
       setCreateOpen(true);
       return;
     }
-    // Approval gates are a human decision — open the gate, never auto-approve.
-    if (kind === 'architecture-review' || kind === 'plan-approval') {
-      if (projectId && expandedId !== projectId) toggleExpand(projectId);
+    if (projectId && expandedId !== projectId) toggleExpand(projectId);
+    else if (projectId && !detail[projectId]) void loadDetail(projectId);
+    if (kind === 'task-approval') {
+      setActiveTab('overview');
+      setInspectorTab('blocker');
+    } else if (kind === 'task-failure') {
+      setActiveTab('tasks');
+    } else if (kind === 'architecture-review' || kind === 'plan-approval') {
       setActiveTab('overview');
       setInspectorTab('overview');
-      return;
-    }
-    if (kind === 'resume') {
+    } else if (kind === 'resume') {
       void resumeProject(projectId);
-      return;
+    } else if (kind === 'progress') {
+      setActiveTab('workflow-graph');
+    } else if (kind === 'start') {
+      setActiveTab('overview');
     }
-    if (expandedId !== projectId) toggleExpand(projectId);
-    if (kind === 'task-failure') setActiveTab('tasks');
-    if (kind === 'progress') setActiveTab('workflow-graph');
-    if (kind === 'start') setActiveTab('overview');
-  }, [nextAction, expandedId, toggleExpand, resumeProject]);
+  };
+
+  // Banner primary CTA delegates to the shared router so all entry points
+  // resolve a kind identically (notably task-approval → blocker tab, which the
+  // old banner handler missed). Approval gates only navigate — never auto-approve.
+  const handleNextAction = useCallback(() => {
+    if (!nextAction) return;
+    handleProjectAction(nextAction.projectId, nextAction.kind);
+  }, [nextAction, expandedId, toggleExpand, detail, loadDetail, resumeProject]);
 
   const nextActionBusy =
     nextAction?.kind === 'resume' ? busy === `resume-${nextAction.projectId}` : false;
@@ -1043,22 +1056,12 @@ export default function OrchestrationPage() {
         ? 'Live · running'
         : 'Ready';
 
+  // Header owns only neutral chrome (New / Refresh). The next-action banner is
+  // the single primary CTA — per-phase Review/Resume duplicates were removed so
+  // header, banner, quick actions, and overview queue don't compete.
   const heroActions: Array<{ label: string; onClick: () => void; primary?: boolean; disabled?: boolean; title?: string }> = [
     { label: 'New project', onClick: () => setCreateOpen(true), primary: true },
     { label: 'Refresh', onClick: () => void refresh() },
-    ...(selectedDetail &&
-    expandedId &&
-    (selectedDetail.snapshot.phase === 'architecture' || selectedDetail.snapshot.phase === 'pending-approval')
-      ? [
-          {
-            label: selectedDetail.snapshot.phase === 'architecture' ? 'Review gate' : 'Review approval',
-            onClick: () => setInspectorTab('overview'),
-          },
-        ]
-      : []),
-    ...(selectedDetail && expandedId && selectedDetail.snapshot.phase === 'executing'
-      ? [{ label: 'Resume', onClick: () => void resumeProject(expandedId) }]
-      : []),
   ];
 
   return (
@@ -1316,6 +1319,7 @@ export default function OrchestrationPage() {
                   onToggle={toggleExpand}
                   onResolveApproval={(projectId, taskId, approved) => void resolveApproval(projectId, taskId, approved)}
                   onOpenGraph={openProjectGraph}
+                  onExecuteAction={handleProjectAction}
                 />
               )}
               {dashboard.phases.length > 0 && (
@@ -1588,27 +1592,7 @@ export default function OrchestrationPage() {
                       <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-widest text-[var(--vestara-text-muted)]">
                         Recommended next actions
                       </div>
-                      <NextActionsPanel
-                        actions={allNextActions}
-                        onSelect={(projectId, kind) => {
-                          if (projectId && expandedId !== projectId) toggleExpand(projectId);
-                          if (kind === 'task-approval') {
-                            setActiveTab('overview');
-                            setInspectorTab('blocker');
-                          } else if (kind === 'task-failure') {
-                            setActiveTab('tasks');
-                          } else if (kind === 'architecture-review' || kind === 'plan-approval') {
-                            setActiveTab('overview');
-                            setInspectorTab('overview');
-                          } else if (kind === 'resume') {
-                            void resumeProject(projectId);
-                          } else if (kind === 'progress') {
-                            setActiveTab('workflow-graph');
-                          } else if (kind === 'start') {
-                            setActiveTab('overview');
-                          }
-                        }}
-                      />
+                      <NextActionsPanel actions={allNextActions} onSelect={handleProjectAction} />
                     </div>
                   )}
                 </div>
@@ -1723,7 +1707,23 @@ export default function OrchestrationPage() {
             ) : (
               <>
                 {!loading && <WorkflowQuickActions actions={quickActions} />}
-                {!loading && nextAction && (
+                {!loading && allNextActions.length > 0 && (
+                  <OperationalPanel
+                    icon={navIcon('workflows')}
+                    title="Recommended actions"
+                    description={`${allNextActions.length} across workflows — banner shows the most urgent`}
+                    actions={
+                      nextAction?.projectId ? (
+                        <Button variant="primary" size="sm" onClick={handleNextAction} disabled={nextActionBusy}>
+                          {nextAction.ctaLabel}
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    <NextActionsPanel actions={allNextActions} onSelect={handleProjectAction} />
+                  </OperationalPanel>
+                )}
+                {!loading && allNextActions.length === 0 && nextAction && (
                   <OperationalPanel
                     icon={navIcon('workflows')}
                     title="Next recommended action"

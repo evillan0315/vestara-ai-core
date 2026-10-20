@@ -18,7 +18,8 @@
  * Live updates apply in place (viewport preserved, fit on first mount
  * only). Nodes are freely draggable — a manual arrangement survives live
  * data updates and remounts (per-graph position cache) until a different
- * layout is picked. Selecting a node dims the rest for focus. All styling resolves
+ * layout is picked. While a node is grabbed, viewport panning locks so the
+ * gesture repositions only that node and never pans the canvas. Selecting a node dims the rest for focus. All styling resolves
  * `--vestara-*` tokens at render time so dark/light follow automatically.
  * Node cards never fabricate data — they render label, kind, and status
  * from the projection only.
@@ -64,10 +65,12 @@ const DEFAULT_TITLE = 'Workflow graph';
 const DEFAULT_DESCRIPTION = 'Plan and task dependencies from the current orchestration snapshot';
 const DEFAULT_EMPTY = 'Select a workflow project to view its graph.';
 
-/** Viewport fit margin — tight enough that the graph reads edge-to-edge. */
-const GRAPH_FIT_PADDING = 12;
+/** Viewport fit margin (rendered px) — generous so 208px HTML node cards clear the container edge. */
+const GRAPH_FIT_PADDING = 56;
 /** Layout breathing room around ranked nodes. */
-const GRAPH_LAYOUT_PADDING = 16;
+const GRAPH_LAYOUT_PADDING = 32;
+/** Zoom-out floor — low enough that large workflows fit without clipping. */
+const GRAPH_MIN_ZOOM = 0.15;
 
 const statusToken: Record<string, string> = {
   completed: '--vestara-status-success',
@@ -711,7 +714,7 @@ export function WorkflowGraph({
         elements,
         style: stylesheet(cards),
         layout: buildLayout(layout),
-        minZoom: 0.45,
+        minZoom: GRAPH_MIN_ZOOM,
         maxZoom: 2.2,
         wheelSensitivity: 0.2,
       });
@@ -736,6 +739,18 @@ export function WorkflowGraph({
       cy.on('position', queueViewportSync);
       cy.on('drag', 'node', () => {
         userPositionedRef.current = true;
+      });
+      // Lock the viewport while a node is grabbed so the gesture repositions
+      // only that node — the canvas must not pan underneath the drag. `free`
+      // fires on release even for a grab without movement, so panning always
+      // comes back. (Aliased const: `cy` is `let`, so closures can't use its
+      // narrowed type directly.)
+      const grabbed = cy;
+      cy.on('grab', 'node', () => {
+        grabbed.panningEnabled(false);
+      });
+      cy.on('free', 'node', () => {
+        grabbed.panningEnabled(true);
       });
       cy.on('dragfree', 'node', () => {
         lastDragEndRef.current = Date.now();
@@ -837,7 +852,10 @@ export function WorkflowGraph({
     const extent = cy.extent();
     cy.zoom({
       level: cy.zoom() * factor,
-      renderedPosition: { x: (extent.x1 + extent.x2) / 2, y: (extent.y1 + extent.y2) / 2 },
+      // cy.extent() is in model coordinates, so zoom about the model-space
+      // center — passing it as renderedPosition would jump the viewport
+      // whenever the canvas is already panned or zoomed.
+      position: { x: (extent.x1 + extent.x2) / 2, y: (extent.y1 + extent.y2) / 2 },
     });
     setZoomPct(Math.round((cy.zoom() ?? 1) * 100));
     setViewportTick((tick) => tick + 1);
@@ -856,6 +874,9 @@ export function WorkflowGraph({
     if (element.empty()) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const start = element.position();
+    // Same contract as the native grab handler below: while a card moves its
+    // node, the viewport stays put — only the dragged node repositions.
+    cy.panningEnabled(false);
     cardDragRef.current = {
       pointerId: event.pointerId,
       nodeId: node.id,
@@ -888,6 +909,9 @@ export function WorkflowGraph({
     const drag = cardDragRef.current;
     if (!drag || event.pointerId !== drag.pointerId) return;
     cardDragRef.current = null;
+    // Pan was locked on pointer-down, so always restore it — even for a
+    // press that never crossed the move threshold.
+    cyRef.current?.panningEnabled(true);
     if (!drag.moved) return;
     const cy = cyRef.current;
     if (cy) {
