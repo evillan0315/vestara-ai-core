@@ -9,6 +9,7 @@
 import { useCallback, useState } from 'react';
 
 export type OverviewPanelId =
+  | 'collabPrep'
   | 'continueWorking'
   | 'todayFocus'
   | 'recentActivity'
@@ -18,10 +19,11 @@ export type OverviewPanelId =
 
 const STORAGE_KEY = 'vestara:overview-layout:v3';
 
-const DEFAULT_LEFT: readonly OverviewPanelId[] = ['continueWorking', 'todayFocus', 'recentActivity'];
+const DEFAULT_LEFT: readonly OverviewPanelId[] = ['collabPrep', 'continueWorking', 'todayFocus', 'recentActivity'];
 const DEFAULT_RIGHT: readonly OverviewPanelId[] = ['workspaceHealth', 'milestones', 'systemStatus'];
 
 const ALL: readonly OverviewPanelId[] = [
+  'collabPrep',
   'continueWorking',
   'todayFocus',
   'recentActivity',

@@ -18,6 +18,7 @@ import { DraggableDashboard } from '../../components/dashboard/DraggableDashboar
 import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ContinueWorking } from './components/ContinueWorking';
+import { CollabPrepCard } from './components/CollabPrepCard';
 import { OverviewHero } from './components/OverviewHero';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
@@ -100,6 +101,7 @@ export function OverviewScreen() {
   }, [viewData.focus]);
   const panels = useMemo<Record<OverviewPanelId, ReactNode>>(
     () => ({
+      collabPrep: <CollabPrepCard />,
       continueWorking: <ContinueWorking items={viewData.continueWorking} />,
       todayFocus: <TodayFocus items={viewData.focus} />,
       recentActivity: <RecentActivity items={viewData.recentActivity} />,

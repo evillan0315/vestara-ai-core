@@ -24,7 +24,16 @@ next-review: 2026-10-22
 ## 2. Status
 
 - **Google Meet scheduled for Wednesday, October 21, 2026**, ~9–11 AM EDT (evening in Manila).
-- Calendar invitation accepted by both parties (Monday).
+- **Join:** `meet.google.com/vyo-giij-mho` (from calendar invitation).
+- **Guests:** 3 invited, 3 accepted — `john.andrew.mccraw@gmail.com` (organizer), `eddievillanueva625@gmail.com` (Eddie Villanueva). Note: invite shows 3 guests but only 2 addresses are visible in the details shared — third guest unconfirmed.
+- **Reminders:** email 10 min before + 30 min before.
+- **Agenda (per calendar invitation):**
+  1. The Good Old Days (AKA El Guapo Session)
+  2. What's up with Chip and Andy?
+  3. Remember When…?
+  4. Friends and Family
+  5. Vestara Session: target market, the problem Vestara is solving, why it's 10x better than alternatives, and how you get there
+  6. Other items and meeting adjourns
 - Andy expressed concrete interest: *"the idea of teaming up on a very focused, well researched business need/gap in a specialty healthcare market has got me interested."*
 
 ## 3. Andy's Background & Inputs
@@ -69,3 +78,51 @@ next-review: 2026-10-22
 
 - Interest is genuine but exploratory; no commitment or terms discussed yet.
 - Documentation governance: this record is a non-engineering proposal note; do not treat as a roadmap or milestone authority.
+
+## 9. Post-Call Outcomes — Oct 21 (TEMPLATE — fill after the call)
+
+> How to use: replace every `[ … ]` after the call. Delete this quote block when filled. Keep entries factual — what was said and decided, not interpretation.
+
+- **Date / duration:** `[2026-10-21, HH:MM–HH:MM EDT]`
+- **Attendees:** `[Eddie Villanueva, Andy McCraw]`
+- **Tone / energy (1 line):** `[e.g. warm, curious, skeptical on X]`
+
+### 9.1 Andy's optometry research — what actually surfaced
+
+- `[Gap 1: buyer / workflow / pain-$ / EHR hook]`
+- `[Gap 2: …]`
+- **Artifacts shared:** `[documents / links / none yet]`
+
+### 9.2 ClinicalNotes.ai learnings
+
+- **Why the wedge worked:** `[…]`
+- **Why the founder is selling now:** `[…]`
+- **Transferable lesson:** `[…]`
+
+### 9.3 Wedge candidates discussed
+
+| # | Specialty / workflow | Buyer | Pain-$ signal | EHR hook | Vestara fit |
+|---|----------------------|-------|---------------|----------|-------------|
+| 1 | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| 2 | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+
+### 9.4 Capacity + venue
+
+- **Andy's appetite / capacity:** `[advisor / co-founder / researcher / capital / none — quote him]`
+- **Preferred venue:** `[private custom AI via Vestara agents / managed-services wedge / Welligent 2.0-style rebuild / undecided]`
+- **SME consultant plan:** `[proceed / park — profile + first questions]`
+
+### 9.5 Disagreements / open risks
+
+- `[…]`
+
+### 9.6 Agreed next steps (owner + date each)
+
+1. `[…]` — owner: `[…]`, by: `[…]`
+2. `[…]` — owner: `[…]`, by: `[…]`
+
+### 9.7 Decision
+
+- **Formalize as ADR/proposal?** `[yes — id: … / no — reason]`
+- **Next touchpoint:** `[date / none scheduled]`
+- **Follow-up sent (24h):** `[ ] thank-you + updated record link + repo link`
