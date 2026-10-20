@@ -100,7 +100,7 @@ export interface ThreePaneLayoutProps {
   onLeftCollapsedChange?: (collapsed: boolean) => void;
   onRightCollapsedChange?: (collapsed: boolean) => void;
 
-  /** Whether a side pane can hide (separator toggle button + double-click; expand strip to restore). */
+  /** Whether a side pane can hide (double-click separator or its header toggle; expand strip to restore). */
   collapsibleLeft?: boolean;
   collapsibleRight?: boolean;
 
@@ -117,6 +117,22 @@ export interface ThreePaneLayoutProps {
 
   /** Drag handles on/off. `false` renders the classic static three panes. */
   resizable?: boolean;
+
+  /**
+   * Gutters between panes (separators and expand strips sit inside the
+   * gutter). Default true — `gap-spacing-section`, the same rhythm as hero,
+   * alert, and toolbar stacking, so card panes read as floating cards with
+   * canvas showing through. Set false for flush rails.
+   */
+  paneGap?: boolean;
+
+  /**
+   * Bare panes render without the default panel chrome (no rail background
+   * or edge borders) so slot content can bring its own card treatment
+   * (e.g. `ar-panel` rail/context cards). Separators and expand strips
+   * are unaffected.
+   */
+  barePanes?: boolean;
 
   /**
    * Below this breakpoint panes stack vertically (separators hidden, all
@@ -347,6 +363,8 @@ export function ThreePaneLayout({
   rightAriaLabel = 'Right panel',
   storageKey,
   resizable = true,
+  barePanes = false,
+  paneGap = true,
   stackBelow = 'lg',
   className = '',
   leftClassName = '',
@@ -504,8 +522,6 @@ export function ThreePaneLayout({
     const min = side === 'left' ? minLeftWidth : minRightWidth;
     const max = side === 'left' ? maxLeftWidth : maxRightWidth;
     const collapsible = side === 'left' ? collapsibleLeft : collapsibleRight;
-    // Chevron points toward the pane this toggle hides (matches the expand strips).
-    const glyph = side === 'left' ? '‹' : '›';
     return (
       <div
         key={`${side}-separator`}
@@ -524,24 +540,12 @@ export function ThreePaneLayout({
           else setRC(true);
         }}
         title={`${label} — drag or use arrow keys to resize${collapsible ? '; double-click to hide' : ''}`}
-        className="group relative flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center focus:outline-none"
+        className="group flex w-[9px] shrink-0 cursor-col-resize items-stretch justify-center focus:outline-none"
       >
         <div
           aria-hidden="true"
           className="w-[1px] bg-[var(--vestara-border-subtle)] transition-all group-hover:w-[3px] group-hover:bg-[var(--vestara-accent)] group-focus-visible:w-[3px] group-focus-visible:bg-[var(--vestara-border-focus)]"
         />
-        {collapsible && (
-          <button
-            type="button"
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={() => (side === 'left' ? setLC(true) : setRC(true))}
-            aria-label={`Hide ${label}`}
-            title={`Hide ${label}`}
-            className="absolute top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] shadow-[var(--vestara-elevation-sm)] transition-colors hover:border-[var(--vestara-border-default)] hover:text-[var(--vestara-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--vestara-border-focus)]"
-          >
-            <span aria-hidden="true">{glyph}</span>
-          </button>
-        )}
       </div>
     );
   };
@@ -569,15 +573,25 @@ export function ThreePaneLayout({
   const leftExpandable = left !== undefined && left !== null && lc && !stacked && collapsibleLeft;
   const rightExpandable = right !== undefined && right !== null && rc && !stacked && collapsibleRight;
 
+  // Bare panes carry no chrome of their own (transparent, rounded to match
+  // card content); otherwise rails get the panel background + edge borders.
+  const leftChrome = barePanes
+    ? 'rounded-[var(--vestara-radius-lg)] bg-transparent'
+    : 'border-r border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]';
+  const rightChrome = barePanes
+    ? 'rounded-[var(--vestara-radius-lg)] bg-transparent'
+    : 'border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]';
+  const centerChrome = barePanes ? 'bg-transparent' : 'bg-[var(--vestara-surface-canvas)]';
+
   return (
     <div
-      className={`flex h-full min-h-0 w-full min-w-0 flex-1 ${stacked ? 'flex-col' : 'flex-row'} ${className}`}
+      className={`flex h-full min-h-0 w-full min-w-0 flex-1 ${stacked ? 'flex-col' : 'flex-row'} ${paneGap ? 'gap-[var(--vestara-spacing-section)]' : ''} ${className}`}
     >
       {showLeft && (
         <div
           aria-label={leftAriaLabel}
           style={stacked ? undefined : { width: `${lw}px` }}
-          className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] ${stacked ? 'border-b' : 'border-r'} ${leftClassName}`}
+          className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden ${stacked ? 'border-b' : ''} ${leftChrome} ${leftClassName}`}
         >
           {left}
         </div>
@@ -586,7 +600,7 @@ export function ThreePaneLayout({
       {left !== undefined && left !== null && !lc && !stacked && resizable && renderSeparator('left')}
       <div
         aria-label={centerAriaLabel}
-        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--vestara-surface-canvas)] ${centerClassName}`}
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${centerChrome} ${centerClassName}`}
       >
         {center}
       </div>
@@ -596,7 +610,7 @@ export function ThreePaneLayout({
         <div
           aria-label={rightAriaLabel}
           style={stacked ? undefined : { width: `${rw}px` }}
-          className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] ${stacked ? 'border-t' : 'border-l'} ${rightClassName}`}
+          className={`flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden ${stacked ? 'border-t' : ''} ${rightChrome} ${rightClassName}`}
         >
           {right}
         </div>

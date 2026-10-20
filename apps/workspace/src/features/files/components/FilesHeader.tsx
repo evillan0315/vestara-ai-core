@@ -42,7 +42,7 @@ export function FilesHeader({
   const statusLabel = live ? 'Live' : 'Snapshot';
 
   return (
-    <header aria-label="Files header" className="files-hero-surface shrink-0 border-b border-[var(--vestara-border-subtle)] px-3 py-3 sm:px-4">
+    <header aria-label="Files header" className="files-hero-surface shrink-0 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-start justify-between gap-[var(--vestara-spacing-3)]">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-2)]">

@@ -89,9 +89,9 @@ export function FilesScreen() {
   }
 
   return (
-    <div className="ar-page files-enterprise flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+    <div className="ar-page files-enterprise flex h-full min-h-0 min-w-0 flex-col gap-[var(--vestara-spacing-section)] overflow-hidden p-[var(--vestara-spacing-page)]">
       {(error || data.fromSnapshot) && !noticeDismissed && (
-        <div className="mb-3">
+        <div>
           <InsightBanner
             severity="warning"
             description={error ?? 'Live filesystem scan unavailable — showing cached snapshot for storage insights.'}

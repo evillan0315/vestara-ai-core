@@ -226,7 +226,6 @@ export function FileTree({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <p className="ar-kicker mb-2">File browser</p>
       {fromSnapshot && (
         <p className="mb-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-2 py-1 text-xs text-[var(--vestara-status-warning)]" role="note">
           ⚠ Snapshot — runtime unavailable, showing fallback tree.

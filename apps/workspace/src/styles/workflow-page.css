@@ -24,7 +24,6 @@
 .workflow-rail,
 .workflow-context {
   gap: var(--vestara-spacing-element);
-  padding: var(--vestara-spacing-section);
 }
 
 /* The tab strip keeps the same section rhythm as every other block on the

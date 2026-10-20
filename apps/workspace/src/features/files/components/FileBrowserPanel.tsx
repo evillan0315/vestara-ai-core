@@ -13,6 +13,7 @@
  */
 
 import { useRef, useState } from 'react';
+import { navIcon } from '../../../layouts/workspace-navigation';
 import type { FileEntry, FilesFacet } from '../files.types';
 import { accentFor, FileTree } from './FileTree';
 
@@ -24,7 +25,6 @@ interface FileBrowserPanelProps {
   readonly recentEntries: readonly FileEntry[];
   readonly isLoading: boolean;
   readonly fromSnapshot: boolean;
-  readonly truncated: boolean;
   readonly query: string;
   readonly facet: FilesFacet;
   readonly showHidden: boolean;
@@ -32,8 +32,6 @@ interface FileBrowserPanelProps {
   onExpandedChange: (next: ReadonlySet<string>) => void;
   readonly focusPath: string | null;
   onFocusPathChange: (path: string | null) => void;
-  /** Directory path the partial-tree warning can focus, if any. */
-  readonly focusTarget: string | null;
   readonly dirsFirst: boolean;
   onDirsFirstChange: (group: boolean) => void;
   onShowHiddenChange: (show: boolean) => void;
@@ -54,7 +52,6 @@ export function FileBrowserPanel({
   recentEntries,
   isLoading,
   fromSnapshot,
-  truncated,
   query,
   facet,
   showHidden,
@@ -62,7 +59,6 @@ export function FileBrowserPanel({
   onExpandedChange,
   focusPath,
   onFocusPathChange,
-  focusTarget,
   dirsFirst,
   onDirsFirstChange,
   onShowHiddenChange,
@@ -84,9 +80,14 @@ export function FileBrowserPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="ar-panel__head shrink-0 px-3 pt-2">
-        <span className="ar-panel__label">File browser · {fileCount.toLocaleString()}</span>
+    <div className="ar-panel flex h-full min-h-0 flex-col">
+      <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
+        <span className="ar-panel__label flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+            {navIcon('projects')}
+          </span>
+          File browser · {fileCount.toLocaleString()}
+        </span>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -163,26 +164,6 @@ export function FileBrowserPanel({
         </div>
       )}
 
-      {truncated && (
-        <div className="mx-2 mt-2 flex shrink-0 gap-2 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] p-2.5" role="note">
-          <span aria-hidden="true" className="shrink-0 text-[length:var(--vestara-font-size-sm)] text-[var(--vestara-status-warning)]">⚠</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-secondary)]">
-              Partial tree — browse limit reached, some entries hidden.
-            </p>
-            {focusTarget && (
-              <button
-                type="button"
-                onClick={() => onFocusPathChange(focusTarget)}
-                className="mt-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-surface-panel)] px-2 py-1 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] hover:brightness-110"
-              >
-                ◉ Focus this folder
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       <div ref={bodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1.5 py-2">
         {recentEntries.length > 0 && (
           <section aria-label="Recent files">
@@ -222,9 +203,6 @@ export function FileBrowserPanel({
         )}
 
         <section aria-label="Repository tree">
-          <p className="flex items-center gap-1.5 px-2 py-1 font-mono text-[length:var(--vestara-font-size-xs)] tracking-widest text-[var(--vestara-text-disabled)]">
-            <span aria-hidden="true">▦</span> TREE
-          </p>
           <FileTree
             entries={entries}
             selectedPath={selectedPath}

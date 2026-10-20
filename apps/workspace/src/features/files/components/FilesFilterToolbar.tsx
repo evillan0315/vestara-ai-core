@@ -72,7 +72,7 @@ export function FilesFilterToolbar({
 
   return (
     <div
-      className="mx-3 mt-3 flex shrink-0 flex-wrap items-center gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-element)]"
+      className="flex shrink-0 flex-wrap items-center gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-element)]"
       role="toolbar"
       aria-label="File filters"
     >

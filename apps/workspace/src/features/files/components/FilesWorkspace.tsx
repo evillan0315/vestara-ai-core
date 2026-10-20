@@ -134,6 +134,7 @@ export function FilesWorkspace({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [focusPath, setFocusPath] = useState<string | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [truncatedDismissed, setTruncatedDismissed] = useState(false);
   const [browserCollapsed, setBrowserCollapsed] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [leftWidth, setLeftWidth] = useState(320);
@@ -619,7 +620,7 @@ export function FilesWorkspace({
   );
 
   return (
-    <div className="files-workspace flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+    <div className="files-workspace flex h-full min-h-0 min-w-0 flex-col gap-[var(--vestara-spacing-section)] overflow-hidden">
       <FilesHeader
         workspaceName={workspaceName}
         live={live}
@@ -632,8 +633,40 @@ export function FilesWorkspace({
       />
 
       {ops.state.status !== 'idle' && (
-        <div className="shrink-0 px-3 pt-2">
+        <div className="shrink-0">
           <FileOperationsBar ops={ops} />
+        </div>
+      )}
+
+      {truncated && !truncatedDismissed && (
+        <div
+          className="flex shrink-0 gap-2 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] p-2.5"
+          role="note"
+          aria-label="Partial tree notice"
+        >
+          <span aria-hidden="true" className="shrink-0 text-[length:var(--vestara-font-size-sm)] text-[var(--vestara-status-warning)]">⚠</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-secondary)]">
+              Partial tree — browse limit reached, some entries hidden.
+            </p>
+            {focusTarget && (
+              <button
+                type="button"
+                onClick={() => setFocusPath(focusTarget)}
+                className="mt-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-surface-panel)] px-2 py-1 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] hover:brightness-110"
+              >
+                ◉ Focus this folder
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setTruncatedDismissed(true)}
+            aria-label="Dismiss partial tree notice"
+            className="h-fit shrink-0 cursor-pointer rounded-[var(--vestara-radius)] px-2 py-1 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -649,6 +682,7 @@ export function FilesWorkspace({
       />
 
       <ThreePaneLayout
+        barePanes
         leftWidth={leftWidth}
         onLeftWidthChange={setLeftWidth}
         rightWidth={rightWidth}
@@ -674,7 +708,6 @@ export function FilesWorkspace({
               recentEntries={recentEntries}
               isLoading={isLoading}
               fromSnapshot={fromSnapshot}
-              truncated={truncated}
               query={query}
               facet={facet}
               showHidden={showHidden}
@@ -682,7 +715,6 @@ export function FilesWorkspace({
               onExpandedChange={setExpanded}
               focusPath={focusPath}
               onFocusPathChange={setFocusPath}
-              focusTarget={focusTarget}
               dirsFirst={dirsFirst}
               onDirsFirstChange={setDirsFirst}
               onShowHiddenChange={setShowHidden}
@@ -1037,7 +1069,6 @@ export function FilesWorkspace({
                 recentEntries={recentEntries}
                 isLoading={isLoading}
                 fromSnapshot={fromSnapshot}
-                truncated={truncated}
                 query={query}
                 facet={facet}
                 showHidden={showHidden}
@@ -1045,7 +1076,6 @@ export function FilesWorkspace({
                 onExpandedChange={setExpanded}
                 focusPath={focusPath}
                 onFocusPathChange={setFocusPath}
-                focusTarget={focusTarget}
                 dirsFirst={dirsFirst}
                 onDirsFirstChange={setDirsFirst}
                 onShowHiddenChange={setShowHidden}

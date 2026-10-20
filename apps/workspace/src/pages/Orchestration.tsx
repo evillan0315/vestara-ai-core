@@ -566,6 +566,8 @@ export default function OrchestrationPage() {
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ summary: '', files: '', capabilities: '' }]);
   const [railQuery, setRailQuery] = useState('');
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [dismissedAttentionSignature, setDismissedAttentionSignature] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [approvalError, setApprovalError] = useState<string | null>(null);
@@ -1264,7 +1266,12 @@ export default function OrchestrationPage() {
 
         <OperationalWorkspaceLayout
           resizablePanes
+          barePanes
           paneStorageKey="vestara:orchestration:panes"
+          leftCollapsed={railCollapsed}
+          onLeftCollapsedChange={setRailCollapsed}
+          rightCollapsed={inspectorCollapsed}
+          onRightCollapsedChange={setInspectorCollapsed}
           defaultLeftWidth={300}
           minLeftWidth={220}
           maxLeftWidth={480}
@@ -1275,11 +1282,27 @@ export default function OrchestrationPage() {
           rightAriaLabel="Selected workflow"
           rail={
             <aside className="ar-panel workflow-rail" aria-label="Projects">
-              <div className="ar-panel__head">
-                <span className="ar-panel__label">Projects · {projects.length}</span>
-                <button type="button" className="workflow-tab-action" onClick={() => setCreateOpen(true)}>
-                  + New
-                </button>
+              <div className="ar-panel__head sticky top-0 z-10 bg-[var(--ar-panel-bg)]">
+                <span className="ar-panel__label flex items-center gap-1.5">
+                  <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+                    {navIcon('projects')}
+                  </span>
+                  Projects · {projects.length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <button type="button" className="workflow-tab-action" onClick={() => setCreateOpen(true)}>
+                    + New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRailCollapsed(true)}
+                    aria-label="Hide Projects rail"
+                    title="Hide Projects rail"
+                    className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
+                  >
+                    <span aria-hidden="true">‹</span>
+                  </button>
+                </span>
               </div>
               {loading ? (
                 <div className="space-y-[var(--vestara-spacing-2)]" role="status" aria-label="Loading projects">
@@ -1356,13 +1379,29 @@ export default function OrchestrationPage() {
           }
           context={
             <aside className="ar-panel workflow-context" aria-label="Selected workflow">
-              <div className="ar-panel__head">
-                <span className="ar-panel__label">Selected workflow</span>
-                {selectedProject && (
-                  <Badge variant={statusTone(selectedProject.status)} size="sm" dot>
-                    {selectedProject.status.replaceAll('-', ' ')}
-                  </Badge>
-                )}
+              <div className="ar-panel__head sticky top-0 z-10 bg-[var(--ar-panel-bg)]">
+                <span className="ar-panel__label flex items-center gap-1.5">
+                  <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+                    {navIcon('workflows')}
+                  </span>
+                  Selected workflow
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {selectedProject && (
+                    <Badge variant={statusTone(selectedProject.status)} size="sm" dot>
+                      {selectedProject.status.replaceAll('-', ' ')}
+                    </Badge>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setInspectorCollapsed(true)}
+                    aria-label="Hide workflow inspector"
+                    title="Hide workflow inspector"
+                    className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)]"
+                  >
+                    <span aria-hidden="true">›</span>
+                  </button>
+                </span>
               </div>
               {!selectedProject ? (
                 <EmptyState

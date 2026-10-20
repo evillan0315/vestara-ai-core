@@ -34,6 +34,13 @@ export interface OperationalWorkspaceLayoutProps {
   resizablePanes?: boolean;
   /** localStorage key persisting uncontrolled pane widths + collapse state. */
   paneStorageKey?: string;
+  /**
+   * Bare panes for the resizable work region (no rail background or edge
+   * borders — slot content brings its own card, e.g. ar-panel rail/context).
+   */
+  barePanes?: boolean;
+  /** Gutters between resizable panes. Default true (spacing-3). */
+  paneGap?: boolean;
   /** Uncontrolled initial widths (px) and clamps for the resizable work region. */
   defaultLeftWidth?: number;
   defaultRightWidth?: number;
@@ -64,6 +71,8 @@ export default function OperationalWorkspaceLayout({
   footer,
   resizablePanes = false,
   paneStorageKey,
+  barePanes = false,
+  paneGap = true,
   defaultLeftWidth,
   defaultRightWidth,
   minLeftWidth,
@@ -114,6 +123,8 @@ export default function OperationalWorkspaceLayout({
             leftAriaLabel={leftAriaLabel}
             rightAriaLabel={rightAriaLabel}
             storageKey={paneStorageKey}
+            barePanes={barePanes}
+            paneGap={paneGap}
             leftClassName="operational-workspace-layout__rail"
             centerClassName="operational-workspace-layout__main"
             rightClassName="operational-workspace-layout__context"

@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { EmptyState, KeyValueList } from '@vestara/ui';
+import { navIcon } from '../../../layouts/workspace-navigation';
 import { formatBytes } from '../../../lib/diagnostics';
 import { executionApi, formatTime, type FsOperation } from '../../../lib/execution';
 import type { FileEntry } from '../files.types';
@@ -78,9 +79,18 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
 
   if (!entry) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <p className="ar-kicker mb-2">Inspector</p>
-        <EmptyState title="Nothing selected" description="Select a file or folder to inspect it." />
+      <div className="ar-panel flex min-h-0 flex-1 flex-col">
+        <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
+          <p className="ar-panel__label flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+              {navIcon('files')}
+            </span>
+            Inspector
+          </p>
+        </div>
+        <div className="p-3">
+          <EmptyState title="Nothing selected" description="Select a file or folder to inspect it." />
+        </div>
       </div>
     );
   }
@@ -109,9 +119,14 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
   const typeTitle = isDir ? 'Directory' : entry.language ? `${entry.language[0].toUpperCase()}${entry.language.slice(1)} File` : 'File';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="ar-panel__head shrink-0 px-3 pt-2">
-        <p className="ar-panel__label">Inspector</p>
+    <div className="ar-panel flex min-h-0 flex-1 flex-col">
+      <div className="ar-panel__head sticky top-0 z-10 shrink-0 bg-[var(--ar-panel-bg)] px-3 pt-2">
+        <p className="ar-panel__label flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-flex items-center [&_svg]:h-3.5 [&_svg]:w-3.5">
+            {navIcon('files')}
+          </span>
+          Inspector
+        </p>
         <div className="flex items-center gap-1">
           <button
             type="button"
