@@ -1,6 +1,5 @@
-<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->
-
 ---
+# GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync
 description: "Discover repository state before planning begins."
 agent: vestara-context
 runtime: claude

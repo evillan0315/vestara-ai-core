@@ -21,6 +21,8 @@
   --vestara-accent-overlay: rgba(26, 20, 8, 0.96);
   --vestara-accent-primary: #f59e0b;
   --vestara-accent-secondary: #fbbf24;
+  --vestara-accent-shell: #2de8c3;
+  --vestara-accent-shell-glow: rgba(45, 232, 195, 0.45);
   --vestara-accent-text: #fbbf24;
   --vestara-accent-text-hover: #fbbf24;
   --vestara-accent-text-muted: #f59e0b99;
@@ -36,19 +38,26 @@
   --vestara-border-os-default: var(--vestara-border-default);
   --vestara-border-os-strong: var(--vestara-border-strong);
   --vestara-border-os-subtle: var(--vestara-border-subtle);
+  --vestara-border-shell: #1a3a3d;
   --vestara-border-strong: #52525b;
   --vestara-border-subtle: var(--vestara-accent-border);
   --vestara-color-os-auth-canvas: var(--vestara-surface-canvas);
   --vestara-color-os-inverse: var(--vestara-text-primary);
   --vestara-color-os-on-accent: var(--vestara-on-accent);
+  --vestara-color-shell-ink: #000000;
+  --vestara-color-shell-shadow: rgba(0, 0, 0, 0.6);
   --vestara-elevation-floating: 0 24px 70px -12px rgba(0, 0, 0, 0.8);
   --vestara-elevation-floating-up: 0 -8px 32px -8px rgba(0, 0, 0, 0.6);
   --vestara-elevation-inset: inset 0 1px 4px rgba(0, 0, 0, 0.3);
   --vestara-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
   --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
   --vestara-elevation-none: none;
+  --vestara-elevation-shell-float: 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-focus: 0 0 0 1px rgba(45, 232, 195, 0.2), 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-glow: 0 0 8px rgba(45, 232, 195, 0.6);
   --vestara-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --vestara-elevation-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --vestara-font-family-display: 'Instrument Serif', Georgia, serif;
   --vestara-font-size-body: 0.875rem;
   --vestara-font-size-body-small: 0.75rem;
   --vestara-font-size-caption: 0.625rem;
@@ -56,8 +65,10 @@
   --vestara-font-size-display: 2.25rem;
   --vestara-font-size-label: 0.6875rem;
   --vestara-font-size-micro: 0.5625rem;
+  --vestara-font-size-micro-small: 0.5rem;
   --vestara-font-size-page-title: 1.5rem;
   --vestara-font-size-section-title: 1.125rem;
+  --vestara-font-size-title-large: 1.75rem;
   --vestara-font-size-title-small: 1.0625rem;
   --vestara-marketplace-agent: #8b5cf6;
   --vestara-marketplace-benefits-padding: 0.875rem 1rem;
@@ -100,7 +111,9 @@
   --vestara-motion-slower: 500ms;
   --vestara-sizing-scroll-dialog-max-height: 40vh;
   --vestara-sizing-scroll-max-height: 45vh;
-  --vestara-sizing-topbar-height: 32px;
+  --vestara-sizing-sidebar-collapsed-width: calc(var(--vestara-sizing-topbar-height) * 2);
+  --vestara-sizing-sidebar-width: 240px;
+  --vestara-sizing-topbar-height: 36px;
   --vestara-sizing-topbar-spotlight-width: 200px;
   --vestara-status-active: #4ade80;
   --vestara-status-disabled: #52525b;
@@ -117,6 +130,11 @@
   --vestara-status-os-warning: var(--vestara-status-warning);
   --vestara-status-pending: #f59e0b;
   --vestara-status-running: #4ade80;
+  --vestara-status-shell-danger: #ff5a5a;
+  --vestara-status-shell-danger-light: #ff7a7a;
+  --vestara-status-shell-info: #60a5fa;
+  --vestara-status-shell-success: #4ade80;
+  --vestara-status-shell-warning: #facc15;
   --vestara-status-success: #4ade80;
   --vestara-status-success-bg: rgba(74, 222, 128, 0.15);
   --vestara-status-success-border: rgba(74, 222, 128, 0.3);
@@ -142,6 +160,10 @@
   --vestara-surface-panel: color-mix(in srgb, var(--vestara-accent-bg) 70%, transparent);
   --vestara-surface-panel-raised: color-mix(in srgb, var(--vestara-accent) 8%, #27272a);
   --vestara-surface-shell: color-mix(in srgb, var(--vestara-accent) 5%, #18181b);
+  --vestara-surface-shell-canvas: #0a1214;
+  --vestara-surface-shell-hover: #132528;
+  --vestara-surface-shell-panel: #0d191b;
+  --vestara-surface-shell-raised: #111e20;
   --vestara-text-disabled: #52525b;
   --vestara-text-muted: #71717a;
   --vestara-text-os-faint: var(--vestara-text-disabled);
@@ -150,6 +172,11 @@
   --vestara-text-os-secondary: var(--vestara-text-secondary);
   --vestara-text-primary: #e4e4e7;
   --vestara-text-secondary: #a1a1aa;
+  --vestara-text-shell-bright: #e6fff9;
+  --vestara-text-shell-faint: #4a6a68;
+  --vestara-text-shell-muted: #5a7a78;
+  --vestara-text-shell-primary: #c8ddd9;
+  --vestara-text-shell-secondary: #8ab3ad;
 }
 
 /* ── Canonical light appearance ── */
@@ -165,6 +192,8 @@
   --vestara-accent-overlay: rgba(255, 251, 235, 0.97);
   --vestara-accent-primary: #b45309;
   --vestara-accent-secondary: #d97706;
+  --vestara-accent-shell: #2de8c3;
+  --vestara-accent-shell-glow: rgba(45, 232, 195, 0.45);
   --vestara-accent-text: #d97706;
   --vestara-accent-text-hover: #f59e0b;
   --vestara-accent-text-muted: rgba(245, 158, 11, 0.5);
@@ -180,19 +209,26 @@
   --vestara-border-os-default: var(--vestara-border-default);
   --vestara-border-os-strong: var(--vestara-border-strong);
   --vestara-border-os-subtle: var(--vestara-border-subtle);
+  --vestara-border-shell: #1a3a3d;
   --vestara-border-strong: #a1a1aa;
   --vestara-border-subtle: var(--vestara-accent-border);
   --vestara-color-os-auth-canvas: var(--vestara-surface-canvas);
   --vestara-color-os-inverse: var(--vestara-text-primary);
   --vestara-color-os-on-accent: var(--vestara-on-accent);
+  --vestara-color-shell-ink: #000000;
+  --vestara-color-shell-shadow: rgba(0, 0, 0, 0.6);
   --vestara-elevation-floating: 0 24px 70px -12px rgba(0, 0, 0, 0.8);
   --vestara-elevation-floating-up: 0 -8px 32px -8px rgba(0, 0, 0, 0.6);
   --vestara-elevation-inset: inset 0 1px 4px rgba(0, 0, 0, 0.3);
   --vestara-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
   --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
   --vestara-elevation-none: none;
+  --vestara-elevation-shell-float: 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-focus: 0 0 0 1px rgba(45, 232, 195, 0.2), 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-glow: 0 0 8px rgba(45, 232, 195, 0.6);
   --vestara-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --vestara-elevation-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --vestara-font-family-display: 'Instrument Serif', Georgia, serif;
   --vestara-font-size-body: 0.875rem;
   --vestara-font-size-body-small: 0.75rem;
   --vestara-font-size-caption: 0.625rem;
@@ -200,8 +236,10 @@
   --vestara-font-size-display: 2.25rem;
   --vestara-font-size-label: 0.6875rem;
   --vestara-font-size-micro: 0.5625rem;
+  --vestara-font-size-micro-small: 0.5rem;
   --vestara-font-size-page-title: 1.5rem;
   --vestara-font-size-section-title: 1.125rem;
+  --vestara-font-size-title-large: 1.75rem;
   --vestara-font-size-title-small: 1.0625rem;
   --vestara-marketplace-agent: #8b5cf6;
   --vestara-marketplace-benefits-padding: 0.875rem 1rem;
@@ -244,7 +282,9 @@
   --vestara-motion-slower: 500ms;
   --vestara-sizing-scroll-dialog-max-height: 40vh;
   --vestara-sizing-scroll-max-height: 45vh;
-  --vestara-sizing-topbar-height: 32px;
+  --vestara-sizing-sidebar-collapsed-width: calc(var(--vestara-sizing-topbar-height) * 2);
+  --vestara-sizing-sidebar-width: 240px;
+  --vestara-sizing-topbar-height: 36px;
   --vestara-sizing-topbar-spotlight-width: 200px;
   --vestara-status-active: #16a34a;
   --vestara-status-disabled: #a1a1aa;
@@ -261,6 +301,11 @@
   --vestara-status-os-warning: var(--vestara-status-warning);
   --vestara-status-pending: #b45309;
   --vestara-status-running: #16a34a;
+  --vestara-status-shell-danger: #ff5a5a;
+  --vestara-status-shell-danger-light: #ff7a7a;
+  --vestara-status-shell-info: #60a5fa;
+  --vestara-status-shell-success: #4ade80;
+  --vestara-status-shell-warning: #facc15;
   --vestara-status-success: #16a34a;
   --vestara-status-success-bg: rgba(22, 163, 74, 0.08);
   --vestara-status-success-border: rgba(22, 163, 74, 0.2);
@@ -286,6 +331,10 @@
   --vestara-surface-panel: color-mix(in srgb, var(--vestara-accent-bg) 70%, transparent);
   --vestara-surface-panel-raised: color-mix(in srgb, var(--vestara-accent) 5%, #fafafa);
   --vestara-surface-shell: color-mix(in srgb, var(--vestara-accent) 4%, #ffffff);
+  --vestara-surface-shell-canvas: #0a1214;
+  --vestara-surface-shell-hover: #132528;
+  --vestara-surface-shell-panel: #0d191b;
+  --vestara-surface-shell-raised: #111e20;
   --vestara-text-disabled: #a1a1aa;
   --vestara-text-muted: #71717a;
   --vestara-text-os-faint: var(--vestara-text-disabled);
@@ -294,4 +343,9 @@
   --vestara-text-os-secondary: var(--vestara-text-secondary);
   --vestara-text-primary: #18181b;
   --vestara-text-secondary: #3f3f46;
+  --vestara-text-shell-bright: #e6fff9;
+  --vestara-text-shell-faint: #4a6a68;
+  --vestara-text-shell-muted: #5a7a78;
+  --vestara-text-shell-primary: #c8ddd9;
+  --vestara-text-shell-secondary: #8ab3ad;
 }

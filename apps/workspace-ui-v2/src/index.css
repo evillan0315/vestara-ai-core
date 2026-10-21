@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/*
+ * workspace-ui-v2 shell theme — token DEFINITION site (standalone app).
+ * Authority: packages/ui-tokens/src/tokens.ts
+ *   (COLOR.shell, FONT_SIZE, RADIUS, ELEVATION, MOTION, SIZING.topbar, SHELL)
+ * Emission: packages/ui-tokens/src/css.ts → generated-tokens.css
+ * Components consume only var(--vestara-*) — no hex literals in TSX.
+ */
+:root {
+  /* Shell identity surfaces */
+  --vestara-surface-shell-canvas: #0a1214;
+  --vestara-surface-shell-panel: #0d191b;
+  --vestara-surface-shell-raised: #111e20;
+  --vestara-surface-shell-hover: #132528;
+  --vestara-border-shell: #1a3a3d;
+  --vestara-accent-shell: #2de8c3;
+  --vestara-accent-shell-glow: rgba(45, 232, 195, 0.45);
+  --vestara-text-shell-primary: #c8ddd9;
+  --vestara-text-shell-secondary: #8ab3ad;
+  --vestara-text-shell-muted: #5a7a78;
+  --vestara-text-shell-faint: #4a6a68;
+  --vestara-text-shell-bright: #e6fff9;
+  --vestara-status-shell-success: #4ade80;
+  --vestara-status-shell-warning: #facc15;
+  --vestara-status-shell-danger: #ff5a5a;
+  --vestara-status-shell-danger-light: #ff7a7a;
+  --vestara-status-shell-info: #60a5fa;
+  --vestara-color-shell-ink: #000000;
+  --vestara-color-shell-shadow: rgba(0, 0, 0, 0.6);
+
+  /* Type scale (mirrors FONT_SIZE) */
+  --vestara-font-size-micro-small: 0.5rem;
+  --vestara-font-size-micro: 0.5625rem;
+  --vestara-font-size-caption: 0.625rem;
+  --vestara-font-size-label: 0.6875rem;
+  --vestara-font-size-body-small: 0.75rem;
+  --vestara-font-size-code: 0.8125rem;
+  --vestara-font-size-body: 0.875rem;
+  --vestara-font-size-title-small: 1.0625rem;
+  --vestara-font-size-section-title: 1.125rem;
+  --vestara-font-size-page-title: 1.5rem;
+  --vestara-font-size-title-large: 1.75rem;
+  --vestara-font-size-display: 2.25rem;
+  --vestara-font-family-display: "Instrument Serif", Georgia, serif;
+
+  /* Radius (mirrors RADIUS) */
+  --vestara-radius-xs: 0.125rem;
+  --vestara-radius-sm: 0.25rem;
+  --vestara-radius-md: 0.375rem;
+  --vestara-radius-lg: 0.5rem;
+  --vestara-radius-md-plus: 0.625rem;
+  --vestara-radius-xl: 0.75rem;
+  --vestara-radius-2xl: 1rem;
+  --vestara-radius-3xl: 1.25rem;
+  --vestara-radius-full: 9999px;
+
+  /* Compositor elevation (mirrors ELEVATION shell recipes) */
+  --vestara-elevation-shell-float: 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-focus: 0 0 0 1px rgba(45, 232, 195, 0.2), 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-glow: 0 0 8px rgba(45, 232, 195, 0.6);
+
+  /* Motion (mirrors MOTION) */
+  --vestara-motion-fast: 100ms;
+  --vestara-motion-normal: 200ms;
+  --vestara-motion-slow: 300ms;
+  --vestara-motion-slower: 500ms;
+  --vestara-motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* TopBar geometry (mirrors SIZING.topbar) */
+  --vestara-sizing-topbar-height: 36px;
+  --vestara-sizing-topbar-spotlight-width: 200px;
+
+  /* Sidebar geometry (mirrors SIZING.sidebar; rail = 2 × topbar height) */
+  --vestara-sizing-sidebar-width: 240px;
+  --vestara-sizing-sidebar-collapsed-width: calc(var(--vestara-sizing-topbar-height) * 2);
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(45, 232, 195, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(45, 232, 195, 0.6));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vestara-border-shell) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vestara-border-shell);
+  border-radius: 99px;
+}
+body {
+  background: var(--vestara-surface-shell-canvas);
+  color: var(--vestara-text-shell-primary);
+  font-family: "JetBrains Mono", monospace;
+}

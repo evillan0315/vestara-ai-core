@@ -95,6 +95,8 @@ dist-ssr/
 build/
 out/
 coverage/
+# Tauri/Rust build output
+**/src-tauri/target/
 .tmp/
 .temp/
 .cache/

@@ -124,6 +124,38 @@ export const COLOR = {
     borderStrong: '#1d6bd1',
   },
 
+  // Shell (workspace-ui-v2 teal desktop) palette — fixed identity surface.
+  // Sampled from assets/templates/start/Vestara-Teal-Implementation-Review.html
+  // (teal V identity: accent #2de8c3 on layered near-black teal surfaces).
+  // Unlike COLOR.surface/text/border (dynamic accent-cast), the shell keeps a
+  // fixed teal identity in every theme mode. Consumed as
+  // `var(--vestara-surface-shell-*)`, `--vestara-text-shell-*`,
+  // `--vestara-border-shell`, `--vestara-accent-shell(-glow)`,
+  // `--vestara-status-shell-*`, `--vestara-color-shell-*` (see css.ts).
+  shell: {
+    canvas: '#0a1214',
+    panel: '#0d191b',
+    raised: '#111e20',
+    hover: '#132528',
+    border: '#1a3a3d',
+    accent: '#2de8c3',
+    accentGlow: 'rgba(45, 232, 195, 0.45)',
+    textPrimary: '#c8ddd9',
+    textSecondary: '#8ab3ad',
+    textMuted: '#5a7a78',
+    textFaint: '#4a6a68',
+    textBright: '#e6fff9',
+    success: '#4ade80',
+    warning: '#facc15',
+    danger: '#ff5a5a',
+    dangerLight: '#ff7a7a',
+    info: '#60a5fa',
+    /** Ink for icons on accent fills (window traffic lights). */
+    ink: '#000000',
+    /** Neutral drop-shadow black for shell floating surfaces. */
+    shadowBlack: 'rgba(0, 0, 0, 0.6)',
+  },
+
   // Zinc palette (raw values)
   zinc: {
     50: '#fafafa',
@@ -264,6 +296,7 @@ export const TYPOGRAPHY = {
  * would silently re-scale existing UI.
  */
 export const FONT_SIZE = {
+  microSmall: '0.5rem', // 8px — compact avatar initials, dense mono metadata
   micro: '0.5625rem', // 9px — dense metadata chips, nested tree rows
   caption: TYPOGRAPHY.caption.fontSize, // 10px
   label: TYPOGRAPHY.label.fontSize, // 11px
@@ -273,6 +306,7 @@ export const FONT_SIZE = {
   titleSmall: '1.0625rem', // 17px — panel/empty-state headings
   sectionTitle: TYPOGRAPHY.sectionTitle.fontSize, // 18px
   pageTitle: TYPOGRAPHY.pageTitle.fontSize, // 24px
+  titleLarge: '1.75rem', // 28px — shell login/overview display headings
   display: TYPOGRAPHY.display.fontSize, // 36px
 } as const;
 
@@ -301,11 +335,16 @@ export const SPACING = {
 
 export const RADIUS = {
   none: '0',
+  xs: '0.125rem', // 2px — telemetry bars, hairline caps
   sm: '0.25rem',
   md: '0.375rem',
   lg: '0.5rem',
+  /** 10px — shell cards between lg and xl (workspace-ui-v2). */
+  'md-plus': '0.625rem',
   xl: '0.75rem',
   '2xl': '1rem',
+  /** 20px — shell login glass card (workspace-ui-v2). */
+  '3xl': '1.25rem',
   full: '9999px',
 } as const;
 
@@ -325,6 +364,12 @@ export const ELEVATION = {
   floating: '0 24px 70px -12px rgba(0, 0, 0, 0.8)', // overlays: history panel, execution popover
   floatingUp: '0 -8px 32px -8px rgba(0, 0, 0, 0.6)', // docks that rise from a bottom edge
   inset: 'inset 0 1px 4px rgba(0, 0, 0, 0.3)', // recessed inputs/search wells
+  // Shell (workspace-ui-v2 teal desktop) floating recipes — the desktop
+  // compositor floats windows, dock, and login glass over wallpaper, so the
+  // throw is wider and flatter than the card scale above.
+  shellFloat: '0 20px 60px rgba(0, 0, 0, 0.6)', // dock, login card, unfocused windows
+  shellFocus: '0 0 0 1px rgba(45, 232, 195, 0.2), 0 20px 60px rgba(0, 0, 0, 0.6)', // focused window accent ring + lift
+  shellGlow: '0 0 8px rgba(45, 232, 195, 0.6)', // boot progress bar, accent glints
 } as const;
 
 // ─── Opacity Tokens ────────────────────────────────────────────
@@ -390,8 +435,20 @@ export const Z_INDEX = {
 
 export const SIZING = {
   sidebar: {
-    width: '280px',
-    collapsedWidth: '64px',
+    /**
+     * Expanded navigation width. Mirrors the workspace `normal` sidebar
+     * setting (`--vestara-sidebar-width` default in
+     * `apps/workspace/src/styles/index.css`, driven at runtime by
+     * `SIDEBAR_WIDTHS` in `apps/workspace/src/lib/theme.tsx`).
+     */
+    width: '240px',
+    /**
+     * Collapsed icon-rail width — derived from the top-bar height
+     * (`SIZING.topbar.height`) so the rail stays square with the header
+     * rhythm: exactly two top-bar rows. Emitted as
+     * `--vestara-sizing-sidebar-collapsed-width` (see css.ts).
+     */
+    collapsedWidth: 'calc(var(--vestara-sizing-topbar-height) * 2)',
   },
   header: {
     height: '56px',
@@ -405,13 +462,13 @@ export const SIZING = {
     md: '20px',
     lg: '24px',
   },
-  // VES-UI-001 T1: 32px desktop top bar geometry (theme-invariant).
-  // The global shell header is h-8 (2rem); the centered Spotlight trigger
+  // VES-UI-001 T1: 36px desktop top bar geometry (theme-invariant).
+  // The global shell header height; the centered Spotlight trigger
   // keeps the prototype 200px width. Emitted as `--vestara-sizing-topbar-*`
   // (see css.ts) so Tailwind classes reference vars, never literals.
   topbar: {
-    /** Global shell header height — `h-8` in Tailwind spacing. */
-    height: '32px',
+    /** Global shell header height. */
+    height: '36px',
     /** Centered Spotlight trigger width (prototype 200px pill). */
     spotlightWidth: '200px',
   },
@@ -876,3 +933,14 @@ export const FONT_WEIGHTS: Record<FontWeightId, FontWeightToken> = {
 };
 
 export const FONT_WEIGHT_IDS: readonly FontWeightId[] = ['light', 'normal', 'medium', 'semibold'];
+
+// ─── Shell Display Font (workspace-ui-v2) ───────────────────────
+//
+// The teal desktop shell sets display headings (boot wordmark, login hero,
+// overview greeting) in Instrument Serif. Kept out of FONT_FAMILIES (the
+// user-selectable catalog) — this is a fixed shell-identity face, emitted as
+// `--vestara-font-family-display` (see css.ts).
+
+export const SHELL = {
+  fontDisplay: "'Instrument Serif', Georgia, serif",
+} as const;

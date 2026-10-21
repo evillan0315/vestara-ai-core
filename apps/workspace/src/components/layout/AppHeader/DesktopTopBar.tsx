@@ -1,7 +1,7 @@
 /**
- * VES-UI-001 T1: DesktopTopBar — 32px global shell chrome.
+ * VES-UI-001 T1: DesktopTopBar — 36px global shell chrome.
  *
- * Promotes the v2 prototype `TopBar` (h-[32px], teal V lockup + live dot +
+ * Promotes the v2 prototype `TopBar` (h-[36px], teal V lockup + live dot +
  * version pill, centered 200px Spotlight, clock/date, Wifi/Battery status,
  * compact avatar) into the governed Workspace UI:
  * - `<VestaraMark size={20} />` (theme-aware inline SVG, never `<img>`).
@@ -16,7 +16,7 @@
  *   in — `ShellLayout` passes the same literal as `AppSidebar`.
  *
  * Architecture Traceability:
- *   VES-UI-001 Phase 1 (T1.1 32px header + T1.5 global chrome swap)
+ *   VES-UI-001 Phase 1 (T1.1 36px header + T1.5 global chrome swap)
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §4
  */
 
@@ -78,7 +78,7 @@ export default function DesktopTopBar({ mobileSidebarOpen = false, onMenuClick, 
   const clock = useTopBarClock();
 
   return (
-    <header className="shell-topbar relative flex h-8 w-full shrink-0 items-center gap-2 border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-3">
+    <header className="shell-topbar relative flex h-[var(--vestara-sizing-topbar-height)] w-full shrink-0 items-center gap-2 border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-3">
       {/* Left: navigation toggle + brand lockup */}
       <div className="flex min-w-0 items-center gap-2">
         <button

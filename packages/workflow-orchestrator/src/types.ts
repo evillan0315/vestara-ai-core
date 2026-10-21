@@ -266,6 +266,12 @@ export type OrchestrationEvent =
       readonly taskId: string;
       readonly decision?: 'approved' | 'changes-requested' | 'rejected';
       readonly at: string;
+      /** `task.requeued` only: the status the task was recovered from. */
+      readonly fromStatus?: TaskStatus;
+      /** `task.requeued` only: operator-supplied recovery reason. */
+      readonly reason?: string;
+      /** `task.requeued` only: stale file locks reclaimed during recovery. */
+      readonly releasedPaths?: readonly string[];
     }
   | {
       readonly type: 'task.review.decided';

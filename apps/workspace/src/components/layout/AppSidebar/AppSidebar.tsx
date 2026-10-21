@@ -1,9 +1,7 @@
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
-import { SIZING } from '@vestara/ui-tokens';
-import type { CSSProperties, FC } from 'react';
+import type { FC } from 'react';
 
-import SidebarBrand from './SidebarBrand';
 import SidebarFooter from './SidebarFooter';
 import SidebarNavigation, { type NavigationSection } from './SidebarNavigation';
 
@@ -25,20 +23,16 @@ const AppSidebar: FC<AppSidebarProps> = ({
   onNavigate,
 }) => {
   const effectiveCollapsed = collapsed && !mobileOpen;
-  const collapsedStyle: CSSProperties | undefined = effectiveCollapsed
-    ? { width: SIZING.sidebar.collapsedWidth }
-    : undefined;
 
   return (
     <aside
       id="workspace-navigation"
       className={`shell-rail flex h-full shrink-0 flex-col border-r border-(--vestara-accent-border) bg-(--vestara-shell-bg) transition-all duration-200 ${
-        effectiveCollapsed ? '' : 'w-[var(--vestara-sidebar-width)]'
+        effectiveCollapsed
+          ? 'w-[var(--vestara-sizing-sidebar-collapsed-width)]'
+          : 'w-[var(--vestara-sidebar-width)]'
       }`}
-      style={collapsedStyle}
     >
-      <SidebarBrand collapsed={effectiveCollapsed} />
-
       <SidebarNavigation sections={navigation} collapsed={effectiveCollapsed} onNavigate={onNavigate} />
 
       <div className="hidden px-2 lg:block">

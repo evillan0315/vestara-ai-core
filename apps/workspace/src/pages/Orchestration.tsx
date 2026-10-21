@@ -10,7 +10,16 @@ import { WorkflowTaskList, type WorkflowTaskItem } from '../components/workflow/
 import { navIcon } from '../layouts/workspace-navigation';
 import OperationalWorkspaceLayout from '../layouts/OperationalWorkspaceLayout';
 import { type ApprovalGate, resolveApprovalGate } from '../lib/orchestration-approval';
-import { getNextAction, getNextActions, getProjectAction } from '../lib/orchestration-next-action';
+import {
+  filterDismissedNextActions,
+  getActionBadgeLabel,
+  getNextActions,
+  getProjectAction,
+  getScopedNextAction,
+  sortProjectsByActionPriority,
+  type NextActionKind,
+  shouldClearStaleQueueDismissal,
+} from '../lib/orchestration-next-action';
 import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
 import {
   ACTIVE_TASK_STATUSES,
@@ -59,6 +68,10 @@ interface ApprovalTask {
   summary: string;
   approvalReason?: string;
   files: string[];
+  /** Pending-since timestamp (full WorkflowTask payload carries it; used for why-now age). */
+  updatedAt?: string;
+  createdAt?: string;
+  requestedAt?: string;
 }
 
 interface Snapshot {
@@ -253,6 +266,13 @@ function NextActionsPanel({ actions, onSelect }: {
   }
   const actionable = actions.filter((a) => a.actionable);
   const observational = actions.filter((a) => !a.actionable);
+  // W7 — rank is the position in the priority-sorted queue (actions order),
+  // not within the Action needed / Suggested subgroup, so #1 outranks #2.
+  const rankByKey = new Map(actions.map((action, index) => [`${action.projectId}-${action.kind}`, index + 1]));
+  const whyLabel = (action: (typeof actions)[number]): string => {
+    const rank = rankByKey.get(`${action.projectId}-${action.kind}`) ?? 1;
+    return `#${rank} of ${actions.length} · ${NEXT_ACTION_PRECEDENCE[action.kind]}`;
+  };
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
       {actionable.length > 0 && (
@@ -272,6 +292,12 @@ function NextActionsPanel({ actions, onSelect }: {
                   </p>
                   <p className="mt-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
                     {action.detail}
+                  </p>
+                  <p
+                    className="mt-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+                    title={`Queue order: ${whyLabel(action)}`}
+                  >
+                    {whyLabel(action)}
                   </p>
                 </div>
                 <NextActionButton
@@ -299,6 +325,12 @@ function NextActionsPanel({ actions, onSelect }: {
                 <p className="truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
                   {action.title}
                 </p>
+                <p
+                  className="truncate font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+                  title={`Queue order: ${whyLabel(action)} — ${action.detail}`}
+                >
+                  {whyLabel(action)}
+                </p>
               </div>
               <NextActionButton
                 kind={action.kind}
@@ -314,11 +346,137 @@ function NextActionsPanel({ actions, onSelect }: {
   );
 }
 
-function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction }: {
+const NEXT_ACTION_GLYPHS: Record<NextActionKind, string> = {
+  'task-approval': '!',
+  'task-failure': '⚡',
+  'architecture-review': '◇',
+  'plan-approval': '✓',
+  resume: '▶',
+  progress: '◉',
+  start: '✚',
+};
+
+// W7 — short precedence explanation per kind so the queue order is legible
+// rather than implicit in KIND_PRIORITY. Rendered as "#n of N · reason".
+const NEXT_ACTION_PRECEDENCE: Record<NextActionKind, string> = {
+  'task-approval': 'Approvals block downstream tasks, so they outrank everything else.',
+  'task-failure': 'Failed or blocked tasks stall execution, so they come before reviews.',
+  'architecture-review': 'Architecture gate must pass before director approval.',
+  'plan-approval': 'Plan approval unlocks execution, so it comes before resume.',
+  resume: 'Paused work resumes before routine progress checks.',
+  progress: 'Active work to monitor — no blocker, so it follows actionable items.',
+  start: 'Untouched work with no urgency, so it ranks last.',
+};
+
+function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
+  actions: ReturnType<typeof getNextActions>;
+  projectsById: Record<string, ProjectSummary>;
+  busyProjectId: string | null;
+  onSelect: (projectId: string, kind: string) => void;
+}) {
+  const [laneIndex, setLaneIndex] = useState(0);
+  const clampedIndex = actions.length === 0 ? 0 : Math.min(laneIndex, actions.length - 1);
+  // Keep the pager in bounds when the queue shrinks (filter change, resolution).
+  useEffect(() => {
+    if (laneIndex >= actions.length && actions.length > 0) setLaneIndex(0);
+  }, [actions.length, laneIndex]);
+  if (actions.length === 0) return null;
+  const current = actions[clampedIndex];
+  const projectPhase = current.projectId ? (projectsById[current.projectId]?.phase ?? '') : '';
+  const goPrev = () => setLaneIndex((i) => (i - 1 + actions.length) % actions.length);
+  const goNext = () => setLaneIndex((i) => (i + 1) % actions.length);
+  const busy = busyProjectId === `resume-${current.projectId}` && current.kind === 'resume';
+  // W3 persistent lane: role=status + aria-live=polite (never role=alert —
+  // a persistent element must not re-announce on every refresh). No auto-focus:
+  // pager changes leave focus where the user put it; the CTA keeps focus.
+  return (
+    <div
+      className={`mpg-enter flex flex-wrap items-center gap-[var(--vestara-spacing-3)] rounded-[var(--vestara-radius-lg)] border p-[var(--vestara-spacing-3)] ${
+        current.actionable
+          ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)]'
+          : 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)]'
+      }`}
+      role="status"
+      aria-live="polite"
+      aria-label={`Next recommended action ${clampedIndex + 1} of ${actions.length}: ${current.title}`}
+    >
+      <span
+        aria-hidden="true"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] font-mono text-[length:var(--vestara-font-size-sm)] font-bold text-[var(--vestara-text-primary)]"
+      >
+        {NEXT_ACTION_GLYPHS[current.kind]}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-element)]">
+          <span className="truncate text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-secondary)]">
+            {current.projectName || 'Workflows'}
+          </span>
+          {projectPhase && (
+            <span className="workflow-status-chip" data-status={projectPhase}>
+              {projectPhase.replaceAll('-', ' ')}
+            </span>
+          )}
+        </div>
+        <p className="truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
+          {current.title}
+        </p>
+        <p className="truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]" title={current.detail}>
+          {current.detail}
+        </p>
+        <p
+          className="truncate font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+          title={`Queue order: #${clampedIndex + 1} of ${actions.length} · ${NEXT_ACTION_PRECEDENCE[current.kind]}`}
+        >
+          #{clampedIndex + 1} of {actions.length} · {NEXT_ACTION_PRECEDENCE[current.kind]}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
+        <Button
+          variant={current.actionable ? 'primary' : 'secondary'}
+          size="sm"
+          onClick={() => onSelect(current.projectId, current.kind)}
+          disabled={busy}
+        >
+          {current.ctaLabel}
+        </Button>
+        {actions.length > 1 && (
+          <div className="flex items-center gap-[var(--vestara-spacing-1)]" role="group" aria-label="Recommended action queue">
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous recommended action"
+              className="grid h-7 w-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+            >
+              ‹
+            </button>
+            <span
+              className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+              title={`${clampedIndex + 1} of ${actions.length} recommended actions`}
+            >
+              {clampedIndex + 1} of {actions.length}
+            </span>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next recommended action"
+              className="grid h-7 w-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+            >
+              ›
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
   projectActions: Record<string, ReturnType<typeof getProjectAction>>;
+  /** W4 — id of the recommended project (head of the priority-ordered queue). The matching row renders the "Next" marker. */
+  nextProjectId: string | null;
   expandedId: string | null;
   busy: string | null;
   detail: Record<string, { snapshot: Snapshot; audit: AuditEvent[] }>;
@@ -338,7 +496,12 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
         const done = metrics?.tasks.completed ?? 0;
         const total = metrics?.tasks.total ?? 0;
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-        const actionableCount = action?.actionable ? 1 : 0;
+        // W4 — badge text derives from the same resolver inputs (approvals
+        // length, metrics failed+blocked) via getActionBadgeLabel, so counts
+        // match the resolver output by construction.
+        const badgeLabel = action ? getActionBadgeLabel(action, approvals, metrics) : null;
+        const badgeGlyph = action ? NEXT_ACTION_GLYPHS[action.kind] : null;
+        const isNext = nextProjectId !== null && project.id === nextProjectId;
         return (
           <div
             key={project.id}
@@ -350,12 +513,25 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
                 {project.name}
               </h2>
               <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
-                {action?.actionable && (
+                {isNext && (
                   <span
-                    className="inline-flex items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-status-warning)]"
-                    title={`${action.title} — ${action.detail}`}
+                    className="inline-flex items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]"
+                    aria-label={`Next recommended workflow: ${project.name}`}
                   >
-                    ⚡ {actionableCount}
+                    Next
+                  </span>
+                )}
+                {action && badgeLabel && (
+                  <span
+                    className={`inline-flex items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold ${
+                      action.actionable
+                        ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]'
+                        : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-secondary)]'
+                    }`}
+                    title={`${action.title} — ${action.detail}`}
+                    aria-label={`${badgeLabel} in ${project.name}`}
+                  >
+                    {badgeGlyph} {badgeLabel}
                   </span>
                 )}
                 <button
@@ -568,7 +744,7 @@ export default function OrchestrationPage() {
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
-  const [dismissedAttentionSignature, setDismissedAttentionSignature] = useState<string | null>(null);
+  const [dismissedBannerSignature, setDismissedBannerSignature] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ projectId: string; gate: ApprovalGate } | null>(null);
@@ -649,50 +825,6 @@ export default function OrchestrationPage() {
     };
   }, [projects, metricsByProject]);
 
-  const nextAction = useMemo(
-    () => getNextAction(projects, metricsByProject, approvalsByProject),
-    [projects, metricsByProject, approvalsByProject],
-  );
-
-  const allNextActions = useMemo(
-    () => getNextActions(projects, metricsByProject, approvalsByProject),
-    [projects, metricsByProject, approvalsByProject],
-  );
-
-  const projectActions = useMemo(() => {
-    const map: Record<string, ReturnType<typeof getProjectAction>> = {};
-    for (const project of projects) {
-      map[project.id] = getProjectAction(project, metricsByProject[project.id], approvalsByProject[project.id]);
-    }
-    return map;
-  }, [projects, metricsByProject, approvalsByProject]);
-
-  // Dismissal is scoped to the attention state it was dismissed for. When the
-  // count or the recommended target changes, the banner returns instead of
-  // staying hidden for the rest of the session.
-  const attentionSignature = useMemo(() => {
-    if (!nextAction) return null;
-    return `${dashboard.attention}|${nextAction.kind}|${nextAction.projectId ?? ''}`;
-  }, [dashboard.attention, nextAction]);
-
-  const attentionDismissed =
-    attentionSignature !== null && dismissedAttentionSignature === attentionSignature;
-
-  // A cleared attention state ends the dismissal episode, so the next round of
-  // blocked work is never silently suppressed by an old dismissal.
-  useEffect(() => {
-    if (dashboard.attention === 0 && dismissedAttentionSignature !== null) {
-      setDismissedAttentionSignature(null);
-    }
-  }, [dashboard.attention, dismissedAttentionSignature]);
-
-  const nextActionBanner = useMemo(() => {
-    if (!nextAction || attentionDismissed) return null;
-    // Don't show the empty-state synthetic action as a banner — it belongs in the empty state.
-    if (projects.length === 0) return null;
-    return nextAction;
-  }, [nextAction, attentionDismissed, projects.length]);
-
   const visibleProjects = useMemo(() => {
     const needle = railQuery.trim().toLowerCase();
     return projects.filter((project) => {
@@ -715,6 +847,83 @@ export default function OrchestrationPage() {
       }
     });
   }, [projects, metricsByProject, approvalsByProject, railQuery, railFilter]);
+
+  const isRailFiltered = railQuery.trim() !== '' || railFilter !== 'all';
+
+  // W1 — resolve over the visible project set so the banner, overview queue,
+  // and inspector queue never target a project the rail filter has hidden.
+  // Unfiltered behaviour is unchanged (visible === all). Filtered-empty
+  // yields null (no banner) rather than the synthetic create action.
+  // W6 — task-graph refs come from loaded snapshots when available; the
+  // held-up dependent count renders only then (never zero-filled).
+  const tasksByProject = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(detail).map(([projectId, entry]) => [
+          projectId,
+          entry.snapshot.tasks.map((task) => ({ id: task.id, dependencies: task.dependencies ?? [], status: task.status })),
+        ]),
+      ) as Record<string, Array<{ id: string; dependencies: readonly string[]; status: string }>>,
+    [detail],
+  );
+
+  const nextAction = useMemo(
+    () => getScopedNextAction(visibleProjects, projects.length, metricsByProject, approvalsByProject, tasksByProject),
+    [visibleProjects, projects.length, metricsByProject, approvalsByProject, tasksByProject],
+  );
+
+  const allNextActions = useMemo(
+    () => getNextActions(visibleProjects, metricsByProject, approvalsByProject, tasksByProject),
+    [visibleProjects, metricsByProject, approvalsByProject, tasksByProject],
+  );
+
+  const projectActions = useMemo(() => {
+    const map: Record<string, ReturnType<typeof getProjectAction>> = {};
+    for (const project of projects) {
+      const snapshotTasks = detail[project.id]?.snapshot.tasks;
+      const tasks = snapshotTasks?.map((task) => ({
+        id: task.id,
+        dependencies: task.dependencies ?? [],
+        status: task.status,
+      }));
+      map[project.id] = getProjectAction(project, metricsByProject[project.id], approvalsByProject[project.id], tasks);
+    }
+    return map;
+  }, [projects, metricsByProject, approvalsByProject, detail]);
+
+  // W4 — rail ordering shares the resolver ladder: sort the filtered
+  // visible set by action priority (stable, filters preserved) so the first
+  // row is the recommended action. The "Next" marker targets the head of
+  // the priority queue (allNextActions[0] === nextAction when visible).
+  const orderedVisibleProjects = useMemo(
+    () => sortProjectsByActionPriority(visibleProjects, projectActions),
+    [visibleProjects, projectActions],
+  );
+
+  const nextProjectId = allNextActions[0]?.projectId ?? nextAction?.projectId ?? null;
+
+  // W3 — persistent Next lane cycles the full recommended-action queue.
+  // W0 dismissal still suppresses only the single matching item; the lane
+  // stays present while any non-dismissed action exists, and the lane queue
+  // is the same list the Action needed / Suggested split renders.
+  const visibleNextActions = useMemo(
+    () => filterDismissedNextActions(allNextActions, dismissedBannerSignature),
+    [allNextActions, dismissedBannerSignature],
+  );
+
+  const hasSuppressedLaneAction =
+    dismissedBannerSignature !== null && allNextActions.length !== visibleNextActions.length;
+
+  // A stale dismissal (no queued action matches it) ends the episode so it
+  // can never suppress future work. While the dismissed item is still queued
+  // the lane keeps skipping it.
+  useEffect(() => {
+    if (shouldClearStaleQueueDismissal(dismissedBannerSignature, allNextActions)) {
+      setDismissedBannerSignature(null);
+    }
+  }, [dismissedBannerSignature, allNextActions]);
+
+  const projectsById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
 
   const resolveApproval = async (projectId: string, taskId: string, approved: boolean) => {
     setBusy(taskId);
@@ -845,16 +1054,19 @@ export default function OrchestrationPage() {
     }
   };
 
-  // Banner primary CTA delegates to the shared router so all entry points
-  // resolve a kind identically (notably task-approval → blocker tab, which the
-  // old banner handler missed). Approval gates only navigate — never auto-approve.
+  // Lane primary CTA delegates to the shared router so all entry points
+  // resolve a kind identically (notably task-approval → blocker tab).
+  // Approval gates only navigate — never auto-approve. Targets the head of
+  // the visible queue so header, lane, and overview queue stay consistent.
   const handleNextAction = useCallback(() => {
-    if (!nextAction) return;
-    handleProjectAction(nextAction.projectId, nextAction.kind);
-  }, [nextAction, expandedId, toggleExpand, detail, loadDetail, resumeProject]);
+    const target = visibleNextActions[0] ?? nextAction;
+    if (!target) return;
+    handleProjectAction(target.projectId, target.kind);
+  }, [visibleNextActions, nextAction, handleProjectAction]);
 
+  const laneHeadAction = visibleNextActions[0] ?? nextAction;
   const nextActionBusy =
-    nextAction?.kind === 'resume' ? busy === `resume-${nextAction.projectId}` : false;
+    laneHeadAction?.kind === 'resume' ? busy === `resume-${laneHeadAction.projectId}` : false;
 
   const createAndRun = async () => {
     if (!form.name.trim() || !form.goal.trim()) {
@@ -946,9 +1158,10 @@ export default function OrchestrationPage() {
 
   const focusProjectTab = (tab: 'workflow-graph' | 'evidence', projectId?: string) => {
     // Prefer an explicitly-requested project, then the current selection,
-    // then the most urgent recommendation — never silently fall back to the
-    // oldest project (projects[0]) when a better target exists.
-    const target = projectId ?? expandedId ?? nextAction?.projectId ?? projects[0]?.id;
+    // then the head of the visible lane queue — never silently fall back
+    // to a hidden or dismissed project when a filter is active (W1/W3).
+    // W4 — final fallback is the head of the priority-ordered rail.
+    const target = projectId ?? expandedId ?? visibleNextActions[0]?.projectId ?? nextAction?.projectId ?? orderedVisibleProjects[0]?.id ?? projects[0]?.id;
     if (!target) return;
     if (expandedId !== target) toggleExpand(target);
     else if (!detail[target]) void loadDetail(target);
@@ -963,11 +1176,16 @@ export default function OrchestrationPage() {
     [expandedId, toggleExpand, detail, loadDetail],
   );
   const reviewApprovals = () => {
-    const target = projects.find((project) => (approvalsByProject[project.id] ?? []).length > 0);
+    // W1 — stay inside the visible set so the quick action never selects a
+    // project the rail filter has hidden. W4 — scan in rail (priority) order
+    // so the most urgent approval wins.
+    const target =
+      orderedVisibleProjects.find((project) => (approvalsByProject[project.id] ?? []).length > 0) ??
+      projects.find((project) => (approvalsByProject[project.id] ?? []).length > 0);
     if (target && expandedId !== target.id) toggleExpand(target.id);
   };
   const selectRecommended = () => {
-    const target = nextAction?.projectId ?? projects[0]?.id;
+    const target = laneHeadAction?.projectId ?? nextAction?.projectId ?? orderedVisibleProjects[0]?.id ?? projects[0]?.id;
     if (target && expandedId !== target) toggleExpand(target);
   };
   const quickActions: WorkflowQuickAction[] = [
@@ -991,11 +1209,11 @@ export default function OrchestrationPage() {
     {
       id: 'graph',
       label: 'Open graph',
-      sub: selectedProject?.name ?? nextAction?.projectName ?? 'Select workflow',
+      sub: selectedProject?.name ?? visibleNextActions[0]?.projectName ?? nextAction?.projectName ?? 'Select workflow',
       tile: 'var(--vestara-status-info)',
       glyph: '⁂',
       disabled: projects.length === 0,
-      onSelect: () => focusProjectTab('workflow-graph', selectedProject?.id ?? nextAction?.projectId),
+      onSelect: () => focusProjectTab('workflow-graph', selectedProject?.id ?? visibleNextActions[0]?.projectId ?? nextAction?.projectId),
     },
     {
       id: 'evidence',
@@ -1004,7 +1222,7 @@ export default function OrchestrationPage() {
       tile: 'var(--vestara-status-success)',
       glyph: '▤',
       disabled: projects.length === 0,
-      onSelect: () => focusProjectTab('evidence', selectedProject?.id ?? nextAction?.projectId),
+      onSelect: () => focusProjectTab('evidence', selectedProject?.id ?? visibleNextActions[0]?.projectId ?? nextAction?.projectId),
     },
   ];
   const evidenceCount = (selectedDetail?.snapshot.artifacts?.length ?? 0) + (selectedDetail?.audit.length ?? 0);
@@ -1012,7 +1230,7 @@ export default function OrchestrationPage() {
   const selectedBlockerCount =
     (approvalsByProject[selectedProject?.id ?? ''] ?? []).length +
     (selectedDetail?.snapshot.tasks.filter((task) => task.status === 'blocked' || task.status === 'failed').length ?? 0);
-  const inspectorActionCount = allNextActions.filter((action) => action.actionable).length;
+  const inspectorActionCount = visibleNextActions.filter((action) => action.actionable).length;
   const workflowTabs = [
     { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: navIcon('dashboard'), borderBottom: false },
     {
@@ -1100,30 +1318,30 @@ export default function OrchestrationPage() {
               <button
                 type="button"
                 onClick={() => {
-                  // Dismissed banners keep a compact entry point that restores
-                  // the banner rather than silently executing the action.
-                  if (attentionDismissed) {
-                    setDismissedAttentionSignature(null);
+                  // A W0 dismissal keeps a compact entry point that restores
+                  // the suppressed queue item rather than executing an action.
+                  if (hasSuppressedLaneAction) {
+                    setDismissedBannerSignature(null);
                     return;
                   }
                   handleNextAction();
                 }}
-                disabled={!nextAction && !attentionDismissed}
+                disabled={!laneHeadAction && !hasSuppressedLaneAction}
                 title={
-                  attentionDismissed
-                    ? 'Show the attention banner'
-                    : nextAction
-                      ? `Next: ${nextAction.title}`
+                  hasSuppressedLaneAction
+                    ? 'Show the suppressed recommended action'
+                    : laneHeadAction
+                      ? `Next: ${laneHeadAction.title}`
                       : undefined
                 }
                 aria-label={
-                  attentionDismissed
-                    ? `Show attention banner: ${dashboard.attention} item${dashboard.attention === 1 ? '' : 's'} need attention`
+                  hasSuppressedLaneAction
+                    ? `Show suppressed action: ${dashboard.attention} item${dashboard.attention === 1 ? '' : 's'} need attention`
                     : `Review attention: ${dashboard.attention} item${dashboard.attention === 1 ? '' : 's'} need attention`
                 }
                 className="cursor-pointer rounded-[var(--vestara-radius-full)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] transition-colors hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {attentionDismissed
+                {hasSuppressedLaneAction
                   ? `Attention · ${dashboard.attention}`
                   : `● ${dashboard.attention} ${dashboard.attention === 1 ? 'needs' : 'need'} attention`}
               </button>
@@ -1167,46 +1385,6 @@ export default function OrchestrationPage() {
             ))}
           </div>
         </div>
-
-        {nextActionBanner && (
-          <div
-            className="mpg-enter flex flex-wrap items-center gap-[var(--vestara-spacing-3)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] p-[var(--vestara-spacing-3)]"
-            role="alert"
-            aria-label="Next recommended action"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-                Next action: {nextActionBanner.title}
-              </p>
-              <p className="mt-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                {nextActionBanner.detail}
-              </p>
-              {allNextActions.length > 1 && (
-                <p className="mt-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                  + {allNextActions.length - 1} more recommended action{allNextActions.length - 1 === 1 ? '' : 's'} — see Next actions tab
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-[var(--vestara-spacing-2)]">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleNextAction}
-                disabled={nextActionBusy}
-              >
-                {nextActionBanner.ctaLabel}
-              </Button>
-              <button
-                type="button"
-                onClick={() => setDismissedAttentionSignature(attentionSignature)}
-                className="cursor-pointer rounded-[var(--vestara-radius)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]"
-                aria-label="Dismiss next action banner"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
 
         {actionError && (
           <div
@@ -1329,10 +1507,11 @@ export default function OrchestrationPage() {
                 />
               ) : (
                 <ProjectCards
-                  projects={visibleProjects}
+                  projects={orderedVisibleProjects}
                   metricsByProject={metricsByProject}
                   approvalsByProject={approvalsByProject}
                   projectActions={projectActions}
+                  nextProjectId={nextProjectId}
                   expandedId={expandedId}
                   busy={busy}
                   detail={detail}
@@ -1615,7 +1794,7 @@ export default function OrchestrationPage() {
                       <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-widest text-[var(--vestara-text-muted)]">
                         Recommended next actions
                       </div>
-                      <NextActionsPanel actions={allNextActions} onSelect={handleProjectAction} />
+                      <NextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
                     </div>
                   )}
                 </div>
@@ -1652,6 +1831,14 @@ export default function OrchestrationPage() {
           </button>
         </div>
         <div className="workflow-main-body space-y-[var(--vestara-spacing-section)]">
+          {!loading && visibleNextActions.length > 0 && (
+            <NextLane
+              actions={visibleNextActions}
+              projectsById={projectsById}
+              busyProjectId={busy}
+              onSelect={handleProjectAction}
+            />
+          )}
           {activeTab === 'workflow-graph' ? (
               selectedDetail ? (
                 <>
@@ -1750,42 +1937,33 @@ export default function OrchestrationPage() {
               )
             ) : (
               <>
-                {!loading && <WorkflowQuickActions actions={quickActions} />}
-                {!loading && allNextActions.length > 0 && (
+                {/* W7 — empty workspace hides quick actions: the rail empty state
+                    owns the single primary create CTA, so the "New project"
+                    quick tile does not duplicate it. */}
+                {!loading && projects.length > 0 && <WorkflowQuickActions actions={quickActions} />}
+                {!loading && visibleNextActions.length > 0 && (
                   <OperationalPanel
                     icon={navIcon('workflows')}
                     title="Recommended actions"
-                    description={`${allNextActions.length} across workflows — banner shows the most urgent`}
+                    description={
+                      isRailFiltered
+                        ? `${visibleNextActions.length} across ${visibleProjects.length} of ${projects.length} workflows — lane shows the most urgent`
+                        : `${visibleNextActions.length} across workflows — lane shows the most urgent`
+                    }
                     actions={
-                      nextAction?.projectId ? (
+                      laneHeadAction?.projectId ? (
                         <Button variant="primary" size="sm" onClick={handleNextAction} disabled={nextActionBusy}>
-                          {nextAction.ctaLabel}
+                          {laneHeadAction.ctaLabel}
                         </Button>
                       ) : undefined
                     }
                   >
-                    <NextActionsPanel actions={allNextActions} onSelect={handleProjectAction} />
+                    <NextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
                   </OperationalPanel>
                 )}
-                {!loading && allNextActions.length === 0 && nextAction && (
-                  <OperationalPanel
-                    icon={navIcon('workflows')}
-                    title="Next recommended action"
-                    description={nextAction.projectName}
-                    actions={
-                      <Button variant="primary" size="sm" onClick={handleNextAction} disabled={nextActionBusy}>
-                        {nextAction.ctaLabel}
-                      </Button>
-                    }
-                  >
-                    <p className="text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-                      {nextAction.title}
-                    </p>
-                    <p className="mt-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                      {nextAction.detail}
-                    </p>
-                  </OperationalPanel>
-                )}
+                {/* W7 — empty workspace renders no Overview create panel: the rail
+                    empty state ("Create your first project") is the single primary
+                    create action, so this duplicate was removed. */}
 
         {!loading && (
         <>

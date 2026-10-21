@@ -8,11 +8,13 @@
  * (`object-cover`).
  *
  * Source: `assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png`
- * (1671×941, byte-identical to the previously vendored PNG) transcoded with
- * ffmpeg (`libwebp` q80 / `libaom-av1` crf 28) to ONE optimized size —
- * no responsive ladder. The remaining `assets/wallpapers/` PNGs stay
- * archived (unshipped — nothing imports them); the prototype's
- * byte-identical `…_1.png` dead duplicate (A6) was dropped.
+ * transcoded to ONE optimized size (1280×721, matching the Tauri `main`
+ * window width) — AVIF (~42 KB) via ffmpeg `libaom-av1` crf 28, WebP
+ * (~45 KB) via ffmpeg `libwebp` q80, PNG fallback (~0.96 MB, LANCZOS
+ * downscale, max compression) — no responsive ladder. The remaining
+ * `assets/wallpapers/` PNGs stay archived (unshipped — nothing imports
+ * them); the prototype's byte-identical `…_1.png` dead duplicate (A6)
+ * was dropped, and `public/startup/` ships exactly this 3-file set.
  *
  * `treatment="boot"` preserves the prototype boot treatment (10% opacity,
  * 20px blur — `BootScreen`'s `opacity-[0.10] blur-[20px]`) for the T4

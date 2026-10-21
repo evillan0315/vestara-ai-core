@@ -206,6 +206,14 @@ export default function M11CActivityRoomPage() {
   const [steerRequestId, setSteerRequestId] = useState<string | null>(null);
   const room = useM11CActivityRoom();
   const snapshotIncomplete = room.error === snapshotCompletionMessage(false);
+  // Dismissable error banner (mirrors Orchestration actionError pattern):
+  // local signature hides the banner without triggering a reconnect; a new
+  // error string re-surfaces automatically.
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const visibleError = room.error && room.error !== dismissedError ? room.error : null;
+  useEffect(() => {
+    if (!room.error) setDismissedError(null);
+  }, [room.error]);
   const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
   const globalDrawer = useGlobalDrawer();
@@ -587,10 +595,10 @@ export default function M11CActivityRoomPage() {
           <>
             {/* Operational/Verification Lane hidden until VER-GOV-001 provides
                 authoritative runtime state. Component and contract retained. */}
-            {room.error && (
-              <div className="ar-banner ar-banner--warn my-[var(--vestara-spacing-section)]" role="alert">
+            {visibleError && (
+              <div className="ar-banner ar-banner--warn my-[var(--vestara-spacing-section)]" role="alert" aria-label="Activity room error">
                 <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
-                <span className="min-w-0 flex-1">{room.error}</span>
+                <span className="min-w-0 flex-1">{visibleError}</span>
                 <Pill
                   variant={snapshotIncomplete ? 'gold' : 'danger'}
                   size="sm"
@@ -601,6 +609,14 @@ export default function M11CActivityRoomPage() {
                     ? room.loadingHistory ? 'Loading older…' : 'Load older history'
                     : LIVE_STREAM_RECONNECT_LABEL}
                 </Pill>
+                <button
+                  type="button"
+                  onClick={() => setDismissedError(room.error ?? null)}
+                  className="cursor-pointer rounded-[var(--vestara-radius)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]"
+                  aria-label="Dismiss activity room error"
+                >
+                  ✕
+                </button>
               </div>
             )}
             {(room.state === 'reconnecting' || room.state === 'offline') && room.lastUpdatedAt !== null && (

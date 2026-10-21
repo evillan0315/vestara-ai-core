@@ -574,6 +574,48 @@ export type MultiTargetAgent = CanonicalAgent & {
 export const GENERATED_HEADER =
   '<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->';
 
+/**
+ * Provenance header for generated files that carry YAML frontmatter.
+ *
+ * INVARIANT: YAML frontmatter is only parsed when the file BEGINS with the
+ * `---` delimiter. A leading HTML comment (see `GENERATED_HEADER`) makes the
+ * runtime treat the whole file — frontmatter included — as prompt text, which
+ * silently drops `description`, `mode`, `model` and `permission`. The agent
+ * then inherits the global permission block instead of its governed grants
+ * (e.g. `bash: ask` instead of the declared `bash: allow`), so workflow agents
+ * can never execute shell commands.
+ *
+ * The provenance marker therefore lives INSIDE the frontmatter as a YAML
+ * comment: it stays on line 1-2 of the file, keeps the file greppable, and adds
+ * no prompt noise.
+ */
+export const GENERATED_FRONTMATTER_HEADER =
+  '# GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync';
+
+/**
+ * OpenCode permission keys emitted into generated agent frontmatter.
+ *
+ * Note: no `write` key — writes/edits/patches are gated by `edit`. Optional
+ * single-tool keys are emitted only when the agent declares them.
+ */
+export const PERMISSION_KEYS = [
+  'read',
+  'edit',
+  'glob',
+  'grep',
+  'list',
+  'bash',
+  'task',
+  'external_directory',
+  'todowrite',
+  'webfetch',
+  'websearch',
+  'lsp',
+  'skill',
+  'question',
+  'doom_loop',
+] as const;
+
 /** Agent markdown directory per runtime, relative to the repo root. */
 export const TARGET_AGENT_DIR: Record<AgentTarget, string> = {
   opencode: '.opencode/agents',
@@ -627,6 +669,70 @@ export function getAgentToolsForTarget(agent: MultiTargetAgent, target: AgentTar
 /** Effective model hint overlay for a target (undefined falls back to the canonical provider/model). */
 export function getAgentModelHintForTarget(agent: MultiTargetAgent, target: AgentTarget): string | undefined {
   return agent.adapters?.[target]?.modelHint;
+}
+
+/**
+ * Fully-qualified model id for generated frontmatter (`provider/model`).
+ * Falls back to the `opencode-go` provider when the agent declares none.
+ */
+export function getAgentModelId(agent: CanonicalAgent): string {
+  const providerPrefix = agent.provider ?? 'opencode-go';
+  return agent.model?.includes('/') ? agent.model : `${providerPrefix}/${agent.model ?? ''}`;
+}
+
+/**
+ * Render the OpenCode-native agent file (`.opencode/agents/<agent>.md`).
+ *
+ * INVARIANT: the YAML frontmatter is the FIRST thing in the file. OpenCode
+ * parses frontmatter only when the file starts with `---`; anything ahead of
+ * it (an HTML comment, a blank line) makes the runtime read the frontmatter
+ * as prompt text and silently discard `description`, `mode`, `model` and
+ * `permission` — the agent then inherits the global permission block, so a
+ * governed `bash: allow` grant degrades to the global `bash: ask` and the
+ * agent can never execute a shell command.
+ */
+export function renderOpencodeAgentFile(agent: CanonicalAgent): string {
+  const permissions = agent.opencodePermissions;
+  const permissionLines = PERMISSION_KEYS.filter((key) => permissions[key] !== undefined).map(
+    (key) => `  ${key}: ${permissions[key]}`,
+  );
+  return [
+    '---',
+    GENERATED_FRONTMATTER_HEADER,
+    `description: "${agent.description ?? ''}"`,
+    `mode: ${agent.mode}`,
+    `model: ${getAgentModelId(agent)}`,
+    'permission:',
+    ...permissionLines,
+    '---',
+    '',
+    getAgentCorePrompt(agent),
+    '',
+  ].join('\n');
+}
+
+/**
+ * Render a non-OpenCode runtime agent file
+ * (`.codex|claude|gemini/agents/<agent>.md`).
+ *
+ * Same frontmatter-first invariant as `renderOpencodeAgentFile` — every
+ * runtime parses the leading `---` block, and none of them recover a
+ * frontmatter that does not start on line 1.
+ */
+export function renderTargetAgentFile(agent: MultiTargetAgent, target: AgentTarget): string {
+  const tools = getAgentToolsForTarget(agent, target);
+  const modelHint = getAgentModelHintForTarget(agent, target);
+  const frontmatter = [
+    '---',
+    GENERATED_FRONTMATTER_HEADER,
+    `description: "${agent.description ?? ''}"`,
+    `agent: ${agent.runtimeAgent ?? agent.role}`,
+    `runtime: ${target}`,
+    `mode: ${agent.mode}`,
+    `model: ${modelHint ?? getAgentModelId(agent)}`,
+  ];
+  if (tools.length > 0) frontmatter.push(`tools: ${tools.join(', ')}`);
+  return [...frontmatter, '---', '', getAgentPromptForTarget(agent, target), ''].join('\n');
 }
 
 /** Provider-agnostic projection of a canonical agent (plan shape: id/description/prompt/adapters). */

@@ -36,6 +36,78 @@ export function shellPhaseForBootStage(stage: BootStage, status: BootStateStatus
   return 'boot';
 }
 
+// ─── v2 window-lifecycle bridge (VES-UI-002 U2) ─────────────────────
+// Maps SHELL_PHASES to the Tauri window lifecycle (`close / minimize /
+// focus`). Tauri v2 surfaces these as `WindowEvent::CloseRequested`,
+// `WindowEvent::Minimized`, and `WindowEvent::Focused(bool)`; the bridge
+// vocabulary below is the host-agnostic projection so vitest can prove
+// the mapping without driving a native WebView. Additive only — boot
+// behavior is unchanged.
+
+export const WINDOW_LIFECYCLE_EVENTS = ['close-requested', 'minimized', 'focused'] as const;
+
+export type WindowLifecycleEvent = (typeof WINDOW_LIFECYCLE_EVENTS)[number];
+
+/**
+ * Map a Tauri window lifecycle event onto the shell phase it requests.
+ * Stateless 1:1 vocabulary mapping: close always initiates shutdown,
+ * minimize parks the session on the lock overlay, focus resolves back to
+ * the desktop. Hosts that need current-phase guards should layer the
+ * `DesktopShell` reducer on top (lock applies from desktop only).
+ */
+export function shellPhaseForWindowEvent(event: WindowLifecycleEvent): ShellPhase {
+  switch (event) {
+    case 'close-requested':
+      return 'shutdown';
+    case 'minimized':
+      return 'locked';
+    case 'focused':
+      return 'desktop';
+  }
+}
+
+/**
+ * Map a shell phase onto the window event the host should emit.
+ * Returns `null` for phases with no window action (`boot`/`login` are
+ * pre-desktop; `switch` is a login-mode overlay resolved in the UI).
+ */
+export function windowEventForShellPhase(phase: ShellPhase): WindowLifecycleEvent | null {
+  switch (phase) {
+    case 'shutdown':
+      return 'close-requested';
+    case 'locked':
+      return 'minimized';
+    case 'desktop':
+      return 'focused';
+    case 'boot':
+    case 'login':
+    case 'switch':
+      return null;
+  }
+}
+
+/**
+ * Advance the shell lifecycle one step. The host power cycle closes the
+ * loop: `shutdown` returns to `boot` so the next launch re-enters boot.
+ * Overlays resolve forward (`locked`/`switch` → `desktop`).
+ */
+export function nextShellPhase(phase: ShellPhase): ShellPhase {
+  switch (phase) {
+    case 'boot':
+      return 'login';
+    case 'login':
+      return 'desktop';
+    case 'desktop':
+      return 'shutdown';
+    case 'shutdown':
+      return 'boot';
+    case 'locked':
+      return 'desktop';
+    case 'switch':
+      return 'desktop';
+  }
+}
+
 export interface BootTransition {
   readonly stage: BootStage;
   readonly timestamp: string;

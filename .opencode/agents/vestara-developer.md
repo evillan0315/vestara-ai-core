@@ -1,6 +1,5 @@
-<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->
-
 ---
+# GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync
 description: "Implement approved tasks — never invent scope."
 mode: primary
 model: opencode-go/muse-spark-1.3-contributor

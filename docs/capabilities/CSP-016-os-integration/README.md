@@ -24,3 +24,10 @@ next-review: 2026-11-20
 > `implementation-repository` / `implementation-commit` per
 > `scripts/docs-automation.mjs`). The table's "Implemented (v2.0)" is the
 > *capability* implementation state. See VES-UI-001 plan finding A10.
+>
+> **Note (VES-UI-002 U5, 2026-10-21):** Tauri-first host port has no on-disk
+> deep-link implementation (`teal://vestara-shell` absent from
+> `apps/workspace/src-tauri/tauri.conf.json` / `Cargo.toml` / `src/*.rs`;
+> deep-link mapping tests NOT ESTABLISHED, blocked on U3). Bundle config ships
+> `app.security.csp: null` — no bundle CSP; scheme/CSP review is due when U3
+> lands. `os/` systemd/Plymouth scope is explicitly excluded from VES-UI-002.

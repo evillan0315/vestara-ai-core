@@ -42,6 +42,8 @@ interface FilePreviewProps {
 
 const MAX_PREVIEW_SIZE = 5 * 1024 * 1024; // 5 MB
 
+type HtmlViewMode = 'render' | 'code';
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -83,6 +85,7 @@ export function FilePreview({
 }: FilePreviewProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [htmlView, setHtmlView] = useState<HtmlViewMode>('render');
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -90,10 +93,16 @@ export function FilePreview({
   const previewType = classification.previewType;
   const mimeType = classification.mimeType;
   const isText = previewType === 'text';
+  const isHtml = previewType === 'html';
   const isImage = previewType === 'image';
   const isVideo = previewType === 'video';
   const isAudio = previewType === 'audio';
   const isUnsupported = previewType === 'unsupported';
+
+  // Reset to the rendered view whenever a different file is shown.
+  useEffect(() => {
+    setHtmlView('render');
+  }, [filePath]);
 
   // Generate an object URL for binary previews (images, video, audio).
   // Creation and revocation live in one effect: revoking in a cleanup that
@@ -127,6 +136,17 @@ export function FilePreview({
   const handleImageError = useCallback(() => {
     setVideoError('Unable to load image: Unsupported format or corrupted file');
   }, []);
+
+  // Open the rendered HTML in a new tab via a blob URL. The in-place
+  // iframe stays fully sandboxed (no scripts); the new tab gets a plain
+  // document so the layout can be inspected full-screen.
+  const handleOpenHtmlExternal = useCallback(() => {
+    if (content === undefined) return;
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }, [content]);
 
   // Loading state
   if (isLoading) {
@@ -195,10 +215,96 @@ export function FilePreview({
     );
   }
 
-  // Text/Code preview with editor
-  if (isText && content !== undefined) {
+  // HTML preview toolbar: toggle between rendered output and source code.
+  const renderHtmlToolbar = (idPrefix: string) => (
+    <div
+      className="flex shrink-0 items-center gap-2 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)] px-3 py-1.5"
+      role="toolbar"
+      aria-label="HTML preview actions"
+    >
+      <span className="font-mono text-xs text-[var(--vestara-text-muted)] truncate max-w-[200px]" title={filePath}>
+        {filePath}
+      </span>
+      <div
+        className="flex items-center gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] p-0.5"
+        role="group"
+        aria-label="HTML view mode"
+      >
+        {(
+          [
+            { id: 'render' as const, label: 'Preview' },
+            { id: 'code' as const, label: 'Code' },
+          ]
+        ).map((option) => {
+          const isActive = htmlView === option.id;
+          return (
+            <button
+              key={option.id}
+              id={`${idPrefix}-${option.id}`}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setHtmlView(option.id)}
+              className={
+                isActive
+                  ? 'rounded-[var(--vestara-radius-sm)] bg-[var(--vestara-accent-bg)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]'
+                  : 'rounded-[var(--vestara-radius-sm)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]'
+              }
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <span className="mpg-tag-pill text-[var(--vestara-text-secondary)]">html</span>
+      <span className="flex-1" />
+      <span className="hidden text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] sm:inline" title="Rendered in a sandboxed iframe with scripts disabled">
+        Sandboxed
+      </span>
+      <button
+        type="button"
+        onClick={handleOpenHtmlExternal}
+        disabled={content === undefined}
+        title="Open rendered HTML in a new tab"
+        aria-label="Open rendered HTML in a new tab"
+        className="rounded-[var(--vestara-radius-sm)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)] disabled:opacity-50"
+      >
+        <span aria-hidden="true">↗</span> Open
+      </button>
+    </div>
+  );
+
+  // Rendered HTML preview (sandboxed iframe, scripts disabled).
+  if (isHtml && htmlView === 'render' && content !== undefined) {
     return (
       <div className="file-preview h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {renderHtmlToolbar('html-view')}
+        <div className="min-h-0 flex-1 bg-[var(--vestara-surface-canvas)]">
+          <iframe
+            title={`HTML preview: ${filePath}`}
+            srcDoc={content}
+            sandbox=""
+            referrerPolicy="no-referrer"
+            className="h-full w-full border-0"
+          />
+        </div>
+        <div className="px-4 py-1.5 border-t border-[var(--vestara-border-subtle)] flex items-center justify-between text-xs text-[var(--vestara-text-muted)]">
+          <span className="font-mono truncate max-w-[200px]" title={filePath}>{filePath}</span>
+          <div className="flex items-center gap-3">
+            <Pill className="text-[var(--vestara-text-secondary)]">
+              {mimeType}
+            </Pill>
+            <span>{formatBytes(size)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Text/Code preview with editor (HTML source lands here when Code is selected)
+  if ((isText || isHtml) && content !== undefined) {
+    return (
+      <div className="file-preview h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {isHtml && renderHtmlToolbar('html-code')}
         {readOnly ? (
           <CodeViewer filePath={filePath} content={content} classification={classification} />
         ) : (
@@ -315,7 +421,7 @@ export function FilePreview({
       <div className="p-6">
         <EmptyState
           title="Preview unavailable"
-          description={isText ? 'File content could not be loaded.' : 'Binary preview requires file content.'}
+          description={isText || isHtml ? 'File content could not be loaded.' : 'Binary preview requires file content.'}
           icon="📄"
         />
         <div className="mt-3 space-y-1 text-xs text-[var(--vestara-text-muted)]">
@@ -342,6 +448,7 @@ export function FilePreviewCard({
     video: '🎬',
     audio: '🎵',
     text: '📝',
+    html: '🌐',
     unsupported: '📄',
   };
 
@@ -350,6 +457,7 @@ export function FilePreviewCard({
     video: 'Video',
     audio: 'Audio',
     text: 'Text',
+    html: 'HTML',
     unsupported: 'Binary',
   };
 

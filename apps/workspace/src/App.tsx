@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast';
 import { DynamicFavicon } from './components/branding/index.js';
 import { TelemetryProvider } from './contexts/TelemetryContext';
 import { FileOperationsProvider } from './contexts/FileOperationsContext';
+import { DeepLinkHandler } from './features/desktop-shell/DeepLinkHandler.js';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
 import { VestaraThemeProvider } from '@vestara/ui-theme';
@@ -141,6 +142,7 @@ export default function App() {
           <TelemetryProvider>
             <FileOperationsProvider>
             <ToastProvider>
+              <DeepLinkHandler />
               <Routes>
                 {publicRoutes.map((r) => (
                   <Route key={r.id} path={r.path} element={pageFor(r.id)} />

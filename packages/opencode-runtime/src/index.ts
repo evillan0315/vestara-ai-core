@@ -22,6 +22,7 @@ export type {
   CreateOpenCodeSessionInput,
   InitOpenCodeSessionInput,
   OpenCodeActiveSessionInfo,
+  OpenCodeAgentSummary,
   OpenCodeEvent,
   OpenCodeFileChange,
   OpenCodeFileChangeStatus,
@@ -37,6 +38,7 @@ export type {
   OpenCodeMessageResult,
   OpenCodeModelRef,
   OpenCodeOutputFormat,
+  OpenCodePermissionRule,
   OpenCodeProject,
   OpenCodePromptPart,
   OpenCodeProviderSummary,
@@ -92,7 +94,12 @@ export {
   openCodeConfigFromEnv,
   resolveOpenCodeConfig,
 } from './config';
-export { normalizeAgents, normalizeCommands, normalizeProviders } from './discovery-normalizers';
+export {
+  normalizeAgentPermissions,
+  normalizeAgents,
+  normalizeCommands,
+  normalizeProviders,
+} from './discovery-normalizers';
 export {
   OpenCodeEventBridge,
   type OpenCodeEventBridgeMetrics,

@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/*
+ * Extractor app-local theme.
+ * Definition site (allowed exception to NO-HARDCODE): these declarations
+ * SET the --vestara-* vars for this app, so every component consumes
+ * var(--vestara-*) only. Values are sourced from:
+ *   - the artifact palette recovered from Vestara-Extractor-Restructured.html
+ *     (canvas #0A0F14, elevated #101820, panel #121C22, raised #1E2A32,
+ *      border rgba(255,255,255,0.07), accent #00E5FF, text #E6F0F2,
+ *      muted #7A8A91, success #22C55E, warning #F59E0B, radius 10px), and
+ *   - the canonical scales in packages/ui-tokens/src/tokens.ts
+ *     (SPACING, RADIUS, ELEVATION, MOTION, FONT_SIZE, Z_INDEX).
+ * Canonically, only elevation/motion/font-size/sizing are emitted as CSS
+ * vars and this app does not load the canonical stylesheet — so the scales
+ * below mirror the canonical values. Promotion candidates for ui-tokens:
+ * --vestara-font-sans, --vestara-font-mono, --vestara-extractor-drop-idle.
+ */
+:root {
+  --vestara-surface-canvas: #0a0f14;
+  --vestara-surface-shell: #0e171c;
+  --vestara-surface-panel: #121c22;
+  --vestara-surface-panel-raised: #1e2a32;
+  --vestara-surface-overlay: rgba(10, 15, 20, 0.8);
+  --vestara-surface-interactive: rgba(255, 255, 255, 0.06);
+  --vestara-surface-interactive-hover: rgba(255, 255, 255, 0.1);
+  --vestara-text-primary: #e6f0f2;
+  --vestara-text-secondary: rgba(230, 240, 242, 0.65);
+  --vestara-text-muted: #7a8a91;
+  --vestara-border-subtle: rgba(255, 255, 255, 0.06);
+  --vestara-border-default: rgba(255, 255, 255, 0.08);
+  --vestara-accent: #00e5ff;
+  --vestara-accent-primary: #00e5ff;
+  --vestara-accent-bg: rgba(0, 229, 255, 0.08);
+  --vestara-accent-border: rgba(0, 229, 255, 0.2);
+  --vestara-accent-text: rgba(0, 229, 255, 0.8);
+  --vestara-status-success: #22c55e;
+  --vestara-status-warning: #f59e0b;
+  --vestara-status-error: #f87171;
+
+  /* App default radius (artifact: 10px) + canonical radius scale. */
+  --vestara-radius: 10px;
+  --vestara-radius-sm: 0.25rem;
+  --vestara-radius-md: 0.375rem;
+  --vestara-radius-lg: 0.5rem;
+  --vestara-radius-xl: 0.75rem;
+  --vestara-radius-full: 9999px;
+
+  /* Canonical SPACING scale (SPACING in tokens.ts). */
+  --vestara-spacing-0: 0;
+  --vestara-spacing-1: 0.25rem;
+  --vestara-spacing-2: 0.5rem;
+  --vestara-spacing-3: 0.75rem;
+  --vestara-spacing-4: 1rem;
+  --vestara-spacing-5: 1.25rem;
+  --vestara-spacing-6: 1.5rem;
+  --vestara-spacing-8: 2rem;
+
+  /* Canonical ELEVATION scale. */
+  --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --vestara-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  --vestara-elevation-floating: 0 24px 70px -12px rgba(0, 0, 0, 0.8);
+
+  /* Canonical MOTION scale. */
+  --vestara-motion-fast: 100ms;
+  --vestara-motion-normal: 200ms;
+  --vestara-motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Canonical FONT_SIZE scale (subset used here). */
+  --vestara-font-size-caption: 0.75rem;
+  --vestara-font-size-code: 0.8125rem;
+  --vestara-font-size-body: 0.875rem;
+
+  /* Canonical Z_INDEX scale (subset used here). */
+  --vestara-z-index-sticky: 1100;
+  --vestara-z-index-modal: 1400;
+  --vestara-z-index-toast: 1700;
+
+  --vestara-font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --vestara-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vestara-extractor-drop-idle: rgba(255, 255, 255, 0.12);
+}
+
+html,
+body {
+  background-color: var(--vestara-surface-canvas);
+  color: var(--vestara-text-primary);
+  font-family: var(--vestara-font-sans);
+  font-size: var(--vestara-font-size-body);
+}
+
+.mono {
+  font-family: var(--vestara-font-mono);
+}
+
+::selection {
+  background-color: var(--vestara-accent-bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--vestara-accent-border);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vestara-surface-interactive-hover);
+  border-radius: var(--vestara-radius-full);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

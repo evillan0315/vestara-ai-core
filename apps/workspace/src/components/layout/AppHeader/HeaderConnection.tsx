@@ -6,7 +6,7 @@ import { SIZING } from '@vestara/ui-tokens';
 export interface HeaderConnectionProps {
   status?: 'connected' | 'connecting' | 'disconnected';
   /**
-   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * Density for the 36px desktop top bar (`compact`) vs the legacy
    * 64px shell header (`cozy`, default). Compact renders an icon-only
    * 24px indicator with an accessible label; cozy keeps the labeled
    * Workspace status card untouched.

@@ -1,6 +1,5 @@
-<!-- GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync -->
-
 ---
+# GENERATED — do not hand-edit. Source: packages/workspace/src/agents.registry.ts — run pnpm agents:sync
 description: "Prove correctness via evidence — never think, never review."
 agent: vestara-verifier
 runtime: gemini

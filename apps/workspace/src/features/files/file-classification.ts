@@ -8,7 +8,7 @@
  *   FILES-ASSETS-001: Assets, Media Preview & Reusable Code Viewer/Editor
  */
 
-export type FilePreviewType = 'image' | 'video' | 'audio' | 'text' | 'unsupported';
+export type FilePreviewType = 'image' | 'video' | 'audio' | 'text' | 'html' | 'unsupported';
 
 export interface FileClassification {
   readonly previewType: FilePreviewType;
@@ -93,6 +93,9 @@ const IMAGE_EXTENSIONS = new Set([
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv']);
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
 
+/** Extensions that render as a sandboxed HTML preview (still editable as text). */
+const HTML_EXTENSIONS = new Set(['.html', '.htm', '.xhtml']);
+
 /** Extension to language hint mapping for syntax highlighting */
 const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   '.js': 'javascript',
@@ -168,6 +171,15 @@ export function classifyFile(mimeType: string, filePath: string): FileClassifica
   } else if (AUDIO_MIME_TYPES.has(normalizedMime)) {
     previewType = 'audio';
     isPreviewable = true;
+  } else if (
+    normalizedMime === 'text/html' ||
+    normalizedMime === 'application/xhtml+xml' ||
+    HTML_EXTENSIONS.has(ext)
+  ) {
+    previewType = 'html';
+    isPreviewable = true;
+    isEditable = true;
+    languageHint = 'html';
   } else if (TEXT_MIME_TYPES.has(normalizedMime) || normalizedMime.startsWith('text/')) {
     previewType = 'text';
     isPreviewable = true;

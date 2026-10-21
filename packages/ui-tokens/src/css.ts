@@ -15,7 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
-import { ELEVATION, FONT_SIZE, MARKETPLACE_LAYOUT, MOTION, SIZING, UI_COMPONENT } from './tokens.js';
+import { COLOR, ELEVATION, FONT_SIZE, MARKETPLACE_LAYOUT, MOTION, SHELL, SIZING, UI_COMPONENT } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -129,6 +129,10 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-elevation-floating': ELEVATION.floating,
     '--vestara-elevation-floating-up': ELEVATION.floatingUp,
     '--vestara-elevation-inset': ELEVATION.inset,
+    // Shell (workspace-ui-v2) compositor recipes — windows/dock/login glass.
+    '--vestara-elevation-shell-float': ELEVATION.shellFloat,
+    '--vestara-elevation-shell-focus': ELEVATION.shellFocus,
+    '--vestara-elevation-shell-glow': ELEVATION.shellGlow,
 
     // Motion (theme-invariant rhythm — sourced from MOTION tokens,
     // not per-theme values). Hosts bind transitions/animations here so
@@ -145,6 +149,7 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     // and had no CSS variable, so any component needing one specific size had
     // to hardcode `text-[Npx]`. These names intentionally avoid the legacy
     // xs/sm/base/lg/2xl overrides in apps/workspace/src/styles/index.css.
+    '--vestara-font-size-micro-small': FONT_SIZE.microSmall,
     '--vestara-font-size-micro': FONT_SIZE.micro,
     '--vestara-font-size-caption': FONT_SIZE.caption,
     '--vestara-font-size-label': FONT_SIZE.label,
@@ -154,6 +159,7 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-font-size-title-small': FONT_SIZE.titleSmall,
     '--vestara-font-size-section-title': FONT_SIZE.sectionTitle,
     '--vestara-font-size-page-title': FONT_SIZE.pageTitle,
+    '--vestara-font-size-title-large': FONT_SIZE.titleLarge,
     '--vestara-font-size-display': FONT_SIZE.display,
 
     // VES-DESIGN-008: sizing scale (theme-invariant geometry sourced from
@@ -167,6 +173,36 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     // VES-UI-001 T1: desktop top bar geometry (theme-invariant).
     '--vestara-sizing-topbar-height': SIZING.topbar.height,
     '--vestara-sizing-topbar-spotlight-width': SIZING.topbar.spotlightWidth,
+    // Shell navigation geometry (theme-invariant, sourced from SIZING.sidebar).
+    // The collapsed rail derives from the top-bar height (2× rows) so the
+    // icon rail stays square with the full-width header rhythm.
+    '--vestara-sizing-sidebar-width': SIZING.sidebar.width,
+    '--vestara-sizing-sidebar-collapsed-width': SIZING.sidebar.collapsedWidth,
+
+    // Shell (workspace-ui-v2) fixed identity palette (theme-invariant —
+    // sourced from COLOR.shell, not per-theme values). The teal desktop keeps
+    // one identity in every theme mode.
+    '--vestara-surface-shell-canvas': COLOR.shell.canvas,
+    '--vestara-surface-shell-panel': COLOR.shell.panel,
+    '--vestara-surface-shell-raised': COLOR.shell.raised,
+    '--vestara-surface-shell-hover': COLOR.shell.hover,
+    '--vestara-border-shell': COLOR.shell.border,
+    '--vestara-accent-shell': COLOR.shell.accent,
+    '--vestara-accent-shell-glow': COLOR.shell.accentGlow,
+    '--vestara-text-shell-primary': COLOR.shell.textPrimary,
+    '--vestara-text-shell-secondary': COLOR.shell.textSecondary,
+    '--vestara-text-shell-muted': COLOR.shell.textMuted,
+    '--vestara-text-shell-faint': COLOR.shell.textFaint,
+    '--vestara-text-shell-bright': COLOR.shell.textBright,
+    '--vestara-status-shell-success': COLOR.shell.success,
+    '--vestara-status-shell-warning': COLOR.shell.warning,
+    '--vestara-status-shell-danger': COLOR.shell.danger,
+    '--vestara-status-shell-danger-light': COLOR.shell.dangerLight,
+    '--vestara-status-shell-info': COLOR.shell.info,
+    '--vestara-color-shell-ink': COLOR.shell.ink,
+    '--vestara-color-shell-shadow': COLOR.shell.shadowBlack,
+    // Shell display face (Instrument Serif — fixed shell identity).
+    '--vestara-font-family-display': SHELL.fontDisplay,
 
     // VES-DESIGN-005 §M: Discover gallery layout (theme-invariant geometry
     // sourced from MARKETPLACE_LAYOUT — identical in dark/light).

@@ -193,13 +193,6 @@ function M11CParticipantRail({
     <div className="ar-rail" role="region" aria-label="Participants">
       <div className="ar-rail__sticky-head">
         <div className="ar-rail__head">
-        {/* Panel-level staleness honesty (AR-LIVE-001): roster and work
-            state arrive with the snapshot and refresh on reconnect. */}
-        <p className="ar-rail__freshness">
-          <span>Roster snapshot</span>
-          <span aria-hidden="true">·</span>
-          <span>Refreshes on reconnect</span>
-        </p>
         <button
           type="button"
           onClick={() => {

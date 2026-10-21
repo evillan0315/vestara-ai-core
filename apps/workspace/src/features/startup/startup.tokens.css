@@ -32,11 +32,12 @@
 
 /* ── Canvas artwork ──
     Clean planet/mountain/valley artwork (no baked text) sourced from
-    assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png
-    (1671x941 baseline, byte-identical to the previously vendored PNG).
-    VES-UI-001 T1/G12: served as ONE optimized size — AVIF (59 KB) →
-    WebP (65 KB) → PNG fallback (1.78 MB) via `<picture>` in
+    assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png,
+    transcoded to ONE optimized size (1280×721, Tauri `main` window width).
+    VES-UI-001 T1/G12 + VES-UI-002 U4: served as AVIF (~42 KB) →
+    WebP (~45 KB) → PNG fallback (~0.96 MB) via `<picture>` in
     `StartupWallpaper.tsx` (`loading="lazy"`, `decoding="async"`).
+    `public/startup/` ships exactly this 3-file set — no 1.8 MB+ PNG.
     Text, logo, card, checklist, and status stay independently rendered
     above a token scrim so runtime state can change. */
 .st-canvas-artwork {

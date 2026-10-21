@@ -18,7 +18,12 @@
 import { now } from './db';
 import { DEFAULT_APPROVAL_POLICY } from './policies';
 import { canRetryAttempt, canRevise, DEFAULT_RETRY_POLICY, type RetryPolicy } from './retry-policy';
-import { canTransitionProject, canTransitionTask } from './state-machines';
+import {
+  canTransitionProject,
+  canTransitionTask,
+  isRecoverableTaskStatus,
+  RECOVERABLE_TASK_STATUSES,
+} from './state-machines';
 import type { ArtifactStore, FileLockRegistry, PlanStore, ProjectStore, TaskStore } from './stores';
 import type { CreateProjectInput } from './stores/project-store';
 import type { CreateTaskInput } from './stores/task-store';
@@ -454,15 +459,31 @@ export class WorkflowOrchestrator {
   }
 
   /**
-   * Requeue a blocked or failed task for another dispatch.
+   * Requeue a recoverable task for another dispatch.
    *
    * `resume` deliberately skips terminal task states, so a task that exhausted
    * its bounded retries cannot recover through the normal execution loop. This
    * is the governed operator path: it validates project/plan ownership, moves
    * the task back to `assigned` via the state machine, resets attempt
    * accounting, and records `task.requeued` for replay.
+   *
+   * Recoverable states (RECOVERABLE_TASK_STATUSES):
+   * - `blocked` / `failed` — the task ran and did not complete.
+   * - `retrying` — the process died between the failed attempt and its retry.
+   * - `in-progress` — the dispatch died mid-flight (crash, restart, or a hung
+   *   agent turn). `runExecution` only dispatches `pending` / `ready` /
+   *   `assigned` tasks, so such a task is never picked up again and it keeps
+   *   the file locks it acquired — every dependent task blocks forever.
+   *
+   * Recovery reclaims those stale locks before the task is re-dispatched, so
+   * dependents can proceed. The reclaim is audited as `file.lock.released`
+   * events and summarised on the `task.requeued` event.
    */
-  async requeueTask(projectId: string, taskId: string): Promise<ProjectSnapshot> {
+  async requeueTask(
+    projectId: string,
+    taskId: string,
+    options?: { readonly reason?: string },
+  ): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
     if (project.phase !== 'executing') {
       throw new Error(`Project ${projectId} is not executing (phase=${project.phase})`);
@@ -473,8 +494,25 @@ export class WorkflowOrchestrator {
     if (!plan || plan.projectId !== projectId) {
       throw new Error(`Task ${taskId} does not belong to project ${projectId}`);
     }
-    if (task.status !== 'blocked' && task.status !== 'failed') {
-      throw new Error(`Task ${taskId} is not blocked or failed (status=${task.status})`);
+    if (!isRecoverableTaskStatus(task.status)) {
+      throw new Error(
+        `Task ${taskId} is not recoverable (status=${task.status}; recoverable=${RECOVERABLE_TASK_STATUSES.join(', ')})`,
+      );
+    }
+    // Reclaim the stale locks a wedged task still holds before re-dispatching
+    // it — otherwise every dependent task blocks on a lock nobody will free.
+    const releasedPaths = await this.reclaimLocksHeldBy(projectId, taskId);
+    // `failed` cannot reach `assigned` directly; the legal path is
+    // `failed → retrying → assigned` (both transitions are in the table).
+    if (!canTransitionTask(task.status, 'assigned')) {
+      await this.tasks.updateStatus(taskId, 'retrying');
+      await this.events.append({
+        type: 'task.retrying',
+        projectId,
+        planId: task.planId,
+        taskId,
+        at: now(),
+      });
     }
     await this.tasks.requeue(taskId);
     await this.events.append({
@@ -482,6 +520,9 @@ export class WorkflowOrchestrator {
       projectId,
       planId: task.planId,
       taskId,
+      fromStatus: task.status,
+      reason: options?.reason,
+      releasedPaths,
       at: now(),
     });
     return this.snapshot(projectId);
@@ -1227,6 +1268,20 @@ export class WorkflowOrchestrator {
       await this.locks.release(path, taskId);
       await this.events.append({ type: 'file.lock.released', projectId, path, taskId, at: now() });
     }
+  }
+
+  /**
+   * Release the file locks a task still holds.
+   *
+   * Locks are released when a dispatch returns; a dispatch that dies with the
+   * process leaks them and the leak outlives the task. The reclaim is audited
+   * with `file.lock.released` events so the trail shows which paths were
+   * freed and by whom.
+   */
+  private async reclaimLocksHeldBy(projectId: string, taskId: string): Promise<string[]> {
+    const held = (await this.locks.listActive()).filter((lock) => lock.taskId === taskId).map((lock) => lock.path);
+    await this.releaseLocks(projectId, taskId, held);
+    return held;
   }
 
   private async transitionTask(projectId: string, task: WorkflowTask, target: TaskStatus): Promise<void> {

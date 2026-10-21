@@ -176,14 +176,18 @@ export async function handleOrchestrationRoute(
   }
 
   // POST /api/orchestration/projects/:projectId/tasks/:taskId/retry
-  // Governed requeue for a task that exhausted its bounded retries.
+  // Governed requeue for a task that exhausted its bounded retries, or for a
+  // task wedged mid-flight (`in-progress` / `retrying` after a process
+  // death). Recovery reclaims the stale file locks the wedged task holds.
   const taskRetryMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/tasks\/([^/]+)\/retry$/);
   if (taskRetryMatch && method === 'POST') {
     if (!requireRole(req, ctx, 'editor', res)) return true;
+    const body = bodyOf(await readBody(req));
     try {
       const snapshot = await orchestrator.requeueTask(
         decodeURIComponent(taskRetryMatch[1]),
         decodeURIComponent(taskRetryMatch[2]),
+        { reason: str(body.reason) },
       );
       json(res, 200, { snapshot });
     } catch (error) {

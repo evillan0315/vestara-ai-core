@@ -40,78 +40,46 @@ const {
   AGENTS_MD_MANAGED_START,
   AGENTS_MD_MANAGED_END,
   getAgentCorePrompt,
-  getAgentPromptForTarget,
-  getAgentToolsForTarget,
-  getAgentModelHintForTarget,
+  renderOpencodeAgentFile,
+  renderTargetAgentFile,
 } = await import(dataUrl);
 
 function agentFileName(agent) {
   return `${agent.runtimeAgent ?? agent.role}.md`;
 }
 
-function agentModel(agent) {
-  const providerPrefix = agent.provider ?? 'opencode-go';
-  return agent.model?.includes('/') ? agent.model : `${providerPrefix}/${agent.model ?? ''}`;
-}
-
-// OpenCode permission keys. Note: no `write` key — writes/edits/patches are
-// gated by `edit`. Optional single-tool keys are emitted only when set.
-const PERMISSION_KEYS = [
-  'read',
-  'edit',
-  'glob',
-  'grep',
-  'list',
-  'bash',
-  'task',
-  'external_directory',
-  'todowrite',
-  'webfetch',
-  'websearch',
-  'lsp',
-  'skill',
-  'question',
-  'doom_loop',
-];
-
-function renderOpencode(agent) {
-  const p = agent.opencodePermissions;
-  const permissionLines = PERMISSION_KEYS.filter((k) => p[k] !== undefined).map((k) => `  ${k}: ${p[k]}`);
-  return [
-    GENERATED_HEADER,
-    '',
-    '---',
-    `description: "${agent.description ?? ''}"`,
-    `mode: ${agent.mode}`,
-    `model: ${agentModel(agent)}`,
-    'permission:',
-    ...permissionLines,
-    '---',
-    '',
-    getAgentCorePrompt(agent),
-    '',
-  ].join('\n');
-}
-
-// Non-OpenCode runtimes share the byte-identical core prompt; only the
-// frontmatter envelope and an optional adapter addendum differ per target.
-function renderTarget(agent, target) {
-  const tools = getAgentToolsForTarget(agent, target);
-  const modelHint = getAgentModelHintForTarget(agent, target);
-  const frontmatter = [
-    '---',
-    `description: "${agent.description ?? ''}"`,
-    `agent: ${agent.runtimeAgent ?? agent.role}`,
-    `runtime: ${target}`,
-    `mode: ${agent.mode}`,
-    `model: ${modelHint ?? agentModel(agent)}`,
-  ];
-  if (tools.length > 0) frontmatter.push(`tools: ${tools.join(', ')}`);
-  return [GENERATED_HEADER, '', ...frontmatter, '---', '', getAgentPromptForTarget(agent, target), ''].join('\n');
-}
-
+// The renderer lives in the registry (single source of truth) so the generated
+// files and the tests that guard them can never drift apart.
 function renderAgent(agent, target) {
-  return target === 'opencode' ? renderOpencode(agent) : renderTarget(agent, target);
+  return target === 'opencode' ? renderOpencodeAgentFile(agent) : renderTargetAgentFile(agent, target);
+}
+
+/**
+ * Semantic guard: the generated file must START with the YAML frontmatter
+ * delimiter.
+ *
+ * Runtimes parse frontmatter only when the file begins with `---`. A leading
+ * provenance comment (or blank line) makes the runtime read the frontmatter as
+ * prompt text and silently drop `description`, `mode`, `model` and
+ * `permission` — the agent then inherits the global permission block, so a
+ * governed `bash: allow` grant degrades to the global `bash: ask` and workflow
+ * agents can never run a shell command. Byte-equality with the renderer is not
+ * enough here: a renderer regression would be reproduced in both the file and
+ * the expectation, so this invariant is asserted explicitly.
+ */
+function assertFrontmatterFirst(content, file) {
+  if (!content.startsWith('---\n')) {
+    console.error(`[agents:check] INVALID frontmatter in ${file} — the file must start with "---"`);
+    process.exitCode = 1;
+    return false;
+  }
+  const closing = content.indexOf('\n---\n', 3);
+  if (closing === -1) {
+    console.error(`[agents:check] INVALID frontmatter in ${file} — no closing "---" delimiter`);
+    process.exitCode = 1;
+    return false;
+  }
+  return true;
 }
 
 function expectedFiles() {
@@ -161,6 +129,9 @@ function syncTargetDir(label, baseDir, target) {
         process.exitCode = 1;
         continue;
       }
+      // Frontmatter-first is a runtime-correctness invariant, not a cosmetic
+      // one: without it the runtime drops the agent's permission grants.
+      if (!assertFrontmatterFirst(content, file)) continue;
     } else {
       writeFileSync(file, content);
     }

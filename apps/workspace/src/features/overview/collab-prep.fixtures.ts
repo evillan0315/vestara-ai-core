@@ -66,6 +66,12 @@ export const collabPrepFixture: CollabPrepViewModel = {
       detail: 'PROP-ANDY-MCCRAW-ONEPAGER-001 · pitch, 5 stops, 7 questions',
       path: `${DOCS_BASE}/PROP-ANDY-MCCRAW-ONEPAGER-001.md`,
     },
+    {
+      id: 'clinical-os-plan',
+      label: 'Clinical OS build plan (ClinicalNotes.ai)',
+      detail: 'VES-CLINICAL-001 · Intelligent OS for Behavioral Health + templates',
+      path: 'docs/plans/VES-CLINICAL-001-clinical-notes-os-plan.md',
+    },
   ],
   demoSteps: [
     { id: 'shell', title: 'Desktop shell', detail: 'Boot → login → dock/windows' },
@@ -75,5 +81,6 @@ export const collabPrepFixture: CollabPrepViewModel = {
     { id: 'bridge', title: 'Specialty bridge', detail: 'EHR ↔ wedge ↔ Vestara agents (whiteboard)' },
   ],
   questionCount: 7,
-  questionsHint: 'Optometry findings · ClinicalNotes.ai · back-office wedge · voice-AI lesson · SME plan · capacity · Welligent 2.0',
+  questionsHint:
+    'Optometry findings · ClinicalNotes.ai · back-office wedge · voice-AI lesson · SME plan · capacity · Welligent 2.0',
 };

@@ -60,7 +60,10 @@ export const TASK_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   ready: ['assigned', 'awaiting-approval', 'blocked', 'cancelled'],
   'awaiting-approval': ['ready', 'assigned', 'blocked', 'cancelled'],
   assigned: ['in-progress', 'failed', 'cancelled'],
-  'in-progress': ['awaiting-verification', 'needs-review', 'testing', 'completed', 'failed', 'cancelled'],
+  // `assigned` is the operator recovery path (see RECOVERABLE_TASK_STATUSES):
+  // a dispatch that died with the process leaves the task `in-progress`, and
+  // only the governed requeue may put it back in the dispatch queue.
+  'in-progress': ['awaiting-verification', 'needs-review', 'testing', 'completed', 'failed', 'cancelled', 'assigned'],
   'awaiting-verification': ['in-progress', 'failed', 'cancelled'],
   'needs-review': ['reviewing', 'cancelled'],
   reviewing: ['approved', 'changes-requested', 'blocked', 'cancelled'],
@@ -73,6 +76,23 @@ export const TASK_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   completed: [],
   cancelled: [],
 };
+
+/**
+ * Task states the governed operator requeue path may recover.
+ *
+ * - `blocked` / `failed` — the task ran and did not complete.
+ * - `retrying` — the process died between the failed attempt and its retry.
+ * - `in-progress` — the dispatch died mid-flight (crash, restart, or a hung
+ *   agent turn). `runExecution` only dispatches `pending` / `ready` /
+ *   `assigned` tasks, so a task left in these two states is unreachable for
+ *   the automatic loop and wedges the project — it also keeps the file locks
+ *   it acquired, which blocks every dependent task.
+ */
+export const RECOVERABLE_TASK_STATUSES: readonly TaskStatus[] = ['blocked', 'failed', 'retrying', 'in-progress'];
+
+export function isRecoverableTaskStatus(status: TaskStatus): boolean {
+  return RECOVERABLE_TASK_STATUSES.includes(status);
+}
 
 export function createTaskMachine(initial: TaskStatus = 'pending'): StateMachine<TaskStatus, TaskStatus> {
   return createStateMachine({ initial, states: TASK_TRANSITIONS });

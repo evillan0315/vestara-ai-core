@@ -1,22 +1,22 @@
 ---
 title: VES-UI-001 — Workspace UI v2 Desktop Shell + Package Alignment Plan
-version: 1.0.0
+version: 1.1.0
 status: proposed
 owner: vestara
-last-reviewed: 2026-10-18
-next-review: 2026-11-01
+last-reviewed: 2026-10-21
+next-review: 2026-11-21
 ---
 
 # VES-UI-001 — Workspace UI v2 Desktop Shell + Package Alignment Plan
 
 | Field | Value |
 |---|---|
-| Status | PROPOSED — awaiting reviewer + audit. The visual gate was removed with the visual governance layer on 2026-10-21, so the remaining gates are the non-visual ones (lint, build, test, docs) |
+| Status | VERIFICATION-FAILED (2026-10-21) — visual gate red 24/40, reopened to `executing`; fix-forward in progress. The visual gate was removed with the visual governance layer on 2026-10-21, so the remaining gates are the non-visual ones (lint, build, test, docs) |
 | Scope | New Workspace UI v2 desktop shell (web-first, then OS port) + governed refactor of aligned packages |
 | Source prototype | `assets/templates/html/v2/start/workspace-ui-v2/` (Vite + React 18.3.1 + Tailwind 3.4, v7.15.112) |
 | Target | `apps/workspace` (`@vestara/workspace-ui`, React 19.2 + Tailwind v4 + MUI icons (currently v6.4.0), app v1.1.0) |
 | Implementation | NOT YET AUTHORIZED (phases execute on approval) |
-| Last Updated | 2026-10-20 (T10 docs + audit pass; status still PROPOSED — reviewer/verifier/Director pending) |
+| Last Updated | 2026-10-21 (verification failed on visual gate — 24/40 shell cases red; project reopened to executing, fix-forward; T8 deferred, see §13; VES-UI-002 U5 tests+docs gates landed, see follow-up) |
 
 > All UI work follows `docs/governance/UI-UX-GOVERNANCE.md` (tokens via
 > `var(--vestara-*)`, no hardcode, validate via `pnpm vds:validate`).
@@ -278,7 +278,7 @@ are the orchestration handles for reviewer/audit.
 | Orchestrator | Re-registered plan through the API with G12/G13 scope (D2); old project cancelled | Done 2026-10-19 |
 | Developer (T10) | Docs + governance + audit pass: CSP-010/CSP-016 status notes, gate record + findings T10-B/A/O below (docs scope only, no implementation changes) | Done 2026-10-20 |
 | Reviewer | Governance + scope review (§11 checklist) | Pending |
-| Verifier | Independent audit (evidence vs claims, gates green) | Pending |
+| Verifier | Independent audit — **first verification FAILED 2026-10-21** (visual gate 24/40 red; artifact `artifact-1792533517604-1`; auto-reopen #1 consumed, project back to `executing`) | Failed → fix-forward |
 | Director | Approval to execute (phases run only on approval) | Pending |
 
 **Audit findings (self-audit 2026-10-18):**
@@ -324,11 +324,12 @@ are the orchestration handles for reviewer/audit.
 | T10-O2 | OBSERVATION | `--ds-font-mono` carries a `'JetBrains Mono'` fallback literal inside `var()` (low confidence issue; matches plan §2 TYPOGRAPHY mapping). Reviewer may confirm the canonical mono token covers it. | `desktop-shell.tokens.css:53` |
 | T10-O3 | OBSERVATION | `screenshots:ci` and `documentation:check` bisection vs clean tree not performed (no `stash` — would disturb uncommitted T0–T8 work). T10-B2 may partly pre-date the working tree; confidence: medium that ≥1 finding correlates with uncommitted changes. | — |
 
-> Orchestration handles (re-registered 2026-10-19; supersedes the 2026-10-18 handles):
-> - Project: `project-1792412250418-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `architecture` — ready for review)
-> - Plan: `plan-1792412251142-1` (status `proposed`, revision 1)
-> - Tasks: `task-1792412251312-1` … `task-1792412251312-11` (all `pending`; T0→T10 in §12 order)
-> - Artifacts: `artifact-1792412250905-1` (analysis), `artifact-1792412252217-2` (plan)
+> Orchestration handles (re-registered 2026-10-19; supersedes the 2026-10-18 handles;
+> state as of 2026-10-21 — verification failed, project reopened):
+> - Project: `project-1792412250418-1` (`ves-ui-001-workspace-ui-v2-shell`, phase `executing` — was `verifying`, reopened after failed verification; `verificationReopens: 1`, auto-reopen consumed)
+> - Plan: `plan-1792412251142-1` (status `approved`, revision 1)
+> - Tasks: `task-1792412251312-1` … `task-1792412251312-11` (all `completed`)
+> - Artifacts: `artifact-1792412250905-1` (analysis), `artifact-1792412252217-2` (plan), per-task changeset/review/test triples, `artifact-1792533517604-1` (verification — FAILED)
 > - Durable state: project/plan/tasks/artifacts persisted in `.vestara/plans/plans.db`.
 > - Audit trail: **present** — 17 correlated `orchestration.*` events
 >   (project.created, 3× phase.changed, analysis.completed, plan.generated,
@@ -339,3 +340,64 @@ are the orchestration handles for reviewer/audit.
 > Reviewer: call `POST /api/orchestration/projects/:id/architecture` with
 > `{architectId, status: approved|violations, findings}`. On approval the plan
 > moves to `reviewed` and the project to `pending-approval` for Director sign-off.
+
+### Verification record (2026-10-21 — verifier, via API)
+
+First `runVerification` on `project-1792412250418-1` returned **failed** and the
+project auto-reopened `verifying → executing` (`project.verification.reopened`,
+`reopenCount: 1` — the single governed reopen is now consumed; a second failure
+parks as `verification.awaiting-approval` for human decision).
+
+| Check | Result | Evidence |
+|---|---|---|
+| `git diff --check` | ✅ pass | clean, exit 0 |
+| `pnpm vds:validate` | ✅ pass | `VDS validation passed (VDS 1.1 · Workspace/TUI/CLI aligned)` |
+| Targeted tests (orchestrator + next-action) | ✅ pass | 2 files / 25 tests; full suite same tree 217 files / 1735 tests green (pretest `tsc -b` clean) |
+| Visual regression (startup/login/orchestration/overview/files × desktop × dark/light) | ❌ **fail — the verdict driver** | 16 pass (startup+login 16/16), 24 fail: overview 8/8 (2.3–21.6 %), orchestration 8/8 (7.2–12.9 %), files 8/8 (4.2–9.1 %). All fails are pixel diffs vs pre-polish baselines from the 10 intentional restyle commits `7386612..ec8741e`; 0 missing, 0 errors. Report: `apps/workspace/tests/visual/.artifacts/reports/visual-regression.json` |
+| `pnpm lint:check` | ⚠️ not run (blocked) | Last green 2026-10-20 19:11 PHT predates `3a261b1`/`55e8662`/`ec8741e`; must re-run before any `passed:true` verdict |
+
+Fix-forward (required before re-verify): human review of the 24 diff images in
+`apps/workspace/tests/visual/.artifacts/diff/`, then `pnpm screenshots:update`
+to approve, plus fresh `pnpm lint:check`. Out-of-scope rider `9bb77e6`
+(Andy McCraw call package) is named here so the audit trail stays honest.
+
+### T8 host-port decision (2026-10-21 — DEFERRED)
+
+Evidence: task `task-1792412251312-9` is `completed` with files
+`["os/", "packages/os-controller/src/index.ts", "packages/boot-runtime/src/index.ts"]`,
+but the last real `os/` commit is `5d8f164` (2026-10-13, a week before the
+workflow) and every per-task artifact body reads only `"Verification passed"`.
+T8 has **no on-disk evidence** — the Phase 5 gate (web validation + explicit host
+decision: Tauri vs OS-0) was never satisfied on record.
+
+Decision: **defer the OS host port.** Rationale: web validation itself only just
+reached the verification gate (and failed on visuals); porting an unverified
+shell to a host target multiplies rework. The `completed` status on T8 is
+recorded as *deferred-by-decision*, not *ported* — no `verify` verdict certifies
+an OS port.
+
+Follow-up (created 2026-10-21, Director decision: Tauri-first): `project-1792534106380-1`
+(`ves-ui-002-os-host-port-tauri`, plan approved `plan-1792534155109-1`,
+`director-approval-2026-10-21`, phase `executing` — 6 tasks U0–U5): (1) U0
+Tauri capability audit, (2) U1 bundle config, (3) U2 window-lifecycle
+boot/shutdown bridge via `boot-runtime`, (4) U3 `teal://vestara-shell`
+deep-link scheme (greenfield — absent from `tauri.conf.json`/`Cargo.toml`),
+(5) U4 transcoded wallpaper assets in bundle (G12 carryover), (6) U5 tests +
+visual/docs gates. `os/` systemd/Plymouth scope explicitly excluded. The
+follow-up has its own plan record:
+[VES-UI-002 — OS Host Port (Tauri) Plan](VES-UI-002-os-host-port-tauri-plan.md).
+
+### VES-UI-002 U5 record (2026-10-21 — tests + visual/docs gates)
+
+| Obligation | Verdict | Evidence |
+|---|---|---|
+| Vitest for bridge mapping | ✅ ESTABLISHED | `packages/boot-runtime/__tests__/shell-bridge.test.ts` — 7 tests green: `SHELL_PHASES` 6-phase order, `BOOT_STAGES` 8-stage unchanged guard (bridge additive, no boot mutation), `shellPhaseForBootStage` (mid-boot→`boot`, `workspace-ready`/`ready`→`login`, `recovery` stage/status and `failed` status→`boot`) |
+| Vitest for deep-link mapping | ❌ NOT ESTABLISHED — blocked on U3 | No on-disk implementation: `rg "teal://"` in `packages/*/src` + `apps/*/src` empty; `rg -i "deep.link|url.scheme|custom.protocol|onDeepLink"` in `apps/workspace/src-tauri` + `packages/boot-runtime/src` + `packages/os-controller/src` empty. No tests written — failing-contract tests would red the suite |
+| Visual gate for bundled app | ⚠️ Playwright cannot target the bundle — documented, web gate remains the proxy | `apps/workspace/playwright.config.ts` drives Playwright-bundled Chromium over HTTP (`PLAYWRIGHT_BASE_URL` → Vite dev `webServer`); `runner/viewport.ts` uses `browser.newContext` (Playwright-owned browser only). The Tauri bundle renders in OS WebView (WebKitGTK/WebView2/WKWebView) with no CDP endpoint; no `tauri-driver`/`webdriverio` in any workspace manifest. Proxy holds: `tauri.conf.json` `frontendDist: ../dist` bundles the same Vite production build the web gate screenshots — pixel behavior identical modulo WebView-vs-Chromium deltas. Bundle-native chrome (window frame, deep-link handling) is out of Playwright scope; `tauri-driver` (WebDriver) is the future path, not wired |
+| CSP notes | ✅ recorded | `tauri.conf.json` `app.security.csp: null` — bundle ships with no CSP (web app relies on server headers/dev defaults); noted in CSP-010/CSP-016 status notes. Deep-link scheme absent — no scheme-handler attack surface yet; CSP/scheme review due when U3 lands |
+
+U5 touched scope: `packages/boot-runtime/__tests__/shell-bridge.test.ts` (new),
+this plan doc (follow-up only), `docs/capabilities/CSP-010-workspace-ui/README.md`
++ `docs/capabilities/CSP-016-os-integration/README.md` (status notes only).
+No implementation files mutated. Gates for touched scope: `bash build-order.sh`
+clean, focused vitest 7/7 green, `pnpm lint:check`, `pnpm vds:validate`.

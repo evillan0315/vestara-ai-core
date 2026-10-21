@@ -105,11 +105,28 @@ export interface OpenCodeConfig {
   readonly permission?: Record<string, unknown>;
 }
 
+/** One resolved permission rule as reported by the runtime's agent registry. */
+export interface OpenCodePermissionRule {
+  /** Permission key (e.g. `bash`, `edit`, `read`) or `*` for a wildcard. */
+  readonly permission: string;
+  /** Resource pattern the rule applies to. */
+  readonly pattern: string;
+  /** Resolved action: `allow` | `ask` | `deny`. */
+  readonly action: string;
+}
+
 export interface OpenCodeAgentSummary {
   readonly name: string;
   readonly description?: string;
   readonly mode?: string;
   readonly native?: boolean;
+  /**
+   * Resolved permission ruleset for the agent, in evaluation order — the LAST
+   * matching rule for a permission key wins. Exposed so callers can verify
+   * the effective grants (e.g. that a workflow agent resolved `bash → allow`
+   * rather than inheriting the global `bash → ask`).
+   */
+  readonly permission?: readonly OpenCodePermissionRule[];
 }
 
 export interface OpenCodeCommandSummary {

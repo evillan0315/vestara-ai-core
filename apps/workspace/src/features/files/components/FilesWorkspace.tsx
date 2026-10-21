@@ -924,13 +924,15 @@ export function FilesWorkspace({
                       }
                     />
 
-                    {view &&
-                      !view.isLoading &&
-                      !view.error &&
-                      view.classification
-                        .previewType === 'text' &&
-                      view.content !==
-                        undefined && (
+                      {view &&
+                        !view.isLoading &&
+                        !view.error &&
+                        (view.classification
+                          .previewType === 'text' ||
+                          view.classification
+                            .previewType === 'html') &&
+                        view.content !==
+                          undefined && (
                         <EditorStatusFooter
                           filePath={activeTabPath}
                           hasUnsavedChanges={tabs.isDirty(

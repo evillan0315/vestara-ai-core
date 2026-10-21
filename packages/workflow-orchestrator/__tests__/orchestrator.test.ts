@@ -209,12 +209,12 @@ describe('WorkflowOrchestrator — retries and failures', () => {
     expect(calls).toBe(4);
   });
 
-  it('refuses to requeue a task that is not blocked or failed', async () => {
+  it('refuses to requeue a task that is not recoverable', async () => {
     const { orchestrator } = await setup();
     const project = await driveToExecution(orchestrator);
     const pending = (await orchestrator.snapshot(project.id)).tasks[0];
 
-    await expect(orchestrator.requeueTask(project.id, pending.id)).rejects.toThrow('not blocked or failed');
+    await expect(orchestrator.requeueTask(project.id, pending.id)).rejects.toThrow('not recoverable');
   });
 
   it('does not re-dispatch terminal tasks on resume', async () => {
@@ -254,5 +254,96 @@ describe('WorkflowOrchestrator — verification and locks', () => {
     const snapshot = await orchestrator.snapshot(project.id);
     expect(snapshot.tasks[0].status).toBe('blocked');
     expect(events.some((event) => event.type === 'file.lock.conflict')).toBe(true);
+  });
+});
+
+describe('WorkflowOrchestrator — recovery of wedged tasks', () => {
+  /**
+   * A dispatch that dies with the process leaves the task `in-progress` and
+   * keeps the file locks it acquired. `runExecution` only dispatches
+   * `pending` / `ready` / `assigned` tasks, so such a task wedges the project
+   * and blocks every dependent task on its stale locks.
+   */
+  it('recovers a task wedged in-progress and reclaims its stale file locks', async () => {
+    const { orchestrator, events, tasks, locks } = await setup();
+    const project = await driveToExecution(orchestrator);
+    const task = (await orchestrator.snapshot(project.id)).tasks[0];
+
+    // Simulate the wedged dispatch: the task started and still holds its lock.
+    await tasks.markStarted(task.id);
+    await locks.acquire({ path: 'src/a.ts', holderAgentId: 'developer-1', taskId: task.id });
+    expect((await locks.listActive()).map((lock) => lock.path)).toEqual(['src/a.ts']);
+
+    await orchestrator.requeueTask(project.id, task.id, { reason: 'dispatch died with the process' });
+
+    const recovered = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(recovered.status).toBe('assigned');
+    expect(recovered.startedAt).toBeUndefined();
+    expect(recovered.lastError).toBeUndefined();
+    // The stale lock is gone — a dependent task can now acquire it.
+    expect(await locks.listActive()).toHaveLength(0);
+
+    const requeued = events.find((event) => event.type === 'task.requeued');
+    expect(requeued).toBeDefined();
+    expect(requeued?.fromStatus).toBe('in-progress');
+    expect(requeued?.reason).toBe('dispatch died with the process');
+    expect(requeued?.releasedPaths).toEqual(['src/a.ts']);
+    expect(events.filter((event) => event.type === 'file.lock.released' && event.path === 'src/a.ts')).toHaveLength(1);
+  });
+
+  it('recovers a task stuck in retrying', async () => {
+    const { orchestrator, events, tasks } = await setup();
+    const project = await driveToExecution(orchestrator);
+    const task = (await orchestrator.snapshot(project.id)).tasks[0];
+    await tasks.updateStatus(task.id, 'retrying');
+
+    await orchestrator.requeueTask(project.id, task.id);
+
+    const recovered = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(recovered.status).toBe('assigned');
+    const requeued = events.find((event) => event.type === 'task.requeued');
+    expect(requeued?.fromStatus).toBe('retrying');
+  });
+
+  it('routes a failed task through the legal failed → retrying → assigned path', async () => {
+    const { orchestrator, events, tasks } = await setup();
+    const project = await driveToExecution(orchestrator);
+    const task = (await orchestrator.snapshot(project.id)).tasks[0];
+    // A task can persist as `failed` when the process dies between the failed
+    // attempt and the retry bookkeeping. `failed` has no direct edge to
+    // `assigned`, so the recovery walks the legal path.
+    await tasks.updateStatus(task.id, 'failed', 'dispatch failed');
+
+    await orchestrator.requeueTask(project.id, task.id);
+
+    const recovered = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(recovered.status).toBe('assigned');
+    expect(recovered.lastError).toBeUndefined();
+    expect(events.filter((event) => event.type === 'task.retrying')).toHaveLength(1);
+    expect(events.filter((event) => event.type === 'task.requeued')).toHaveLength(1);
+  });
+
+  it('re-dispatches a recovered task on resume', async () => {
+    let calls = 0;
+    const dispatcher = new FakeDispatcher(() => {
+      calls += 1;
+      return { status: 'completed', agentId: 'developer-1' };
+    });
+    const { orchestrator, tasks, locks } = await setup({ dispatcher });
+    const project = await driveToExecution(orchestrator);
+    const task = (await orchestrator.snapshot(project.id)).tasks[0];
+
+    // Wedged dispatch: started, still holding its lock, never settled.
+    await tasks.markStarted(task.id);
+    await locks.acquire({ path: 'src/a.ts', holderAgentId: 'developer-1', taskId: task.id });
+
+    await orchestrator.requeueTask(project.id, task.id);
+    expect(calls).toBe(0);
+
+    await orchestrator.resume(project.id);
+
+    const completed = (await orchestrator.snapshot(project.id)).tasks[0];
+    expect(completed.status).toBe('completed');
+    expect(calls).toBe(1);
   });
 });

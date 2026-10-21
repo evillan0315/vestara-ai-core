@@ -3,7 +3,7 @@ import type { FC } from 'react';
 
 export interface HeaderSearchProps {
   /**
-   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * Density for the 36px desktop top bar (`compact`) vs the legacy
    * 64px shell header (`cozy`, default). Compact renders the
    * prototype 200px Spotlight pill (h-6); cozy keeps the full-width
    * search button (h-11) untouched.

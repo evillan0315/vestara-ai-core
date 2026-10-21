@@ -13,7 +13,7 @@ export interface HeaderUserMenuProps {
   name: string;
   role?: string;
   /**
-   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * Density for the 36px desktop top bar (`compact`) vs the legacy
    * 64px shell header (`cozy`, default). Compact renders the prototype
    * avatar pill (h-6, 16px avatar, chevron only); the dropdown menu is
    * identical in both densities.

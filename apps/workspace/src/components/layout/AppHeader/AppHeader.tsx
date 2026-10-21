@@ -1,5 +1,5 @@
 /**
- * VES-UI-001 T1.5: AppHeader is now the 32px DesktopTopBar.
+ * VES-UI-001 T1.5: AppHeader is now the 36px DesktopTopBar.
  *
  * This module keeps the stable `AppHeader` import path (consumed by
  * `layouts/ShellLayout.tsx`) and delegates to `DesktopTopBar`. The legacy
@@ -7,7 +7,7 @@
  * variants remain exported from their own modules for non-shell consumers.
  *
  * Architecture Traceability:
- *   VES-UI-001 Phase 1 (T1.5 global chrome swap: `h-16` → `h-8`)
+ *   VES-UI-001 Phase 1 (T1.5 global chrome swap: `h-16` → token height)
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §4
  */
 

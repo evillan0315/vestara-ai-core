@@ -6,7 +6,7 @@ import { useNotifications } from '../../../lib/notifications';
 
 export interface HeaderNotificationsProps {
   /**
-   * Density for the 32px desktop top bar (`compact`) vs the legacy
+   * Density for the 36px desktop top bar (`compact`) vs the legacy
    * 64px shell header (`cozy`, default). Compact renders a 24px bell;
    * the dropdown panel is identical in both densities.
    */

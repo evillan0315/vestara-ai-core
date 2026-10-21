@@ -2,8 +2,9 @@
 /**
  * VES-UI-001 T1: DesktopTopBar guards.
  *
- * Locks the 32px global chrome contract:
- * - `h-8` header with a 20px inline `VestaraMark` (never `<img>`).
+ * Locks the 36px global chrome contract:
+ * - token-height header (`h-[var(--vestara-sizing-topbar-height)]`) with a
+ *   20px inline `VestaraMark` (never `<img>`).
  * - Spotlight trigger dispatches `open-command-palette` (bare `⌘K` is
  *   owned globally by `CommandPalette`).
  * - Clock renders `HH:MM` + accent seconds + date; status icons, compact
@@ -61,11 +62,11 @@ describe('formatTopBarClock', () => {
 });
 
 describe('DesktopTopBar', () => {
-  it('renders 32px chrome with a 20px inline Vestara mark', () => {
+  it('renders 36px chrome with a 20px inline Vestara mark', () => {
     const { container } = renderTopBar({ version: 'v1.0.0' });
     const header = container.querySelector('header.shell-topbar');
     expect(header).toBeInTheDocument();
-    expect(header).toHaveClass('h-8');
+    expect(header).toHaveClass('h-[var(--vestara-sizing-topbar-height)]');
     expect(header?.querySelector('header.h-16')).toBeNull();
 
     const mark = header?.querySelector('svg[aria-label="Vestara"]');
