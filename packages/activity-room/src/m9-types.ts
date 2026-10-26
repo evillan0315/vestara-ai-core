@@ -302,6 +302,15 @@ export interface M9ActivityStore {
   append(event: ActivityEvent): Promise<ActivityRecord>;
 
   /**
+   * Append several canonical events with identical per-event semantics to
+   * append (idempotent dedup, monotonic sequence allocation, insertion
+   * order). Implementations may commit the batch in a single transaction;
+   * callers must not rely on partial visibility. Optional: when absent,
+   * callers fall back to sequential append.
+   */
+  appendMany?(events: readonly ActivityEvent[]): Promise<readonly ActivityRecord[]>;
+
+  /**
    * Query activities with filters. Returns results in deterministic order.
    */
   query(q: M9ActivityQuery): Promise<readonly ActivityRecord[]>;

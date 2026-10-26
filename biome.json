@@ -11,6 +11,7 @@
       "!apps/workspace",
       "!assets/templates/html",
       "!assets/templates/react",
+      "!assets/templates/start",
       "!packages/evaluation/fixtures",
       "!packages/opencode-runtime/openapi",
       "!packages/opencode-runtime/src/generated"

@@ -67,8 +67,14 @@ export default defineConfig({
     // apps/workspace/tests/e2e/**/*.spec.ts (mirrors the app-local
     // vite.config.ts exclude). Without this, @playwright/test specs are
     // collected by Vitest and can hang/fail on constrained runners.
+    // Ownership boundary: apps/workspace-ui-v2 runs its own harness
+    // (its own vitest.config.ts with @vitejs/plugin-react, invoked via
+    // `pnpm --filter workspace-ui-v2 test` in CI). Without this, the root
+    // runner collects its colocated tests with no JSX transform and fails
+    // them with `React is not defined`.
     exclude: [
       ...configDefaults.exclude,
+      'apps/workspace-ui-v2/**',
       'apps/workspace/tests/visual/**/*.spec.ts',
       'apps/workspace/tests/e2e/**/*.spec.ts',
     ],

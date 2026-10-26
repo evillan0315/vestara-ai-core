@@ -71,6 +71,13 @@ jobs:
         run: |
           pnpm test
 
+      # apps/workspace-ui-v2 owns its own vitest config (JSX transform via
+      # @vitejs/plugin-react) and is excluded from the root runner. Its
+      # suite runs here so coverage is not dropped.
+      - name: workspace-ui-v2 suite (own harness)
+        run: |
+          pnpm --filter workspace-ui-v2 test
+
       # Temporarily advisory while documentation repository boundaries and
       # existing Core findings are reconciled. Reports remain available as
       # evidence, but known documentation debt does not block code integration.

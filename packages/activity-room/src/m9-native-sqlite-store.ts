@@ -111,79 +111,85 @@ export class NativeSqliteActivityStore implements IActivityStore {
   }
 
   async append(event: ActivityEvent): Promise<ActivityRecord> {
-    return this.inTransaction(() => {
-      const existing = this.db.prepare('SELECT * FROM m9_activity_events WHERE event_id = ?').get(event.eventId) as
-        | Row
-        | undefined;
-      if (existing !== undefined) return this.rowToRecord(existing);
+    return this.inTransaction(() => this.insertEvent(event));
+  }
 
-      const allocated = this.db
-        .prepare(
-          `UPDATE m9_sequence_allocator
-           SET next_sequence = next_sequence + 1
-           WHERE allocator_id = 1
-           RETURNING next_sequence - 1 AS allocated_sequence`,
-        )
-        .get() as Row | undefined;
-      if (allocated === undefined) throw new Error('M9 sequence allocator is not initialized');
+  async appendMany(events: readonly ActivityEvent[]): Promise<readonly ActivityRecord[]> {
+    return this.inTransaction(() => events.map((event) => this.insertEvent(event)));
+  }
 
-      const sequenceNumber = Number(allocated.allocated_sequence);
-      const record: ActivityRecord = {
-        activityId: `act-${sequenceNumber}-${event.eventId.slice(0, 8)}` as ActivityRecordId,
-        eventId: event.eventId,
-        sequenceNumber,
-        type: event.type,
-        timestamp: event.timestamp,
-        executionId: event.executionId,
-        traceId: event.traceId,
-        requestId: event.requestId,
-        workflowRunId: event.workflowRunId,
-        taskId: event.taskId,
-        agentAssignmentId: event.agentAssignmentId,
-        repositoryBindingId: event.repositoryBindingId,
-        runtimeSessionBindingId: event.runtimeSessionBindingId,
-        aiBindingId: event.aiBindingId,
-        actor: event.actor,
-        actorId: event.actorId ?? event.actor.id,
-        source: event.source,
-        payload: event.payload,
-        visibility: event.visibility ?? 'all',
-      };
+  private insertEvent(event: ActivityEvent): ActivityRecord {
+    const existing = this.db.prepare('SELECT * FROM m9_activity_events WHERE event_id = ?').get(event.eventId) as
+      | Row
+      | undefined;
+    if (existing !== undefined) return this.rowToRecord(existing);
 
-      this.db
-        .prepare(
-          `INSERT INTO m9_activity_events (
-            activity_id, event_id, sequence_number, type, timestamp,
-            execution_id, trace_id, request_id, workflow_run_id, task_id,
-            agent_assignment_id, repository_binding_id, runtime_session_binding_id,
-            ai_binding_id, actor_type, actor_id, actor_display_name,
-            source, payload_json, visibility
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          record.activityId,
-          record.eventId,
-          record.sequenceNumber,
-          record.type,
-          record.timestamp,
-          record.executionId ?? null,
-          record.traceId ?? null,
-          record.requestId ?? null,
-          record.workflowRunId ?? null,
-          record.taskId ?? null,
-          record.agentAssignmentId ?? null,
-          record.repositoryBindingId ?? null,
-          record.runtimeSessionBindingId ?? null,
-          record.aiBindingId ?? null,
-          record.actor.type,
-          record.actor.id,
-          record.actor.displayName,
-          record.source,
-          JSON.stringify(record.payload),
-          record.visibility,
-        );
-      return record;
-    });
+    const allocated = this.db
+      .prepare(
+        `UPDATE m9_sequence_allocator
+         SET next_sequence = next_sequence + 1
+         WHERE allocator_id = 1
+         RETURNING next_sequence - 1 AS allocated_sequence`,
+      )
+      .get() as Row | undefined;
+    if (allocated === undefined) throw new Error('M9 sequence allocator is not initialized');
+
+    const sequenceNumber = Number(allocated.allocated_sequence);
+    const record: ActivityRecord = {
+      activityId: `act-${sequenceNumber}-${event.eventId.slice(0, 8)}` as ActivityRecordId,
+      eventId: event.eventId,
+      sequenceNumber,
+      type: event.type,
+      timestamp: event.timestamp,
+      executionId: event.executionId,
+      traceId: event.traceId,
+      requestId: event.requestId,
+      workflowRunId: event.workflowRunId,
+      taskId: event.taskId,
+      agentAssignmentId: event.agentAssignmentId,
+      repositoryBindingId: event.repositoryBindingId,
+      runtimeSessionBindingId: event.runtimeSessionBindingId,
+      aiBindingId: event.aiBindingId,
+      actor: event.actor,
+      actorId: event.actorId ?? event.actor.id,
+      source: event.source,
+      payload: event.payload,
+      visibility: event.visibility ?? 'all',
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO m9_activity_events (
+          activity_id, event_id, sequence_number, type, timestamp,
+          execution_id, trace_id, request_id, workflow_run_id, task_id,
+          agent_assignment_id, repository_binding_id, runtime_session_binding_id,
+          ai_binding_id, actor_type, actor_id, actor_display_name,
+          source, payload_json, visibility
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        record.activityId,
+        record.eventId,
+        record.sequenceNumber,
+        record.type,
+        record.timestamp,
+        record.executionId ?? null,
+        record.traceId ?? null,
+        record.requestId ?? null,
+        record.workflowRunId ?? null,
+        record.taskId ?? null,
+        record.agentAssignmentId ?? null,
+        record.repositoryBindingId ?? null,
+        record.runtimeSessionBindingId ?? null,
+        record.aiBindingId ?? null,
+        record.actor.type,
+        record.actor.id,
+        record.actor.displayName,
+        record.source,
+        JSON.stringify(record.payload),
+        record.visibility,
+      );
+    return record;
   }
 
   async query(q: M9ActivityQuery): Promise<readonly ActivityRecord[]> {

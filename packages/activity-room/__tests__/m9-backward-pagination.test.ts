@@ -55,7 +55,11 @@ describe.each(implementations.map((entry) => entry.name))('AR-HISTORY-002 backwa
 
   async function seed(): Promise<{ store: M9ActivityStore; close: () => void }> {
     const state = await factory();
-    for (let index = 1; index <= TOTAL; index += 1) await state.store.append(event(index));
+    const events = Array.from({ length: TOTAL }, (_, i) => event(i + 1));
+    // Seeding is setup, not the assertion target: batch when the store
+    // supports it (one commit instead of TOTAL fsync-bound commits).
+    if (typeof state.store.appendMany === 'function') await state.store.appendMany(events);
+    else for (const e of events) await state.store.append(e);
     return state;
   }
 
