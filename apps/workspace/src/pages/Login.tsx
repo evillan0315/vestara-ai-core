@@ -1,79 +1,68 @@
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { type LoginCredentials, LoginScreen } from '../features/desktop-shell/LoginScreen';
+import { type AuthUser, useAuth } from '../lib/auth';
 import { resolveHttpUrl } from '../lib/clientConfig';
 
+interface LoginResponse {
+  user?: AuthUser & { token: string };
+  error?: string;
+}
+
+/**
+ * `/login` — the governed Workspace entry point.
+ *
+ * Renders the promoted desktop-shell `LoginScreen` (split brand/auth card,
+ * wallpaper, teal identity) and exchanges credentials with the API before
+ * handing the session to `AuthProvider`. The API accepts a username or a
+ * pasted `vst_…` bearer token; there is no password authority, so a value in
+ * the password field that looks like a token is submitted as a token.
+ *
+ * The prototype biometric / skip demo paths are intentionally hidden here:
+ * they bypass authentication and `ProtectedPage` would bounce the visitor
+ * straight back to `/login`.
+ */
 export default function Login() {
-  const { establishSession } = useAuth();
+  const { actor, establishSession } = useAuth();
   const navigate = useNavigate();
-  const [name, setName] = useState('');
-  const [err, setErr] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authenticating, setAuthenticating] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const n = name.trim() || 'local-operator';
-    if (!n) {
-      setErr('Enter a name');
-      return;
-    }
+  const authenticate = async ({ username, password }: LoginCredentials) => {
+    const name = username.trim() || actor || 'local-operator';
+    const token = password.trim();
+    const body = token.startsWith('vst_') ? { token } : { username: name };
 
-    setSubmitting(true);
-    setErr('');
-
-    // Authenticate with the API server
+    setAuthenticating(true);
+    setError(null);
     try {
       const res = await fetch(resolveHttpUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: n }),
+        body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.user?.token) throw new Error(data.error ?? 'Login failed');
-      establishSession(data.user);
-    } catch (error) {
-      setErr(error instanceof Error ? error.message : 'Unable to sign in');
-      setSubmitting(false);
-      return;
+      const data = (await res.json().catch(() => ({}))) as LoginResponse;
+      const user = data.user;
+      if (!res.ok || !user?.token) throw new Error(data.error ?? 'Login failed');
+      establishSession(user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in');
+      throw err;
+    } finally {
+      setAuthenticating(false);
     }
-
-    setSubmitting(false);
-    navigate('/overview', { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-zinc-950">
-      <div className="w-full max-w-sm bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-8">
-        <h1 className="text-xl font-bold text-accent mb-2">Vestara Workspace</h1>
-        <p className="text-sm text-(--vestara-text-2)mb-6">
-          Enter your operator name to log in. Creates a local session or authenticates with the workspace server.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="text"
-              placeholder="local-operator"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (err) setErr('');
-              }}
-              disabled={submitting}
-              className={`w-full px-3 py-2 bg-zinc-950 border rounded-md text-sm text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-accent transition-colors ${
-                err ? 'border-red-400/50' : 'border-(--vestara-accent-border)'
-              }`}
-            />
-            {err && <p className="text-xs text-red-400 mt-1">{err}</p>}
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-2.5 accent-btn rounded-md text-sm font-medium cursor-pointer disabled:opacity-50"
-          >
-            {submitting ? 'Signing in...' : 'Continue'}
-          </button>
-        </form>
-      </div>
+    <div className="relative min-h-screen">
+      <LoginScreen
+        mode="default"
+        onAuthenticate={authenticate}
+        onLogin={() => navigate('/overview', { replace: true })}
+        authenticating={authenticating}
+        authError={error}
+        showDemoLinks={false}
+      />
     </div>
   );
 }

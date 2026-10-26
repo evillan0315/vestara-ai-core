@@ -8,7 +8,7 @@
  */
 
 import type * as http from 'node:http';
-import type { CreateTaskInput } from '@vestara/workflow-orchestrator';
+import { type CreateTaskInput, ORCHESTRATION_TEMPLATES } from '@vestara/workflow-orchestrator';
 import { ExecGitPort, GovernedPushService } from '@vestara/workspace';
 import { requireRole } from '../auth';
 import { createCICoordinator } from '../ci-coordinator';
@@ -60,6 +60,13 @@ export async function handleOrchestrationRoute(
   ctx: WorkspaceContext,
 ): Promise<boolean> {
   const orchestrator = ctx.workflowOrchestrator;
+
+  // GET /api/orchestration/templates — authoritative creation presets.
+  // Read-only: template selection never creates or executes a project.
+  if (method === 'GET' && p === '/api/orchestration/templates') {
+    json(res, 200, { templates: ORCHESTRATION_TEMPLATES });
+    return true;
+  }
 
   // POST /api/orchestration/projects — create a new orchestrated project.
   if (method === 'POST' && p === '/api/orchestration/projects') {

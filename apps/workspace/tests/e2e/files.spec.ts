@@ -47,8 +47,8 @@ test.describe('Files page', () => {
 
     // Real login through the UI.
     await page.goto('/login');
-    await page.getByPlaceholder('local-operator').fill(`e2e-files-${Date.now()}`);
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('USERNAME').fill(`e2e-files-${Date.now()}`);
+    await page.getByRole('button', { name: 'Continue → Desktop' }).click();
     await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
   });
 

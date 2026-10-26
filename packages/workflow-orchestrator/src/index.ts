@@ -20,6 +20,7 @@ export {
   ORCHESTRATION_MANIFEST,
   ORCHESTRATION_MIGRATIONS,
 } from './orchestration-migrations';
+export * from './orchestration-templates';
 export * from './orchestrator';
 export * from './policies';
 export * from './retry-policy';

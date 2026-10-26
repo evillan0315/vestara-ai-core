@@ -15,6 +15,7 @@ import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
 import { reconcileStaleCIWaits } from './ci-reconcile';
 import { startOpencodeSupervisor } from './opencode-supervisor';
+import { describePreflight, runPreflight } from './preflight';
 import { closeM11AActivityRoom, getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
 import { collectCIWaits } from './routes/ci';
 import { initTelegramRoute, resolveTelegramActivation } from './routes/telegram';
@@ -62,6 +63,18 @@ async function main(): Promise<void> {
   const port = Number(process.env.VESTARA_API_PORT ?? 3001);
   const host = process.env.VESTARA_API_HOST?.trim() || '127.0.0.1';
   const repoPath = resolveRepoRoot(process.env.VESTARA_REPO);
+  const preflight = runPreflight(process.env, repoPath);
+  for (const line of describePreflight(preflight)) console.log(`[preflight] ${line}`);
+  if (!preflight.ok) {
+    console.error(
+      '[preflight] refusing to start under low system resources; free memory/disk or set VESTARA_SKIP_PREFLIGHT=1 to override.',
+    );
+    process.exit(1);
+  }
+  if (process.env.VESTARA_PREFLIGHT_ONLY === '1') {
+    console.log('[preflight] preflight-only mode — exiting before runtime composition.');
+    process.exit(0);
+  }
   bootMark('config-loaded');
 
   const pending: WorkspaceEvent[] = [];

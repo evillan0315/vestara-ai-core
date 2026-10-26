@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
 import { Badge, Button, EmptyState, Input, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
@@ -21,6 +22,11 @@ import {
   shouldClearStaleQueueDismissal,
 } from '../lib/orchestration-next-action';
 import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
+import {
+  createAndRunOrchestrationProject,
+  fetchOrchestrationTemplates,
+  type OrchestrationTemplate,
+} from '../lib/orchestration-templates';
 import {
   ACTIVE_TASK_STATUSES,
   ATTENTION_TASK_STATUSES,
@@ -740,6 +746,10 @@ export default function OrchestrationPage() {
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'node' | 'audit' | 'blocker' | 'actions'>('overview');
   const [form, setForm] = useState({ name: '', goal: '', repoPath: '' });
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ summary: '', files: '', capabilities: '' }]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [templates, setTemplates] = useState<OrchestrationTemplate[]>([]);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+  const consumedProjectRef = useRef<string | null>(null);
   const [railQuery, setRailQuery] = useState('');
   const [railFilter, setRailFilter] = useState<RailStatusFilter>('all');
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -781,6 +791,55 @@ export default function OrchestrationPage() {
       setDetail((prev) => ({ ...prev, [projectId]: { snapshot: snapshot.snapshot, audit: audit?.events ?? [] } }));
     }
   }, []);
+
+  // Authoritative creation presets (GET /api/orchestration/templates).
+  useEffect(() => {
+    let cancelled = false;
+    void fetchOrchestrationTemplates().then((items) => {
+      if (!cancelled) setTemplates(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const applyTemplate = useCallback((template: OrchestrationTemplate) => {
+    setForm((current) => ({ name: template.name, goal: template.goal, repoPath: current.repoPath }));
+    setTaskRows(
+      template.tasks.map((task) => ({
+        summary: task.summary,
+        files: task.files.join(', '),
+        capabilities: task.requiredCapabilities.join(', '),
+      })),
+    );
+    setAppliedTemplateId(template.id);
+    setCreateError(null);
+  }, []);
+
+  // `?template=<id>` — assistant "Start from a template" prefill entry point.
+  // Applies the preset, opens the creation form, then consumes the param so a
+  // later identical navigation can re-trigger it.
+  const templateParam = searchParams.get('template');
+  useEffect(() => {
+    if (!templateParam) return;
+    const template = templates.find((item) => item.id === templateParam);
+    if (!template) return;
+    applyTemplate(template);
+    setCreateOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('template');
+    setSearchParams(next, { replace: true });
+  }, [applyTemplate, searchParams, setSearchParams, templateParam, templates]);
+
+  // `?project=<id>` — select the project created by an assistant run.
+  const projectParam = searchParams.get('project');
+  useEffect(() => {
+    if (!projectParam || loading || consumedProjectRef.current === projectParam) return;
+    if (!projects.some((project) => project.id === projectParam)) return;
+    consumedProjectRef.current = projectParam;
+    setExpandedId(projectParam);
+    if (!detail[projectParam]) void loadDetail(projectParam);
+  }, [detail, loadDetail, loading, projectParam, projects]);
 
   const toggleExpand = useCallback(
     (projectId: string) => {
@@ -1088,24 +1147,21 @@ export default function OrchestrationPage() {
     setCreateBusy(true);
     setCreateError(null);
     try {
-      const created = await postJson<{ project: { id: string } }>(`${API}/projects`, {
+      const id = await createAndRunOrchestrationProject({
         name: form.name.trim(),
         goal: form.goal.trim(),
         repoPath: form.repoPath.trim() || undefined,
+        tasks,
       });
-      if (!created) throw new Error('Failed to create project');
-      const id = created.project.id;
-      await postJson(`${API}/projects/${id}/start`);
-      await postJson(`${API}/projects/${id}/analysis`, { analystId: 'analyst', report: {} });
-      const planBody = tasks.map((task) => ({ ...task, description: '', dependencies: [], effort: 'medium' }));
-      await postJson(`${API}/projects/${id}/plan`, { plannerId: 'planner', title: form.name.trim(), goal: form.goal.trim(), tasks: planBody });
-      await postJson(`${API}/projects/${id}/architecture`, { architectId: 'architect', status: 'approved' });
-      await postJson(`${API}/projects/${id}/approve`, {});
-      await postJson(`${API}/projects/${id}/execute`);
       setCreateOpen(false);
       setForm({ name: '', goal: '', repoPath: '' });
       setTaskRows([{ summary: '', files: '', capabilities: '' }]);
+      setAppliedTemplateId(null);
       await refresh();
+      consumedProjectRef.current = id;
+      setExpandedId(id);
+      void loadDetail(id);
+      setSearchParams({ project: id }, { replace: true });
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Failed to start project');
     } finally {
@@ -2027,11 +2083,46 @@ export default function OrchestrationPage() {
         </OperationalWorkspaceLayout>
 
       {createOpen && (
-        <Modal onClose={() => setCreateOpen(false)} ariaLabel="New orchestrated project">
+        <Modal
+          onClose={() => {
+            setCreateOpen(false);
+            setAppliedTemplateId(null);
+          }}
+          ariaLabel="New orchestrated project"
+        >
           <div className="space-y-[var(--vestara-spacing-4)] p-[var(--vestara-spacing-5)]">
             <h2 className="text-[length:var(--vestara-font-size-sm)] font-bold text-[var(--vestara-text-primary)]">
               New orchestrated project
             </h2>
+            {templates.length > 0 ? (
+              <div>
+                <div className="mb-[var(--vestara-spacing-2)] text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">
+                  Start from a template
+                </div>
+                <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]" role="group" aria-label="Project templates">
+                  {templates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => applyTemplate(template)}
+                      aria-pressed={appliedTemplateId === template.id}
+                      title={template.description}
+                      className={`cursor-pointer rounded-[var(--vestara-radius-full)] border px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-element)] text-[length:var(--vestara-font-size-xs)] transition-colors ${
+                        appliedTemplateId === template.id
+                          ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-text-primary)]'
+                          : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-border-strong)] hover:text-[var(--vestara-text-primary)]'
+                      }`}
+                    >
+                      {template.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-[var(--vestara-spacing-2)] text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+                  {templates.find((template) => template.id === appliedTemplateId)?.description ??
+                    'Choose a preset to prefill the goal and task rows, or fill the form manually.'}
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 gap-[var(--vestara-spacing-3)] sm:grid-cols-2">
               <Input
                 label="Name"
@@ -2103,7 +2194,14 @@ export default function OrchestrationPage() {
             {createError && <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-error)]">{createError}</p>}
 
             <div className="flex items-center justify-end gap-[var(--vestara-spacing-2)] pt-[var(--vestara-spacing-1)]">
-              <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setAppliedTemplateId(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button variant="primary" size="sm" onClick={() => void createAndRun()} disabled={createBusy} loading={createBusy}>

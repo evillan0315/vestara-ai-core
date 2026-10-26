@@ -145,6 +145,51 @@ const REGISTRY: readonly RegistryEntry[] = [
     description: 'Additional marketplace roots (path-delimiter separated).',
   },
   {
+    name: 'VESTARA_SKIP_PREFLIGHT',
+    scope: 'api-process',
+    description: "Set to '1' to bypass the startup memory/disk safety gate.",
+  },
+  {
+    name: 'VESTARA_PREFLIGHT_ONLY',
+    scope: 'api-process',
+    description: "Set to '1' to run the safety gate and exit without composing the runtime.",
+  },
+  {
+    name: 'VESTARA_MIN_AVAILABLE_MB',
+    scope: 'api-process',
+    description: 'Minimum available RAM in MiB required to start the API.',
+    defaultValue: '768',
+  },
+  {
+    name: 'VESTARA_MIN_DISK_FREE_MB',
+    scope: 'api-process',
+    description: 'Minimum free disk in MiB required on the workspace volume.',
+    defaultValue: '1024',
+  },
+  {
+    name: 'VESTARA_LIVE_SAFE',
+    scope: 'api-process',
+    description: "Set to '0' to disable automatic low-memory defaults on live/toram boots.",
+  },
+  {
+    name: 'VESTARA_LIVE_SAFE_MEMORY_MB',
+    scope: 'api-process',
+    description: 'Available-RAM threshold in MiB that triggers live-boot safe defaults.',
+    defaultValue: '2048',
+  },
+  {
+    name: 'VESTARA_LOW_MEMORY_MB',
+    scope: 'api-process',
+    description: 'Available-RAM threshold in MiB below which low-memory defaults apply.',
+    defaultValue: '2048',
+  },
+  {
+    name: 'VESTARA_EVENT_PERSIST_DEBOUNCE_MS',
+    scope: 'api-process',
+    description: 'Debounce in milliseconds before the engineering event store persists.',
+    defaultValue: '250',
+  },
+  {
     name: 'VESTARA_SKIP_MEMORY_INDEX',
     scope: 'api-process',
     description: "Set to '1' to skip the memory index build.",

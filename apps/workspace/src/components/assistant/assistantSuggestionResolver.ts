@@ -36,15 +36,39 @@ import {
 
 // ─── Suggestion Model ──────────────────────────────────────────
 
-export type SuggestionCategory = 'context' | 'workspace' | 'attention' | 'quick_action' | 'design';
+export type SuggestionCategory = 'context' | 'workspace' | 'attention' | 'quick_action' | 'design' | 'template';
+
+/**
+ * Bounded suggestion actions. A suggestion without an action keeps the
+ * original prompt-only behavior (send the prompt as a conversation turn).
+ *
+ * `prefill` navigates with the template preselected — it never creates or
+ * executes anything. `run` is an explicit, user-initiated execution path and
+ * is only offered when the caller is authorized to mutate (editor/admin).
+ */
+export interface AssistantSuggestionAction {
+  readonly type: 'create-orchestration-project';
+  readonly templateId: string;
+  readonly mode: 'prefill' | 'run';
+}
 
 export interface AssistantSuggestion {
   readonly id: string;
   readonly label: string;
+  /** Optional secondary line for rich sections (for example template cards). */
+  readonly description?: string;
   readonly prompt: string;
   readonly category: SuggestionCategory;
   readonly icon?: string;
   readonly priority?: 'high' | 'medium' | 'low';
+  readonly action?: AssistantSuggestionAction;
+}
+
+/** Minimal template projection the resolver needs (catalog stays server-owned). */
+export interface OrchestrationTemplateSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
 }
 
 export interface AssistantContextCard {
@@ -357,6 +381,34 @@ function selectedUxRecommendations(selected: NonNullable<SurfaceContext['selecte
       category: 'design',
     },
   ];
+}
+
+// ─── Orchestration templates ───────────────────────────────────
+// Data comes from GET /api/orchestration/templates; this resolver only maps it
+// to suggestion rows and gates route scope. No catalog duplicates here.
+
+export function isOrchestrationSurface(surface: SurfaceLocation): boolean {
+  return normalizeRouteKey(surface) === 'orchestration';
+}
+
+export function resolveOrchestrationTemplateSuggestions(
+  surface: SurfaceLocation,
+  templates: readonly OrchestrationTemplateSummary[],
+): AssistantSuggestion[] {
+  if (!isOrchestrationSurface(surface)) return [];
+  return templates.map((template) => ({
+    id: `tpl-${template.id}`,
+    label: template.name,
+    description: template.description,
+    // Prompt is the honest fallback when the action affordance is unavailable.
+    prompt: `Set up an orchestrated project from the "${template.name}" template: ${template.description}`,
+    category: 'template',
+    action: {
+      type: 'create-orchestration-project',
+      templateId: template.id,
+      mode: 'prefill',
+    },
+  }));
 }
 
 export function resolveUxRecommendations(

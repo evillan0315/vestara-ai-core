@@ -32,6 +32,19 @@
 export const OPEN_ASSISTANT_EVENT = 'open-assistant';
 
 /**
+ * Request the Assistant panel close without touching conversation state.
+ * Used when a bounded suggestion action navigates the workspace underneath
+ * the panel (for example "Start from a template" → Orchestration prefill).
+ */
+export const CLOSE_ASSISTANT_EVENT = 'vestara:close-assistant';
+
+/** Best-effort panel close; a no-op outside the browser. */
+export function requestCloseAssistant(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(CLOSE_ASSISTANT_EVENT));
+}
+
+/**
  * Canonical provenance a stream item carries (AR-UI-REPLY-002 projection
  * contract: `ActivityBase` / `StreamItem` / M11A / M11C). All fields are
  * optional; absence means "unknown origin".

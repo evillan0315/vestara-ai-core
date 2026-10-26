@@ -16,10 +16,14 @@
  * - No lucide-react — MUI icons only (matches existing `AppHeader` imports).
  * - No CDN fonts — the serif display face comes from `--ds-font-serif`.
  *
- * Auth contract: Enter (or `Continue → Desktop`) submits via `onLogin`.
+ * Auth contract: Enter (or `Continue → Desktop`) awaits `onAuthenticate`
+ * when the caller supplies one (the `/login` route exchanges credentials
+ * with the API), then calls `onLogin`. Without `onAuthenticate` the submit
+ * is a direct `onLogin` (the desktop-shell demo path).
  * `switch` mode edits the session actor through `useAuth().setActor`
  * before submitting. Biometric / skip are explicit non-auth demo paths
- * (`onBiometric` / `onSkip`, defaulting to `onLogin`).
+ * (`onBiometric` / `onSkip`, defaulting to `onLogin`) and are hidden by
+ * `showDemoLinks={false}` on the routed login page.
  *
  * Architecture Traceability:
  *   VES-UI-001: Workspace UI v2 Desktop Shell (T4 Boot + Login + state machine)
@@ -42,6 +46,11 @@ import {
 import type { LoginMode, WinType } from './types';
 import './desktop-shell.tokens.css';
 
+export interface LoginCredentials {
+  readonly username: string;
+  readonly password: string;
+}
+
 export interface LoginScreenProps {
   readonly mode: LoginMode;
   readonly onLogin: () => void;
@@ -49,6 +58,18 @@ export interface LoginScreenProps {
   readonly onBiometric?: () => void;
   /** Skip demo path — explicit non-auth entry, defaults to `onLogin`. */
   readonly onSkip?: () => void;
+  /**
+   * Real credential submission. When provided, the panel renders a username
+   * field in `default` mode and awaits this before `onLogin`. A rejection
+   * keeps the user on the form; the caller surfaces `authError`.
+   */
+  readonly onAuthenticate?: (credentials: LoginCredentials) => Promise<void>;
+  /** In-flight authentication attempt — disables the submit control. */
+  readonly authenticating?: boolean;
+  /** Human-readable failure from the last authentication attempt. */
+  readonly authError?: string | null;
+  /** Hide the prototype biometric / skip demo paths (used by the `/login` route). */
+  readonly showDemoLinks?: boolean;
 }
 
 const LOGIN_HIGHLIGHT_ICONS: Partial<Record<WinType, typeof TerminalOutlinedIcon>> = {
@@ -83,17 +104,41 @@ function loginCaptionFor(mode: LoginMode): string {
   return 'Secure login to Vestara Desktop';
 }
 
-export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenProps) {
+export function LoginScreen({
+  mode,
+  onLogin,
+  onBiometric,
+  onSkip,
+  onAuthenticate,
+  authenticating = false,
+  authError = null,
+  showDemoLinks = true,
+}: LoginScreenProps) {
   const { user, actor, setActor } = useAuth();
   const displayName = user?.username || actor || desktopShellUserFixture.displayName;
   const [password, setPassword] = useState('');
   const [pendingActor, setPendingActor] = useState(displayName);
+  const [submitting, setSubmitting] = useState(false);
+  const busy = authenticating || submitting;
+  const showUsernameField = mode === 'switch' || Boolean(onAuthenticate);
   const handleBiometric = onBiometric ?? onLogin;
   const handleSkip = onSkip ?? onLogin;
 
-  const submit = () => {
-    if (mode === 'switch' && pendingActor.trim()) {
-      setActor(pendingActor.trim());
+  const submit = async () => {
+    const username = (showUsernameField ? pendingActor : displayName).trim() || displayName;
+    if (mode === 'switch' && username) {
+      setActor(username);
+    }
+    if (onAuthenticate) {
+      setSubmitting(true);
+      try {
+        await onAuthenticate({ username, password });
+      } catch {
+        // The caller owns the error copy (`authError`); stay on the form.
+        return;
+      } finally {
+        setSubmitting(false);
+      }
     }
     onLogin();
   };
@@ -181,7 +226,7 @@ export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenP
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              submit();
+              void submit();
             }}
           >
             <div className="flex items-center gap-3 rounded-[var(--vestara-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] p-2.5">
@@ -201,7 +246,7 @@ export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenP
                 </div>
               </div>
             </div>
-            {mode === 'switch' ? (
+            {showUsernameField && (
               <div>
                 <label
                   htmlFor="desktop-shell-username"
@@ -219,7 +264,8 @@ export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenP
                   className="mt-1.5 h-10 w-full rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-canvas-bg)] px-3 text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text)] outline-none placeholder:text-[var(--ds-text-muted)] focus:border-[var(--ds-focus-ring)]"
                 />
               </div>
-            ) : (
+            )}
+            {mode !== 'switch' && (
               <div>
                 <label
                   htmlFor="desktop-shell-password"
@@ -232,7 +278,7 @@ export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenP
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   type="password"
-                  autoComplete={mode === 'locked' ? 'current-password' : 'current-password'}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   className="mt-1.5 h-10 w-full rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-canvas-bg)] px-3 text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text)] outline-none placeholder:text-[var(--ds-text-muted)] focus:border-[var(--ds-focus-ring)]"
                 />
@@ -240,30 +286,41 @@ export function LoginScreen({ mode, onLogin, onBiometric, onSkip }: LoginScreenP
             )}
             <button
               type="submit"
-              className="h-11 w-full rounded-[var(--vestara-radius-md)] bg-[var(--ds-accent)] text-[length:var(--vestara-font-size-xs)] font-bold tracking-wide text-[var(--vestara-on-accent)] transition hover:brightness-105"
+              disabled={busy}
+              className="h-11 w-full rounded-[var(--vestara-radius-md)] bg-[var(--ds-accent)] text-[length:var(--vestara-font-size-xs)] font-bold tracking-wide text-[var(--vestara-on-accent)] transition hover:brightness-105 disabled:opacity-60"
             >
-              Continue → Desktop
+              {busy ? 'Signing in…' : 'Continue → Desktop'}
             </button>
-            <div className="flex justify-between font-mono text-[length:var(--vestara-font-size-xs)]">
-              <button
-                type="button"
-                data-testid="login-biometric"
-                onClick={handleBiometric}
-                aria-label="Sign in with biometrics (demo path, bypasses password)"
-                className="text-[var(--ds-text-muted)] hover:text-[var(--ds-text-secondary)]"
+            {authError && (
+              <div
+                role="alert"
+                className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--ds-error)]"
               >
-                Biometric • Touch ID
-              </button>
-              <button
-                type="button"
-                data-testid="login-skip"
-                onClick={handleSkip}
-                aria-label="Skip login and open the desktop (demo path, no session)"
-                className="text-[var(--ds-text-muted)] hover:text-[var(--ds-text-secondary)]"
-              >
-                Skip to Desktop
-              </button>
-            </div>
+                {authError}
+              </div>
+            )}
+            {showDemoLinks && (
+              <div className="flex justify-between font-mono text-[length:var(--vestara-font-size-xs)]">
+                <button
+                  type="button"
+                  data-testid="login-biometric"
+                  onClick={handleBiometric}
+                  aria-label="Sign in with biometrics (demo path, bypasses password)"
+                  className="text-[var(--ds-text-muted)] hover:text-[var(--ds-text-secondary)]"
+                >
+                  Biometric • Touch ID
+                </button>
+                <button
+                  type="button"
+                  data-testid="login-skip"
+                  onClick={handleSkip}
+                  aria-label="Skip login and open the desktop (demo path, no session)"
+                  className="text-[var(--ds-text-muted)] hover:text-[var(--ds-text-secondary)]"
+                >
+                  Skip to Desktop
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>

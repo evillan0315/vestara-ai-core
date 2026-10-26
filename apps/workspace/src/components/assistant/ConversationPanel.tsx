@@ -27,6 +27,7 @@
  */
 
 import React, { Profiler, useCallback, useEffect, useLayoutEffect, useDeferredValue, memo, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import { useProviderSettings } from '../../hooks/useProviderSettings';
@@ -69,11 +70,22 @@ import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
 import { useScheduledRetry, type ScheduledRetry } from '../../hooks/useScheduledRetry';
 import { getUsageLimitRetry } from '../../lib/retry-at';
 import { getSuggestions } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { requestCloseAssistant } from '../../lib/assistant-navigation';
+import {
+  createAndRunOrchestrationProject,
+  draftFromOrchestrationTemplate,
+  fetchOrchestrationTemplates,
+  type OrchestrationTemplate,
+} from '../../lib/orchestration-templates';
 import { StatusIndicator } from '@vestara/ui';
 import {
+  isOrchestrationSurface,
   resolveAssistantSuggestions,
+  resolveOrchestrationTemplateSuggestions,
   type AssistantSuggestion,
 } from './assistantSuggestionResolver';
+import { AssistantTemplateSuggestions } from './AssistantTemplateSuggestions';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -1208,6 +1220,71 @@ function SuggestionEmptyState({
   const uxRecommendations = resolved.uxRecommendations;
   const [attention, setAttention] = useState<AssistantSuggestion[]>([]);
 
+  // Orchestration creation presets — fetched from the authoritative catalog,
+  // only on the Orchestration surface. Prefill navigates; run is explicit and
+  // editor/admin-gated (the server enforces the role independently).
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const onOrchestrationSurface = isOrchestrationSurface(surface);
+  const canRunTemplates = user?.role === 'editor' || user?.role === 'admin';
+  const [templates, setTemplates] = useState<OrchestrationTemplate[]>([]);
+  const [runningTemplateId, setRunningTemplateId] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const templateRunInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!onOrchestrationSurface) {
+      setTemplates([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchOrchestrationTemplates().then((items) => {
+      if (!cancelled) setTemplates(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onOrchestrationSurface, surface.path]);
+
+  const templateSuggestions = useMemo(
+    () => resolveOrchestrationTemplateSuggestions(surface, templates),
+    [surface, templates],
+  );
+
+  const handleTemplatePrefill = useCallback(
+    (templateId: string) => {
+      setTemplateError(null);
+      requestCloseAssistant();
+      navigate(`/orchestration?template=${encodeURIComponent(templateId)}`);
+    },
+    [navigate],
+  );
+
+  const handleTemplateRun = useCallback(
+    async (templateId: string) => {
+      if (templateRunInFlightRef.current) return;
+      const template = templates.find((item) => item.id === templateId);
+      if (!template) {
+        setTemplateError('That template is no longer available.');
+        return;
+      }
+      templateRunInFlightRef.current = true;
+      setRunningTemplateId(templateId);
+      setTemplateError(null);
+      try {
+        const projectId = await createAndRunOrchestrationProject(draftFromOrchestrationTemplate(template));
+        requestCloseAssistant();
+        navigate(`/orchestration?project=${encodeURIComponent(projectId)}`);
+      } catch (error) {
+        setTemplateError(error instanceof Error ? error.message : 'Failed to start the project.');
+      } finally {
+        templateRunInFlightRef.current = false;
+        setRunningTemplateId(null);
+      }
+    },
+    [navigate, templates],
+  );
+
   // Best-effort backend attention (GET /api/suggestions). Progressive loading:
   // contextual suggestions render immediately; attention appears when available.
   // No blocking spinner for the entire empty state.
@@ -1309,6 +1386,21 @@ function SuggestionEmptyState({
             ))}
           </div>
         </div>
+
+        {/* Start from a template — Orchestration creation presets (prefill by
+            default; explicit run only for editor/admin). */}
+        {onOrchestrationSurface && templateSuggestions.length > 0 ? (
+          <AssistantTemplateSuggestions
+            suggestions={templateSuggestions}
+            canRun={canRunTemplates}
+            runningTemplateId={runningTemplateId}
+            error={templateError}
+            onPrefill={handleTemplatePrefill}
+            onRun={(templateId) => {
+              void handleTemplateRun(templateId);
+            }}
+          />
+        ) : null}
 
         {/* May need attention — progressive, authoritative only */}
         {attention.length > 0 && (

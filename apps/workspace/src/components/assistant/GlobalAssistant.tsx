@@ -22,6 +22,7 @@ import { Z_INDEX } from '@vestara/ui-tokens';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import {
+  CLOSE_ASSISTANT_EVENT,
   OPEN_ASSISTANT_EVENT,
   parseOpenAssistantDetail,
 } from '../../lib/assistant-navigation';
@@ -461,6 +462,18 @@ export function GlobalAssistant() {
     window.addEventListener(OPEN_ASSISTANT_EVENT, handler);
     return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, handler);
   }, []);
+
+  // Bounded suggestion actions can navigate the workspace underneath the
+  // panel; close the panel without touching conversation state.
+  useEffect(() => {
+    const handler = () => {
+      setPanelOpen(false);
+      setPanelExpanded(false);
+      closeDockNow();
+    };
+    window.addEventListener(CLOSE_ASSISTANT_EVENT, handler);
+    return () => window.removeEventListener(CLOSE_ASSISTANT_EVENT, handler);
+  }, [closeDockNow]);
 
   // Ctrl/⌘+J toggles the assistant. Escape closes the dock when visible.
   useEffect(() => {

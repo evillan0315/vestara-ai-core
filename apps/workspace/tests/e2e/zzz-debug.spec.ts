@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('debug prompt and focus state', async ({ page }) => {
   await page.goto('/login');
-  await page.getByPlaceholder('local-operator').fill('e2e-debug2');
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByLabel('USERNAME').fill('e2e-debug2');
+  await page.getByRole('button', { name: 'Continue → Desktop' }).click();
   await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
   await page.goto('/files');
   await expect(page.getByRole('tree', { name: 'Repository tree' })).toBeVisible();

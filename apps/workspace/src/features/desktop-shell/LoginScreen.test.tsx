@@ -13,7 +13,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../../lib/auth';
@@ -134,5 +134,44 @@ describe('LoginScreen governance', () => {
     }
     expect(container.textContent).not.toMatch(/v?\d+\.\d+\.\d+/);
     expect(container.textContent).not.toMatch(/FINAL/i);
+  });
+});
+
+describe('LoginScreen authentication', () => {
+  function renderAuth(props: Partial<React.ComponentProps<typeof LoginScreen>> = {}) {
+    const onLogin = vi.fn();
+    const onAuthenticate = vi.fn().mockResolvedValue(undefined);
+    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const view = render(
+      <LoginScreen mode="default" onLogin={onLogin} onAuthenticate={onAuthenticate} {...props} />,
+      { wrapper },
+    );
+    return { ...view, onLogin, onAuthenticate };
+  }
+
+  it('renders username and password fields and awaits credentials before onLogin', async () => {
+    const { onLogin, onAuthenticate } = renderAuth();
+    fireEvent.change(screen.getByLabelText('USERNAME'), { target: { value: 'grace' } });
+    fireEvent.change(screen.getByLabelText('PASSWORD'), { target: { value: 's3cret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue → Desktop' }));
+
+    expect(onAuthenticate).toHaveBeenCalledWith({ username: 'grace', password: 's3cret' });
+    await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the visitor on the form when authentication rejects', async () => {
+    const onAuthenticate = vi.fn().mockRejectedValue(new Error('Invalid token.'));
+    const { onLogin } = renderAuth({ onAuthenticate, authError: 'Invalid token.' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue → Desktop' }));
+    await waitFor(() => expect(onAuthenticate).toHaveBeenCalledTimes(1));
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid token.');
+  });
+
+  it('hides the demo entry paths for the routed login page', () => {
+    renderAuth({ showDemoLinks: false });
+    expect(screen.queryByTestId('login-biometric')).toBeNull();
+    expect(screen.queryByTestId('login-skip')).toBeNull();
   });
 });
