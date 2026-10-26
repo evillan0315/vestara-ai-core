@@ -19,6 +19,8 @@
     "test": "vitest run",
     "pretest:fast": "pnpm build",
     "test:fast": "vitest run --exclude 'packages/documentation/__tests__/documentation.test.ts' --exclude 'packages/workflow-orchestrator/__tests__/e2e/**' --exclude 'packages/workspace/__tests__/repository-intelligence.test.ts'",
+    "pretest:coverage": "pnpm build",
+    "test:coverage": "vitest run --coverage --exclude 'packages/documentation/__tests__/documentation.test.ts' --exclude 'packages/workflow-orchestrator/__tests__/e2e/**' --exclude 'packages/workspace/__tests__/repository-intelligence.test.ts'",
     "test:perf": "VESTARA_PERF=1 vitest run packages/activity-room/__tests__/m10-final-invariant-review.test.ts -t 'INV-9'",
     "vestara": "node apps/cli/dist/index.js",
     "console": "node apps/cli/dist/index.js console",
@@ -80,6 +82,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
     "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.12",
     "tsx": "^4.23.15",
     "typedoc": "^0.28.20",
     "typescript": "5.9.3",

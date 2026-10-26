@@ -4,7 +4,9 @@ import {
   CONNECTION_STATUS_CONFIG,
   LIVE_STREAM_RECONNECT_LABEL,
   LIVE_STREAM_STATUS_PREFIX,
+  STALE_WORK_MS,
   activityDataStatus,
+  isWorkStateStale,
 } from './status-config';
 
 describe('Activity Room degraded status contract', () => {
@@ -58,5 +60,33 @@ describe('Activity Room degraded status contract', () => {
   it('retains unavailable as a separate M11A data condition', () => {
     expect(activityDataStatus(false, true)).toBe('unavailable');
     expect(ACTIVITY_DATA_STATUS_CONFIG.unavailable.label).toBe('Unavailable');
+  });
+});
+
+describe('Stale work detection (presentation only)', () => {
+  const now = new Date('2026-10-27T04:30:00.000Z').getTime();
+
+  it('flags working with no activity beyond the threshold', () => {
+    const old = new Date(now - STALE_WORK_MS - 1).toISOString();
+    expect(isWorkStateStale('working', old, now)).toBe(true);
+    expect(isWorkStateStale('building', old, now)).toBe(true);
+  });
+
+  it('keeps fresh working claims unflagged', () => {
+    const fresh = new Date(now - STALE_WORK_MS + 1).toISOString();
+    expect(isWorkStateStale('working', fresh, now)).toBe(false);
+  });
+
+  it('never flags non-active states, however old', () => {
+    const old = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    for (const state of ['available', 'idle', 'waiting', 'blocked', 'attention-required']) {
+      expect(isWorkStateStale(state, old, now)).toBe(false);
+    }
+  });
+
+  it('never claims on missing or unparseable timestamps', () => {
+    expect(isWorkStateStale('working', undefined, now)).toBe(false);
+    expect(isWorkStateStale('working', '', now)).toBe(false);
+    expect(isWorkStateStale('working', 'not-a-date', now)).toBe(false);
   });
 });

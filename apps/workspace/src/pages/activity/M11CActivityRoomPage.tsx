@@ -238,6 +238,22 @@ export default function M11CActivityRoomPage() {
   // Small-screen sheets: rail is display:none <640px, so launchers open it
   // (and the browser) as bottom sheets instead.
   const [mobilePanel, setMobilePanel] = useState<'participants' | 'workflows' | null>(null);
+  // Participants rail visibility — hero toggle + resizable left pane.
+  // Persisted locally; widths persist via ThreePaneLayout storage key.
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('activity-room-rail-collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('activity-room-rail-collapsed', railCollapsed ? '1' : '0');
+    } catch {
+      // best-effort persistence only
+    }
+  }, [railCollapsed]);
 
   // Escape closes the mobile sheet.
   useEffect(() => {
@@ -538,6 +554,8 @@ export default function M11CActivityRoomPage() {
         onPause={room.paused ? room.resume : room.pause}
         onClear={room.clear}
         onOpenReport={() => setReportOpen(true)}
+        participantsVisible={!railCollapsed}
+        onToggleParticipants={() => setRailCollapsed((v) => !v)}
       />
 
       {/* ─── Working area: adaptive composition (VES-DESIGN-008F) ──
@@ -591,6 +609,19 @@ export default function M11CActivityRoomPage() {
         </details>
       )}
       <OperationalWorkspaceLayout
+        resizablePanes
+        paneStorageKey="activity-room-panes"
+        barePanes
+        defaultLeftWidth={288}
+        minLeftWidth={240}
+        maxLeftWidth={420}
+        defaultRightWidth={320}
+        minRightWidth={260}
+        maxRightWidth={480}
+        leftCollapsed={railCollapsed}
+        onLeftCollapsedChange={setRailCollapsed}
+        leftAriaLabel="Participants"
+        rightAriaLabel="Operational context"
         banner={(
           <>
             {/* Operational/Verification Lane hidden until VER-GOV-001 provides
@@ -706,7 +737,7 @@ export default function M11CActivityRoomPage() {
       >
         {/* Center Stream (the salon) */}
         <main className="ar-panel ar-panel--main min-w-0 max-w-full">
-          {/* Live Now Strip (collapses to nothing when nobody is live) */}
+          {/* Live Now Strip (idle placeholder holds 48px so the stream never jumps) */}
           <M11CLiveNowStrip
             participants={room.participants}
             stream={room.stream}
@@ -775,6 +806,11 @@ export default function M11CActivityRoomPage() {
             onSelectWorkflow={handleSelectWorkflow}
             onClearParticipantFilter={() => setSelectedParticipantId(undefined)}
             onClearWorkflowFilter={() => setWorkflowFilter(null)}
+            scopeLabel={scopeLabel}
+            onClearScope={() => {
+              setSelectedParticipantId(undefined);
+              setWorkflowFilter(null);
+            }}
             streamHeading={workflowFilter ? 'Workflow activity' : selectedParticipantId === undefined ? 'Activity Stream' : `Activity for ${participantNames[selectedParticipantId] ?? 'selected participant'}`}
             streamHeaderAction={
               <span className="ar-panel__hint flex items-center gap-2">

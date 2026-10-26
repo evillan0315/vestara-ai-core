@@ -24,6 +24,15 @@ import type {
   RepositoryProfile,
 } from './types';
 
+// Packages that must never count toward health/layer stats:
+// evaluation fixtures and standalone harnesses, not shippable code.
+const EXCLUDED_PACKAGE_PATTERNS = ['evaluation/fixtures/', 'workspace-ui-v2', 'empty-project'];
+
+function isExcludedPackage(pkgDir: string): boolean {
+  const normalized = pkgDir.replace(/\\/g, '/').toLowerCase();
+  return EXCLUDED_PACKAGE_PATTERNS.some((p) => normalized.includes(p));
+}
+
 // Reuse the language mapping from @vestara/knowledge
 const EXTENSION_LANGUAGE: Record<string, string> = {
   ts: 'typescript',
@@ -260,6 +269,7 @@ function detectRisks(rootDir: string, files: string[]): DetectedRisk[] {
     }
   }
   for (const pkgDir of pkgDirs) {
+    if (isExcludedPackage(pkgDir)) continue;
     const hasTestDir = files.some((f) => f.startsWith(`${pkgDir}/__tests__`) || f.startsWith(`${pkgDir}/test`));
     const hasTestFiles = files.some(
       (f) => f.startsWith(pkgDir) && (f.endsWith('.test.ts') || f.endsWith('.test.js') || f.endsWith('.spec.ts')),
@@ -290,13 +300,17 @@ function buildPackageMap(rootDir: string, files: string[]): PackageNode[] {
 
   for (const file of files) {
     if (file.endsWith('package.json') && !file.includes('node_modules')) {
+      const pkgDir = path.dirname(file);
+      if (isExcludedPackage(pkgDir)) continue;
       try {
         const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, file), 'utf-8'));
+        const dirName = path.dirname(file);
         packages.push({
-          name: pkg.name ?? '(unnamed)',
-          path: path.dirname(file),
+          name: pkg.name ?? `(unnamed:${dirName})`,
+          path: pkgDir,
           dependencies: Object.keys(pkg.dependencies ?? {}),
           devDependencies: Object.keys(pkg.devDependencies ?? {}),
+          peerDependencies: Object.keys(pkg.peerDependencies ?? {}),
           isPrivate: pkg.private ?? false,
         });
       } catch {
@@ -404,6 +418,19 @@ function detectCircularDependencies(nodes: string[], edges: DependencyEdge[]): s
 function assignLayers(packages: PackageNode[], files: string[]): LayerAssignment[] {
   const _fileSet = new Set(files.map((f) => f.toLowerCase()));
   const result: LayerAssignment[] = [];
+  const UI_FRAMEWORKS = new Set(['react', 'react-dom', 'vue', 'svelte', '@mui/material']);
+  const INFRA_SUFFIXES = [
+    'runtime',
+    'engine',
+    'controller',
+    'adapter',
+    'store',
+    'bus',
+    'migrations',
+    'telemetry',
+    'logger',
+  ];
+  const SERVICE_KEYWORDS = ['registry', 'graph', 'pipeline', 'center', 'service', 'orchestrator', 'scheduler'];
 
   for (const pkg of packages) {
     let layer: Layer = 'unknown';
@@ -411,6 +438,9 @@ function assignLayers(packages: PackageNode[], files: string[]): LayerAssignment
 
     const name = pkg.name.toLowerCase();
     const pkgPath = pkg.path.toLowerCase();
+    const allDeps = [...pkg.dependencies, ...pkg.devDependencies, ...(pkg.peerDependencies ?? [])].map((d) =>
+      d.toLowerCase(),
+    );
 
     // Heuristic: zero dependency contracts
     if (
@@ -430,13 +460,17 @@ function assignLayers(packages: PackageNode[], files: string[]): LayerAssignment
       layer = 'app';
       confidence = 0.9;
     }
-    // Heuristic: depends on react/vue (UI)
-    else if (
-      pkg.dependencies.some((d) => d === 'react' || d === 'vue' || d === 'svelte') ||
-      pkgPath.includes('workspace-ui')
-    ) {
+    // Heuristic: depends on react/vue (UI) — includes dev + peer deps
+    else if (allDeps.some((d) => UI_FRAMEWORKS.has(d)) || pkgPath.includes('workspace-ui')) {
       layer = 'ui';
       confidence = 0.9;
+    }
+    // Heuristic: infrastructure by name suffix (runtime/engine/controller/adapter/...)
+    else if (
+      INFRA_SUFFIXES.some((s) => name.endsWith(`-${s}`) || name.includes(`-${s}-`) || pkgPath.endsWith(`-${s}`))
+    ) {
+      layer = 'infrastructure';
+      confidence = 0.8;
     }
     // Heuristic: infrastructure (provides plumbing, depends on contracts)
     else if (
@@ -445,6 +479,11 @@ function assignLayers(packages: PackageNode[], files: string[]): LayerAssignment
     ) {
       layer = 'infrastructure';
       confidence = 0.7;
+    }
+    // Heuristic: services by name keyword (registry/graph/pipeline/center/...)
+    else if (SERVICE_KEYWORDS.some((k) => name.includes(k))) {
+      layer = 'services';
+      confidence = 0.75;
     }
     // Heuristic: services (depends on infrastructure, provides business logic)
     else if (pkg.dependencies.length > 2) {
@@ -579,6 +618,22 @@ export class RepositoryIntelligence {
 }
 
 /**
+ * Real V8 line coverage (0–100) from `pnpm test:coverage`
+ * (`coverage/coverage-summary.json`), or undefined when no report exists.
+ * The health score prefers this over the packages-with-tests heuristic.
+ */
+function readLineCoverage(rootDir: string): number | undefined {
+  try {
+    const raw = fs.readFileSync(path.join(rootDir, 'coverage', 'coverage-summary.json'), 'utf-8');
+    const summary = JSON.parse(raw) as { total?: { lines?: { pct?: unknown } } };
+    const pct = summary?.total?.lines?.pct;
+    return typeof pct === 'number' && Number.isFinite(pct) ? pct : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Compute a composite health score for the repository (0.0 — 10.0).
  */
 function computeHealthScore(
@@ -592,14 +647,30 @@ function computeHealthScore(
   const todoFiles = risks.filter((r) => r.category === 'todo-hotspot').length;
   const codeQuality = Math.max(0, 10 - largeFiles * 2 - todoFiles * 1.5);
 
-  // Test coverage: packages that have tests
-  const packagesWithTests = packages.filter((p) => {
-    const pkgDir = rootDir ? p.path : '';
-    return files.some(
-      (f) => f.startsWith(pkgDir) && (f.endsWith('.test.ts') || f.includes('__tests__') || f.includes('/test/')),
-    );
-  }).length;
-  const testCoverage = packages.length > 0 ? (packagesWithTests / packages.length) * 10 : 0;
+  // Test coverage: prefer real V8 line coverage when a report exists
+  // (`pnpm test:coverage` → coverage/coverage-summary.json); otherwise fall
+  // back to the honest-denominator heuristic below. Only packages that ship
+  // source (have src/ files) count toward the heuristic denominator —
+  // zero-src shims and excluded fixtures never count, so one new test
+  // moves the score visibly instead of +0.08.
+  const realLineCoverage = readLineCoverage(rootDir);
+  let testCoverage: number;
+  if (realLineCoverage !== undefined) {
+    testCoverage = Math.max(0, Math.min(10, realLineCoverage / 10));
+  } else {
+    const coverablePackages = packages.filter((p) => {
+      if (isExcludedPackage(p.path)) return false;
+      const prefix = p.path === '.' ? '' : `${p.path}/`;
+      return files.some((f) => f.startsWith(`${prefix}src/`));
+    });
+    const packagesWithTests = coverablePackages.filter((p) => {
+      const pkgDir = rootDir ? p.path : '';
+      return files.some(
+        (f) => f.startsWith(pkgDir) && (f.endsWith('.test.ts') || f.includes('__tests__') || f.includes('/test/')),
+      );
+    }).length;
+    testCoverage = coverablePackages.length > 0 ? (packagesWithTests / coverablePackages.length) * 10 : 0;
+  }
 
   // Dependency health
   const dependencyHealth = Math.max(0, 10 - risks.length * 0.5);

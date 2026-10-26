@@ -62,6 +62,35 @@ export default defineConfig({
     maxWorkers: 4,
     minWorkers: 1,
     testTimeout: 15000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      // Scoped to shippable source; fixtures, mocks, tests, and generated
+      // contracts never count toward the repo-wide number.
+      include: [
+        'packages/*/src/**/*.ts',
+        'packages/providers/*/src/**/*.ts',
+        'packages/tools/*/src/**/*.ts',
+        'apps/api/src/**/*.ts',
+        'apps/cli/src/**/*.ts',
+        'apps/workspace/src/**/*.{ts,tsx}',
+      ],
+      exclude: [
+        ...configDefaults.exclude,
+        '**/__tests__/**',
+        '**/*.test.*',
+        '**/*.spec.*',
+        '**/*.fixtures.ts',
+        '**/fixtures/**',
+        '**/mocks/**',
+        '**/generated/**',
+        'apps/workspace-ui-v2/**',
+      ],
+      // Thresholds are intentionally unset: measure first via
+      // `pnpm test:coverage`, then ratchet here to prevent regression.
+      // Promote the CI coverage step from advisory to gate at that point.
+    },
     // Ownership boundary (TEST-PERF-001A): Playwright owns
     // apps/workspace/tests/visual/**/*.spec.ts and
     // apps/workspace/tests/e2e/**/*.spec.ts (mirrors the app-local

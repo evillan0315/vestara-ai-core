@@ -1,11 +1,11 @@
 ---
 title: Andy McCraw Collaboration Exploration Record
-version: 1.0.0
+version: 1.1.0
 status: active
 id: PROP-ANDY-MCCRAW-COLLAB-001
 owner: vestara
-last-reviewed: 2026-10-20
-next-review: 2026-10-22
+last-reviewed: 2026-10-27
+next-review: 2026-11-03
 ---
 
 # Andy McCraw Collaboration Exploration Record
@@ -126,3 +126,60 @@ next-review: 2026-10-22
 - **Formalize as ADR/proposal?** `[yes — id: … / no — reason]`
 - **Next touchpoint:** `[date / none scheduled]`
 - **Follow-up sent (24h):** `[ ] thank-you + updated record link + repo link`
+
+> **Status of §9 (2026-10-27):** still unfilled. No call transcript, notes, or post-call summary have been recorded. Do not infer call outcomes from §10 — §10 is a standalone written message from Andy and does not confirm what was discussed on Oct 21.
+
+---
+
+## 10. Andy Follow-Up Message — Oct 27, 2026
+
+**Channel:** Written message from Andy McCraw to Eddie ("Andy and Eddie Collab"), received in the thread following the Oct 21 call window.
+**Status of content:** Andy's stated view. Recorded as received, not validated.
+
+### 10.1 Message (verbatim)
+
+> Hey, sorry for the delayed response, I’ve got another trip. I’m definitely excited to learn more and I need to spend more time to understand the platform and what your vision is.
+>
+> Whether it relates, specialty healthcare providers in the US need their own OS for doing some of the workflow critical to their business. Things like patient intakes, appointment setting, checking patients in, sending out patient reminders., Insurance eligibility, and other things. As you can imagine, some of this is specific to the specialty, such as dental, optometry, or other specialties. Like other industries, they’re having such a hard time, recruiting and retaining staff. It would be nice to think that we could help them optimize their or and replace headcount with a new kind of platform/iOS.
+>
+> Sorry you’re having hardware challenges. Let’s connect again next week and talk more. Have a great weekend!
+
+### 10.2 What Andy is asserting
+
+- **Demand framing:** US specialty healthcare providers need a **vertical OS**, not another point tool.
+- **Workflow inventory he names:** patient intake, appointment setting, patient check-in, patient reminders, insurance eligibility, "and other things".
+- **Specialty variance:** workflows differ by specialty — explicitly **dental** and **optometry** (matches his prior optometry research), plus unnamed others.
+- **Economic driver:** staffing — recruiting and retaining front-office staff is acutely hard, same as other industries.
+- **Value claim:** optimize operations and **replace headcount** with "a new kind of platform/OS" (writes "iOS" — read as OS; make no assumption about Apple platforms).
+- **Engagement signal:** wants more time to understand the platform and the vision; proposes reconnecting **next week**.
+- **Disclosure:** another trip (travel-limited availability); acknowledges Eddie's hardware issues.
+
+### 10.3 Mapping to prior threads
+
+| Prior thread (§3) | Oct 27 message | Delta |
+|---|---|---|
+| Managed services for specialty back offices | Vertical OS for specialty back-office workflows | Widened from services-first to platform-first framing; headcount replacement still the economic core |
+| Optometry research | Optometry named again + dental added | Scope expanding beyond a single specialty; still no named buyer, workflow priority, or dollar figure |
+| ClinicalNotes.ai (EHR-tied wedge) | Insurance eligibility + intake/check-in implies EHR/PM integration | EHR hook implied, **not** specified |
+| "Welligent 2.0" | "a new kind of platform/OS" | Consistent with his long-standing ambition; still no resourcing/terms discussion |
+
+### 10.4 Open questions created by this message
+
+1. Which **single** specialty and **single** workflow first, given he named five-plus workflows across at least two specialties? Breadth is the main risk to a focused wedge.
+2. Which incumbent systems hold the record (EHR / practice-management / RCM) and which integration surface is realistic — API, clearinghouse EDI (270/271 eligibility), or RPA?
+3. What does "replace headcount" mean operationally — augment front-desk staff, absorb a role, or displace a BPO? Each has a different buyer and proof burden.
+4. Does he see Vestara as the **platform under** the vertical product, or as the product itself?
+5. His time and role: travel-heavy, retired — advisor, co-founder, or researcher, and at what cadence?
+
+### 10.5 Caveats
+
+- **Claim ≠ evidence:** no buyer, workflow priority, pain-dollar, or integration target is established by this message. Treat §10.2 as hypothesis, not market proof.
+- Welligent 2.0 / vertical-OS breadth is a scope risk for a bootstrapped effort; a wedge proposal should name one specialty, one workflow, one integration point.
+- §9 remains the authoritative place for call outcomes; this section does not substitute for it.
+
+### 10.6 Next steps
+
+1. Reply to confirm a **next-week** slot (target week of 2026-11-02) — owner: Eddie.
+2. Prepare a one-page narrowing prompt for that call: pick one specialty (optometry vs dental), one workflow, one system-of-record hook; ask Andy to choose.
+3. If he engages on narrowing, draft a wedge memo (market gap + integration reality + Vestara fit) — no terms until scope is agreed.
+4. Backfill §9 if any Oct 21 notes exist; otherwise mark the call outcome as UNKNOWN rather than reconstructing it from this message.

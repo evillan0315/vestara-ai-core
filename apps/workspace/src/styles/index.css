@@ -199,10 +199,12 @@
   --vestara-radius-2xl: 1rem;
 
   /* ── Overlay defaults (F-E-4 context menu) ──
-     Values mirror the canonical TS tokens (Z_INDEX.popover in
+     Values mirror the canonical TS tokens (Z_INDEX in
      @vestara/ui-tokens) so Tailwind arbitrary utilities resolve.
      Elevation (sm/md/lg/xl) is NOT mirrored here — it ships canonically
      via generated-tokens.css (ELEVATION tokens), single source of truth. */
+  --vestara-z-index-dropdown: 1000;
+  --vestara-z-index-sticky: 1100;
   --vestara-z-index-overlay: 1300;
   --vestara-z-index-popover: 1500;
   --vestara-z-index-tooltip: 1800;

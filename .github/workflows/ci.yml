@@ -71,6 +71,24 @@ jobs:
         run: |
           pnpm test
 
+      # Real V8 line coverage (advisory while the baseline is established).
+      # Generates coverage/coverage-summary.json, which feeds the workspace
+      # health score via readLineCoverage(). Promote to a gate (remove
+      # continue-on-error, add thresholds in vitest.config.ts) once the
+      # baseline is ratcheted.
+      - name: Coverage report (advisory)
+        continue-on-error: true
+        run: |
+          pnpm test:coverage
+
+      - name: Upload coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: |
+            coverage/coverage-summary.json
+
       # apps/workspace-ui-v2 owns its own vitest config (JSX transform via
       # @vitejs/plugin-react) and is excluded from the root runner. Its
       # suite runs here so coverage is not dropped.

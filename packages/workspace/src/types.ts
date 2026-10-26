@@ -87,6 +87,7 @@ export interface PackageNode {
   path: string;
   dependencies: string[];
   devDependencies: string[];
+  peerDependencies?: string[];
   isPrivate: boolean;
 }
 

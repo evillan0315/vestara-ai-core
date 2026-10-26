@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
@@ -28,6 +28,20 @@ export default function HeaderUserMenu({ name, role = 'Administrator', density =
   const { resolved, toggle } = useTheme();
 
   const compact = density === 'compact';
+
+  // Close dropdown on outside click. A `fixed inset-0` scrim cannot be
+  // used here: `.shell-topbar` sets `backdrop-filter`, which makes the
+  // header the containing block for fixed descendants — the scrim would
+  // only cover the 36px bar and canvas clicks would never dismiss the
+  // menu. This matches the `HeaderNotifications` dismiss pattern.
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   return (
     <div className="relative" ref={menuRef}>
@@ -67,9 +81,7 @@ export default function HeaderUserMenu({ name, role = 'Administrator', density =
       </button>
 
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-56 bg-(--vestara-surface) border border-(--vestara-accent-border) rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-56 bg-(--vestara-surface) border border-(--vestara-accent-border) rounded-xl shadow-2xl z-[var(--vestara-z-index-popover)] py-1 overflow-hidden">
             {/* User info header */}
             <div className="px-4 py-3 border-b border-(--vestara-accent-border)">
               <div className="text-sm font-medium text-(--vestara-text) truncate">{name}</div>
@@ -103,7 +115,6 @@ export default function HeaderUserMenu({ name, role = 'Administrator', density =
               </button>
             </div>
           </div>
-        </>
       )}
     </div>
   );

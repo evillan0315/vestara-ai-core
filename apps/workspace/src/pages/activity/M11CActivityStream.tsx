@@ -128,6 +128,10 @@ interface M11CActivityStreamProps {
   readonly onStopTurn?: (conversationId: string) => Promise<void>;
   /** Active workflow scope (from the workflow browser). Narrows the stream. */
   readonly workflowFilter?: string | null;
+  /** Unified active-scope label (workflow or participant). Rendered sticky so it stays visible while reading history. */
+  readonly scopeLabel?: string;
+  /** Clear the unified active scope (participant + workflow). */
+  readonly onClearScope?: () => void;
   readonly streamHeading?: string;
   readonly streamHeaderAction?: ReactNode;
   /** Controlled density; defaults to internal operational state when omitted. */
@@ -638,6 +642,8 @@ function M11CActivityStream({
   onSteerTurn,
   onStopTurn,
   workflowFilter,
+  scopeLabel,
+  onClearScope,
   streamHeading = 'Activity Stream',
   streamHeaderAction,
   showViewTabs = false,
@@ -923,6 +929,16 @@ function M11CActivityStream({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {showViewTabs && <ActivityRoomTabs activeView={activeView} onViewChange={handleViewChange} />}
+      {scopeLabel && (
+        <div className="ar-scope-bar" role="status" aria-label={`Active scope: ${scopeLabel}`}>
+          <span className="ar-scope-bar__label">Scope: {scopeLabel}</span>
+          {onClearScope && (
+            <button type="button" className="ar-scope-bar__clear" onClick={onClearScope} aria-label="Clear active scope">
+              Clear ×
+            </button>
+          )}
+        </div>
+      )}
       {/* ── Filter Bar (canonical pill tabs; kind-driven, not text) ── */}
       <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
         <div className="ar-stream-filter__tabs" role="tablist" aria-label="Activity stream presets">

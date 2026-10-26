@@ -1,5 +1,12 @@
+import { useEffect, useRef, useState } from 'react';
 import { StatusIndicator } from '@vestara/ui';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import PauseOutlinedIcon from '@mui/icons-material/PauseOutlined';
+import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { SIZING } from '@vestara/ui-tokens';
 import {
   ACTIVITY_DATA_STATUS_CONFIG,
@@ -34,6 +41,9 @@ interface ActivityRoomHeaderProps {
   readonly onClearScope?: () => void;
   readonly onOpenSettings?: () => void;
   readonly onOpenReport?: () => void;
+  /** Controlled participants-rail visibility (hero toggle). */
+  readonly participantsVisible?: boolean;
+  readonly onToggleParticipants?: () => void;
 }
 
 function formatFreshness(timestamp: number | null | undefined): string | null {
@@ -67,9 +77,28 @@ export default function ActivityRoomHeader({
   onClearScope,
   onOpenSettings,
   onOpenReport,
+  participantsVisible = true,
+  onToggleParticipants,
 }: ActivityRoomHeaderProps) {
   const ui = useActivityRoomUI();
   const { toggleDrawer, activeSurface, open } = useGlobalDrawer();
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const onPointer = (e: PointerEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) setActionsOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActionsOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [actionsOpen]);
   const config = CONNECTION_STATUS_CONFIG[state] ?? CONNECTION_STATUS_CONFIG.offline;
   const dataConfig = ACTIVITY_DATA_STATUS_CONFIG[activityDataStatus(dataAvailable, snapshotComplete)];
   const live = state === 'live' && !paused;
@@ -78,6 +107,17 @@ export default function ActivityRoomHeader({
   // Paused is intentional (local), not degraded — keep its own label + buffered count.
   const statusLabel = paused ? (unread > 0 ? `Paused · ${unread} buffered` : 'Paused') : config.label;
   const freshness = formatFreshness(lastUpdatedAt);
+  // P0 scan-first: 3 ordered signals — Attention > Live > Data.
+  // Attention rolls blocked agents into the same tappable signal so critical
+  // state has one focus target; Live merges working agents + running
+  // workflows; Data collapses the two quiet pills into one tooltip.
+  const totalAttention = attentionCount + blockedAgentCount;
+  const dataTitle =
+    `Activity data: ${dataConfig.label}` + (freshness ? ` · ${freshness}` : '');
+  const liveTitle =
+    `${workingAgentCount} agent${workingAgentCount === 1 ? '' : 's'} working · ` +
+    `${runningWorkflowCount} workflow${runningWorkflowCount === 1 ? '' : 's'} running` +
+    (workflowCount > 0 ? ` · ${workflowCount} total` : '');
 
   return (
     <header className="ar-header px-[var(--vestara-spacing-page)]" aria-label="Activity Room controls">
@@ -104,64 +144,110 @@ export default function ActivityRoomHeader({
         </div>
       </div>
       <div className="ar-header__signals" aria-label="Operational summary">
-        {attentionCount > 0 ? (
+        {totalAttention > 0 ? (
           <button
             type="button"
-            className="ar-signal ar-signal--attention"
+            className={`ar-signal ${blockedAgentCount > 0 ? 'ar-signal--blocked' : 'ar-signal--attention'}`}
             onClick={onFocusAttention}
             disabled={!onFocusAttention}
             title={onFocusAttention ? 'Focus needs-attention activity' : undefined}
+            aria-label={`${totalAttention} need attention${criticalAttentionCount > 0 ? `, ${criticalAttentionCount} critical` : ''}${blockedAgentCount > 0 ? `, ${blockedAgentCount} blocked` : ''}`}
           >
-            <strong>{attentionCount}</strong>
+            <strong>{totalAttention}</strong>
             <span>needs attention</span>
             {criticalAttentionCount > 0 && <small>{criticalAttentionCount} critical</small>}
+            {blockedAgentCount > 0 && criticalAttentionCount === 0 && <small>{blockedAgentCount} blocked</small>}
+            {blockedAgentCount > 0 && criticalAttentionCount > 0 && <small>{blockedAgentCount} blocked · {criticalAttentionCount} critical</small>}
           </button>
         ) : (
           <span className="ar-signal ar-signal--quiet"><strong>0</strong><span>needs attention</span></span>
         )}
-        <span className="ar-signal"><strong>{workingAgentCount}</strong><span>working</span></span>
-        {blockedAgentCount > 0 && (
-          <span className="ar-signal ar-signal--blocked"><strong>{blockedAgentCount}</strong><span>blocked</span></span>
-        )}
-        <span className="ar-signal"><strong>{runningWorkflowCount}</strong><span>workflows running</span></span>
-        {workflowCount > 0 && runningWorkflowCount === 0 && (
-          <span className="ar-signal ar-signal--quiet"><strong>{workflowCount}</strong><span>workflows</span></span>
-        )}
-        <span className="ar-signal ar-signal--quiet"><strong>Activity data</strong><span>{dataConfig.label}</span></span>
-        {freshness && <span className="ar-signal ar-signal--quiet"><strong>Data</strong><span>{freshness}</span></span>}
+        <span className="ar-signal ar-signal--live" title={liveTitle}>
+          <strong>{workingAgentCount} · {runningWorkflowCount}</strong>
+          <span>working · running</span>
+        </span>
+        <span className="ar-signal ar-signal--quiet" title={dataTitle}>
+          <strong>Data</strong>
+          <span>{freshness ?? dataConfig.label}</span>
+        </span>
       </div>
       <div className="ar-header__controls">
         <span className={`ar-status ${statusClass}`} role="status" aria-live="polite" title={paused ? 'Live updates paused locally — live arrivals are buffered' : `Live Activity updates: ${config.label}`}>
           <StatusIndicator variant={config.variant} size="xs" pulse={live} ariaLabel={`${LIVE_STREAM_STATUS_PREFIX}: ${statusLabel}`} />
           {LIVE_STREAM_STATUS_PREFIX} · {statusLabel}
         </span>
-        <button type="button" className="ar-control-button" onClick={onPause} aria-pressed={paused}>
-          {paused ? 'Resume' : 'Pause'}
-        </button>
-        <button type="button" className="ar-control-button" onClick={onClear}>
-          Clear
-        </button>
-        {onOpenSettings && (
+        {onToggleParticipants && (
           <button
             type="button"
-            className="ar-control-button ar-control-button--icon"
-            aria-label="Activity Room settings"
-            onClick={onOpenSettings}
+            className={`ar-control-button ar-control-button--icon ${participantsVisible ? 'ar-control-button--active' : ''}`}
+            aria-label={participantsVisible ? 'Hide participants sidebar' : 'Show participants sidebar'}
+            aria-pressed={participantsVisible}
+            title={participantsVisible ? 'Hide participants sidebar' : 'Show participants sidebar'}
+            onClick={onToggleParticipants}
           >
-            Settings
+            <GroupOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
           </button>
         )}
-        {onOpenReport && (
+        <div className="ar-actions" ref={actionsRef}>
           <button
             type="button"
-            className="ar-control-button ar-control-button--icon"
-            aria-label="Activity report"
-            title="Open activity report"
-            onClick={onOpenReport}
+            className={`ar-control-button ar-control-button--icon ${actionsOpen ? 'ar-control-button--active' : ''}`}
+            aria-label="Activity actions"
+            aria-haspopup="menu"
+            aria-expanded={actionsOpen}
+            title="Activity actions (pause, clear, report)"
+            onClick={() => setActionsOpen((v) => !v)}
           >
-            <AssessmentOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+            <MoreVertOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
           </button>
-        )}
+          {actionsOpen && (
+            <div className="ar-actions__menu" role="menu" aria-label="Activity actions">
+              <button
+                type="button"
+                role="menuitem"
+                className="ar-actions__item"
+                onClick={() => { setActionsOpen(false); onPause(); }}
+                aria-pressed={paused}
+              >
+                {paused
+                  ? <PlayArrowOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+                  : <PauseOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />}
+                <span>{paused ? 'Resume' : 'Pause'}</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="ar-actions__item"
+                onClick={() => { setActionsOpen(false); onClear(); }}
+              >
+                <DeleteOutlineOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+                <span>Clear</span>
+              </button>
+              {onOpenReport && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="ar-actions__item"
+                  onClick={() => { setActionsOpen(false); onOpenReport(); }}
+                >
+                  <AssessmentOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+                  <span>Report</span>
+                </button>
+              )}
+              {onOpenSettings && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="ar-actions__item"
+                  onClick={() => { setActionsOpen(false); onOpenSettings(); }}
+                >
+                  <TuneOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+                  <span>Settings</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           className={`ar-control-button ar-control-button--icon ar-control-button--terminal ${open && activeSurface === 'terminal' ? 'ar-control-button--active' : ''}`}

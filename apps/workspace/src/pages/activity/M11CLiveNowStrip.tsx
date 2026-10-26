@@ -17,7 +17,7 @@
  * No state mutation — pure projection.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ParticipantProjection } from '@vestara/activity-room';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { StatusIndicator } from '@vestara/ui';
@@ -95,6 +95,7 @@ export default function M11CLiveNowStrip({
   onSelectParticipant,
   onSelectWorkflow,
 }: LiveNowStripProps) {
+  const [expanded, setExpanded] = useState(false);
   // Work state is authoritative; presence is UNKNOWN upstream so it never
   // gates visibility. A participant is live when working/blocked/needs
   // attention, or when they emitted stream content within LIVE_WINDOW_MS.
@@ -133,13 +134,22 @@ export default function M11CLiveNowStrip({
     });
   }, [participants, stream]);
 
-  // No idle placeholder: when nobody is live the strip collapses entirely
-  // and the stream owns the space.
+  // P0: idle placeholder holds the 48px strip height so the stream never
+  // jumps when nobody is live. Same .ar-live-now frame, no layout shift.
   if (liveParticipants.length === 0) {
-    return null;
+    return (
+      <section
+        className="ar-live-now"
+        role="region"
+        aria-label="Live now — no participants active"
+        aria-live="polite"
+      >
+        <span className="ar-live-now__idle">No agents live — stream owns space</span>
+      </section>
+    );
   }
 
-  const visible = liveParticipants.slice(0, MAX_VISIBLE_LIVE);
+  const visible = expanded ? liveParticipants : liveParticipants.slice(0, MAX_VISIBLE_LIVE);
   const overflow = liveParticipants.length - visible.length;
 
   return (
@@ -199,12 +209,19 @@ export default function M11CLiveNowStrip({
             </span>
           </button>
         ))}
-        {overflow > 0 && (
-          <div className="ar-live-now__item ar-live-now__overflow" aria-label={`${overflow} more live participants`}>
+        {(overflow > 0 || expanded) && (
+          <button
+            type="button"
+            className="ar-live-now__item ar-live-now__overflow"
+            aria-label={expanded ? 'Show fewer live participants' : `${overflow} more live participants`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+            title={expanded ? 'Collapse live list' : `Expand ${overflow} more live participants`}
+          >
             <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] font-semibold text-[var(--vestara-text-secondary)]">
-              +{overflow} live
+              {expanded ? 'Show less' : `+${overflow} live`}
             </span>
-          </div>
+          </button>
         )}
       </div>
     </section>

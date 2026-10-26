@@ -78,7 +78,7 @@ export default function DesktopTopBar({ mobileSidebarOpen = false, onMenuClick, 
   const clock = useTopBarClock();
 
   return (
-    <header className="shell-topbar relative flex h-[var(--vestara-sizing-topbar-height)] w-full shrink-0 items-center gap-2 border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-3">
+    <header className="shell-topbar relative z-[var(--vestara-z-index-sticky)] flex h-[var(--vestara-sizing-topbar-height)] w-full shrink-0 items-center gap-2 border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-3">
       {/* Left: navigation toggle + brand lockup */}
       <div className="flex min-w-0 items-center gap-2">
         <button

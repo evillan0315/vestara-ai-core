@@ -5,32 +5,36 @@
  * Zero hardcoded teams, roles, or model names. Activity Room is a generic
  * consumer of participant/team information — it does not define teams.
  *
+ * Status authority (aligned 2026-10-27):
+ * - MembershipState: 'joined' | 'left' | 'assigned' (packages/types)
+ * - PresenceState: 'online' | 'offline' | 'idle' | 'disconnected'
+ * - WorkState: 'available' | 'working' | 'waiting' | 'blocked' |
+ *   'attention-required' (+ legacy building/testing/verifying aliases)
+ * - pendingInteractionId surfaces as "Awaiting approval", never inferred
+ *   from workState.
+ *
  * Identity honesty (008C audit — presentation only, never new authority):
  * - displayName is authoritative PER CONTRACT, but for unnamed agents it
- *   carries the stable agent/model id (e.g. "mimo-v2.5-free"), which must
- *   not masquerade as a chosen actor name.
- * - Rule: displayName that merely echoes modelId is demoted to secondary
- *   metadata; the primary becomes modelDisplayName (the contract-sanctioned
- *   presentation fallback) or "Unknown agent".
- * - FIRST BROKEN BOUNDARY (recorded, not repaired here): upstream adapters
- *   emit model ids as actor.displayName (M9 adapter/agent contracts); M10
- *   passes them through. A future semantic milestone must establish chosen
- *   agent identity upstream. M11C must not invent it.
- *
- * Presence honesty: M10 never resolves presence today (uniform 'offline'
- * default — "resolved independently" path is unwired). Presence lamps render
- * ONLY for positively-resolved states (online/active/busy/away); otherwise
- * presence is omitted, never inferred from workState. Work status renders
- * from WORK_STATE_CONFIG; the M10 resting value 'available' is presented as
- * Idle without making a presence claim.
+ *   carries the stable agent/model id, which must not masquerade as a
+ *   chosen actor name. Echoed modelIds demote to secondary metadata.
  *
  * Humans and agents share the same component contract.
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
 import { EmptyState, StatusIndicator } from '@vestara/ui';
-import { memo, useMemo, useState } from 'react';
-import { WORK_STATE_CONFIG, PRESENCE_VARIANT_CONFIG } from './status-config';
+import { memo, useEffect, useMemo, useState } from 'react';
+import {
+  MEMBERSHIP_LABEL,
+  PARTICIPANT_GROUP_ORDER,
+  PRESENCE_LABEL,
+  WORK_STATE_CONFIG,
+  WORK_STATE_TONE,
+  isWorkStateStale,
+  participantGroupOf,
+  type ParticipantGroupKey,
+} from './status-config';
+import { formatRelative } from './activity-formatters';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -71,22 +75,6 @@ function resolveIdentity(p: ParticipantProjection): ResolvedIdentity {
   return { name: p.modelDisplayName ?? 'Unknown agent', unknown: !p.modelDisplayName, meta: meta || undefined };
 }
 
-/** Presence states that constitute a positively-resolved claim. Compared as
-    strings: today's PresenceState union cannot express them, which is
-    exactly why presence must stay omitted until the contract grows. */
-function resolvedPresence(p: ParticipantProjection): string | null {
-  const presence: string = p.presence;
-  return presence === 'online' || presence === 'active' || presence === 'busy' || presence === 'away' ? presence : null;
-}
-
-// ─── Membership ──────────────────────────────────────────────
-
-const MEMBERSHIP_LABEL: Record<string, string> = {
-  member: '',
-  observer: 'Observer',
-  guest: 'Guest',
-};
-
 function humanizeIdentifier(value: string): string {
   return value
     .replace(/^agent[-_]/i, '')
@@ -99,6 +87,19 @@ function humanizeIdentifier(value: string): string {
 const TILE_BASE =
   'ar-participant-avatar grid size-7 shrink-0 place-items-center border font-serif text-sm font-semibold shadow-[var(--vestara-elevation-sm)] [&_svg]:size-[16px]';
 
+// Presence dot on the avatar tile — dynamic canonical color per
+// PresenceState (stays in sync with PRESENCE_LABEL / WORK_STATE_TONE).
+const PRESENCE_DOT_CLASS: Record<string, string> = {
+  online: 'bg-[var(--vestara-status-success)] shadow-[0_0_6px_var(--vestara-status-success)]',
+  idle: 'bg-[var(--vestara-status-idle)]',
+  offline: 'bg-[var(--vestara-status-disabled)]',
+  disconnected: 'bg-[var(--vestara-status-disabled)]',
+  // Forward-compat aliases (not authoritative):
+  active: 'bg-[var(--vestara-status-success)] shadow-[0_0_6px_var(--vestara-status-success)]',
+  busy: 'bg-[var(--vestara-status-warning)]',
+  away: 'bg-[var(--vestara-status-idle)]',
+};
+
 function participantTypeLabel(type: string): string {
   switch (type) {
     case 'human': return 'Human';
@@ -110,6 +111,35 @@ function participantTypeLabel(type: string): string {
   }
 }
 
+const GROUP_LABEL: Record<ParticipantGroupKey, string> = {
+  attention: 'Needs attention',
+  working: 'Working',
+  waiting: 'Waiting',
+  idle: 'Idle',
+  left: 'Left / offline',
+};
+
+type TypeFilter = 'all' | 'human' | 'agent' | 'system';
+type StatusFilter = 'all' | ParticipantGroupKey;
+
+function matchesType(p: ParticipantProjection, filter: TypeFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'human') return p.type === 'human';
+  if (filter === 'agent') return p.type === 'agent';
+  return p.type === 'service' || p.type === 'system' || p.type === 'external';
+}
+
+/**
+ * Display grouping: a stale working claim (active workState, no activity
+ * beyond STALE_WORK_MS) surfaces under attention instead of working.
+ * Presentation only — the authoritative workState is untouched.
+ */
+function displayGroupOf(p: ParticipantProjection, now: number): ParticipantGroupKey {
+  const base = participantGroupOf(String(p.workState), String(p.membership), String(p.presence));
+  if (base === 'working' && isWorkStateStale(String(p.workState), p.lastActivityAt, now)) return 'attention';
+  return base;
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 function M11CParticipantRail({
@@ -119,53 +149,65 @@ function M11CParticipantRail({
   onOpenAgentControl,
   unreadCounts,
 }: M11CParticipantRailProps) {
-  // ─── Search and type filter state ─────────────────────────
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'human' | 'agent'>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [approvalOnly, setApprovalOnly] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<ParticipantGroupKey>>(new Set());
+  // Ticks staleness + relative times (60s cadence is plenty for a roster).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  // ─── Filtered participants ────────────────────────────────
-  // Model/provider stay searchable (secondary recall) but are never
-  // primary visual identity.
+  const isFiltered = search.trim() !== '' || typeFilter !== 'all' || statusFilter !== 'all' || approvalOnly;
+
+  const toggleGroup = (group: ParticipantGroupKey) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
-    const hasFilter = search.trim() !== '' || typeFilter !== 'all';
-    if (!hasFilter) return null; // null = use normal grouped presentation
-
     const searchLower = search.toLowerCase().trim();
     return participants.filter((p) => {
-      if (typeFilter !== 'all' && p.type !== typeFilter) return false;
+      if (!matchesType(p, typeFilter)) return false;
+      if (statusFilter !== 'all' && displayGroupOf(p, now) !== statusFilter) {
+        return false;
+      }
+      if (approvalOnly && !p.pendingInteractionId) return false;
       if (searchLower) {
         const id = resolveIdentity(p);
-        const haystack = [id.name, p.role ?? '', p.modelDisplayName ?? '', p.modelId ?? '', p.providerId ?? '']
+        const haystack = [id.name, p.role ?? '', p.modelDisplayName ?? '', p.modelId ?? '', p.providerId ?? '', p.currentAssignment?.taskTitle ?? '']
           .join(' ')
           .toLowerCase();
         return haystack.includes(searchLower);
       }
       return true;
     });
-  }, [participants, search, typeFilter]);
+  }, [participants, search, typeFilter, statusFilter, approvalOnly, now]);
 
-  // ─── Normal grouped presentation ──────────────────────────
   const grouped = useMemo(() => {
-    if (filtered !== null) return filtered; // filtered mode
-    // Scan-first: work state severity dominates (presence is UNKNOWN
-    // upstream), then recency, then name. Blocked/needs-attention pin top.
-    const workRank = (ws: string): number => {
-      if (ws === 'blocked' || ws === 'attention-required') return 0;
-      if (ws === 'building' || ws === 'working' || ws === 'testing' || ws === 'verifying') return 1;
-      if (ws === 'waiting') return 2;
-      if (ws === 'failed') return 3;
-      if (ws === 'available' || ws === 'idle') return 4;
-      return 5;
-    };
-    return [...participants].sort((a, b) => {
-      const rank = workRank(a.workState) - workRank(b.workState);
-      if (rank !== 0) return rank;
-      const at = new Date(a.lastActivityAt).getTime() || 0;
-      const bt = new Date(b.lastActivityAt).getTime() || 0;
-      if (at !== bt) return bt - at;
-      return a.displayName.localeCompare(b.displayName);
-    });
-  }, [participants, filtered]);
+    const buckets = new Map<ParticipantGroupKey, ParticipantProjection[]>();
+    for (const key of PARTICIPANT_GROUP_ORDER) buckets.set(key, []);
+    for (const p of filtered) {
+      const key = displayGroupOf(p, now);
+      buckets.get(key)?.push(p);
+    }
+    for (const list of buckets.values()) {
+      list.sort((a, b) => {
+        const at = new Date(a.lastActivityAt).getTime() || 0;
+        const bt = new Date(b.lastActivityAt).getTime() || 0;
+        if (at !== bt) return bt - at;
+        return a.displayName.localeCompare(b.displayName);
+      });
+    }
+    return buckets;
+  }, [filtered, now]);
 
   if (participants.length === 0) {
     return (
@@ -176,41 +218,43 @@ function M11CParticipantRail({
     );
   }
 
-  // Counts from authoritative workState, not from presence (UNKNOWN).
-  // "total" counts projections; "at work" counts working; blocked and
-  // attention-required split out so they scan instead of hiding in a sum.
-  const activeCount = participants.filter((p) => {
-    const workState = String(p.workState);
-    return workState === 'working' || workState === 'building' || workState === 'testing' || workState === 'verifying';
-  }).length;
-  const blockedCount = participants.filter(
-    (p) => p.workState === 'blocked' || p.workState === 'attention-required',
-  ).length;
   const totalCount = participants.length;
-  const isFiltered = filtered !== null;
+  const workingCount = participants.filter((p) => displayGroupOf(p, now) === 'working').length;
+  const waitingCount = participants.filter((p) => displayGroupOf(p, now) === 'waiting').length;
+  const attentionCount = participants.filter((p) => displayGroupOf(p, now) === 'attention').length;
+  const approvalCount = participants.filter((p) => Boolean(p.pendingInteractionId)).length;
+
+  const clearFilters = () => {
+    setSearch('');
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setApprovalOnly(false);
+  };
 
   return (
     <div className="ar-rail" role="region" aria-label="Participants">
       <div className="ar-rail__sticky-head">
         <div className="ar-rail__head">
-        <button
-          type="button"
-          onClick={() => {
-            onSelectParticipant(undefined);
-            setSearch('');
-            setTypeFilter('all');
-          }}
-          className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
-          aria-pressed={selectedParticipantId === undefined && !isFiltered}
-        >
+          <button
+            type="button"
+            onClick={() => {
+              onSelectParticipant(undefined);
+              clearFilters();
+            }}
+            className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
+            aria-pressed={selectedParticipantId === undefined && !isFiltered}
+          >
             <span className="ar-rail__all-label">All participants</span>
-          <span className="ar-rail__census">
-            <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
-          </span>
-        </button>
+            <span className="ar-rail__census">
+              <strong>{totalCount}</strong> total
+              {workingCount > 0 ? <> · <strong>{workingCount}</strong> working</> : null}
+              {waitingCount > 0 ? <> · <strong>{waitingCount}</strong> waiting</> : null}
+              {attentionCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{attentionCount} need attention</strong></> : null}
+              {approvalCount > 0 ? <> · <strong className="text-[var(--vestara-status-warning)]">{approvalCount} awaiting approval</strong></> : null}
+            </span>
+          </button>
         </div>
 
-        {/* ── Search + Type Filter ──────────────────────────── */}
         <div className="ar-rail__filters">
           <div className="ar-rail__search">
             <input
@@ -226,45 +270,93 @@ function M11CParticipantRail({
             <span className="sr-only">Filter participants by type</span>
             <select
               value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)}
+              onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
               aria-label="Filter participants by type"
             >
-              <option value="all">All participants</option>
+              <option value="all">All types</option>
               <option value="human">Humans</option>
               <option value="agent">Agents</option>
+              <option value="system">System</option>
+            </select>
+          </label>
+          <label className="ar-rail__type-select">
+            <span className="sr-only">Filter participants by status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              aria-label="Filter participants by status"
+            >
+              <option value="all">All statuses</option>
+              <option value="attention">Needs attention</option>
+              <option value="working">Working</option>
+              <option value="waiting">Waiting</option>
+              <option value="idle">Idle</option>
+              <option value="left">Left / offline</option>
             </select>
           </label>
         </div>
-      </div>
-
-      {/* ── Participant list ─────────────────────────────────
-          Page owns scrolling (008A finding): no nested rail scrollbar. */}
-      <div className="ar-rail__list" role="list">
-        {grouped.length === 0 ? (
-          <EmptyState title="No matching participants" description="Adjust the search or type filter." />
-        ) : (
-          grouped.map((participant) => (
-            <ParticipantRow
-              key={participant.participantId}
-              participant={participant}
-              selected={selectedParticipantId === participant.participantId}
-              onSelect={onSelectParticipant}
-              onOpenAgentControl={onOpenAgentControl}
-              unreadCount={unreadCounts?.get(participant.participantId) ?? 0}
-            />
-          ))
+        {approvalCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setApprovalOnly((v) => !v)}
+            aria-pressed={approvalOnly}
+            title={approvalOnly ? 'Show all participants' : 'Show only participants awaiting approval'}
+            className={`ar-rail__approval ${approvalOnly ? 'ar-rail__approval--active' : ''}`}
+          >
+            <span className="ar-badge ar-badge--warning">
+              Awaiting approval · {approvalCount}
+            </span>
+            <span className="ar-rail__approval-hint">{approvalOnly ? 'tap to clear' : 'tap to isolate'}</span>
+          </button>
         )}
       </div>
 
-      {/* ── Filter status ─────────────────────────────────── */}
+      <div className="ar-rail__list" role="list">
+        {filtered.length === 0 ? (
+          <EmptyState title="No matching participants" description="Adjust the search or filters." />
+        ) : (
+          PARTICIPANT_GROUP_ORDER.map((group) => {
+            const members = grouped.get(group) ?? [];
+            if (members.length === 0) return null;
+            const collapsed = collapsedGroups.has(group);
+            return (
+              <div key={group}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={!collapsed}
+                  aria-label={`${GROUP_LABEL[group]}: ${members.length}${collapsed ? ', collapsed' : ', expanded'}`}
+                  title={collapsed ? `Expand ${GROUP_LABEL[group]}` : `Collapse ${GROUP_LABEL[group]}`}
+                  className="ar-rail__group"
+                >
+                  <span aria-hidden="true" className={`ar-rail__group-chevron ${collapsed ? 'ar-rail__group-chevron--collapsed' : ''}`}>›</span>
+                  {GROUP_LABEL[group]} · {members.length}
+                </button>
+                {!collapsed && (
+                  <div className="flex flex-col gap-1">
+                    {members.map((participant) => (
+                    <ParticipantRow
+                      key={participant.participantId}
+                      participant={participant}
+                      selected={selectedParticipantId === participant.participantId}
+                      onSelect={onSelectParticipant}
+                      onOpenAgentControl={onOpenAgentControl}
+                      unreadCount={unreadCounts?.get(participant.participantId) ?? 0}
+                      now={now}
+                    />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {isFiltered && (
         <div className="ar-rail__filter-status">
-          <span>{grouped.length} of {participants.length}</span>
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setTypeFilter('all'); }}
-            className="ar-rail__filter-clear"
-          >
+          <span>{filtered.length} of {participants.length}</span>
+          <button type="button" onClick={clearFilters} className="ar-rail__filter-clear">
             Clear
           </button>
         </div>
@@ -281,59 +373,85 @@ const ParticipantRow = memo(function ParticipantRow({
   onSelect,
   onOpenAgentControl,
   unreadCount = 0,
+  now,
 }: {
   participant: ParticipantProjection;
   selected: boolean;
   onSelect: (id: string | undefined) => void;
   onOpenAgentControl?: (participantId: string) => void;
   unreadCount?: number;
+  now: number;
 }) {
   const isHuman = participant.type === 'human';
   const canOpenDrawer = !isHuman && onOpenAgentControl;
   const identity = resolveIdentity(participant);
   const initial = identity.unknown ? '?' : (identity.name.trim()[0] ?? '?').toUpperCase();
 
-  // Work state from the projection config only. Idle is a work-state label,
-  // not a presence claim; presence remains independently resolved.
-  const work = WORK_STATE_CONFIG[participant.workState];
-  const presence = resolvedPresence(participant);
-  const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
-  // Task title is content/context from the current assignment — never an
-  // activity-state authority. It renders as plain truncated text without
-  // the work-state lamp, even when a work lamp is also shown.
+  const work = WORK_STATE_CONFIG[String(participant.workState)];
+  const presenceLabel = PRESENCE_LABEL[String(participant.presence)] ?? String(participant.presence);
+  const presenceDotClass = PRESENCE_DOT_CLASS[String(participant.presence)] ?? 'bg-[var(--vestara-status-disabled)]';
+  // Model takes the primary metadata slot (replaces role); role stays searchable.
+  // Provider is intentionally not displayed — model + task carry the row.
+  const modelLabel = participant.modelDisplayName ?? (participant.modelId ? humanizeIdentifier(participant.modelId) : undefined);
+  const membershipLabel = MEMBERSHIP_LABEL[String(participant.membership)] ?? '';
+  const awaitingApproval = Boolean(participant.pendingInteractionId);
+  const hasLeft = String(participant.membership) === 'left';
+  const relativeTime = formatRelative(participant.lastActivityAt);
+  // Dim rows that can no longer act: left, offline, or disconnected.
+  const dimmed =
+    hasLeft || String(participant.presence) === 'offline' || String(participant.presence) === 'disconnected';
 
-  // Tile tone decorates actor TYPE only — never status, presence, or health.
-  // Blocked/needs-attention must scan from the tertiary line: semibold in
-  // the error/warning token instead of the default muted 11px.
-  const urgentWork = participant.workState === 'blocked' || participant.workState === 'attention-required';
+  // Badge tone mirrors the work lamp so pills and lamps never disagree.
+  // Tile keeps actor TYPE color; status color lives on badges only.
+  // A stale working claim renders as a warning "Working · stale" pill —
+  // presentation only, the authoritative workState is untouched.
+  const staleWork = isWorkStateStale(String(participant.workState), participant.lastActivityAt, now);
+  const workTone = staleWork ? 'warning' : (WORK_STATE_TONE[String(participant.workState)] ?? 'neutral');
 
   return (
     <div
       role="listitem"
-      className={`ar-guest group flex w-full min-w-0 items-center gap-2 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 ${selected ? 'ar-guest--selected border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
+      className={`ar-guest group flex w-full min-w-0 items-center gap-2 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 ${dimmed ? 'opacity-60' : ''} ${selected ? 'ar-guest--selected border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
     >
       <button
         type="button"
         onClick={() => onSelect(selected ? undefined : participant.participantId)}
         aria-pressed={selected}
-        aria-label={`${identity.name}, ${participantTypeLabel(participant.type)}${work ? `, ${work.label}` : ''}${selected ? ', selected' : ''}`}
+        aria-label={`${identity.name}, ${participantTypeLabel(participant.type)}, ${presenceLabel}${work ? `, ${work.label}` : ''}${staleWork ? ', stale' : ''}${awaitingApproval ? ', awaiting approval' : ''}${selected ? ', selected' : ''}`}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-[var(--vestara-radius)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
       >
-        {/* Actor-type tile (type only — never status) */}
         <span
+          className="relative shrink-0"
           aria-hidden="true"
-          className={`${TILE_BASE} ar-participant-type--${identity.unknown ? 'unknown' : participant.type}`}
-          title={participantTypeLabel(participant.type)}
+          title={`${participantTypeLabel(participant.type)} · ${presenceLabel}`}
         >
-          {initial}
+          <span className={`${TILE_BASE} ar-participant-type--${identity.unknown ? 'unknown' : participant.type}`}>
+            {initial}
+          </span>
+          <span className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-[var(--vestara-surface-canvas)] ${presenceDotClass}`} />
         </span>
 
         <span className="min-w-0 flex-1">
-          {/* Primary identity + unread */}
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]">
-              {identity.name}
+            <span className="flex min-w-0 flex-1 items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
+              <span className="min-w-0 shrink truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]">
+                {identity.name}
+              </span>
+              {modelLabel && (
+                <span
+                  className="min-w-0 flex-1 truncate text-[11px] font-normal text-[var(--vestara-text-muted)]"
+                  title={participant.modelId ? `Model: ${participant.modelId}${participant.providerId ? ` · ${participant.providerId}` : ''}` : undefined}
+                >
+                  · {modelLabel}
+                </span>
+              )}
             </span>
+            {awaitingApproval && (
+              <span className="ar-badge ar-badge--warning" title="Waiting on a human decision">
+                <StatusIndicator variant="warn" size="xs" pulse aria-hidden />
+                Awaiting approval
+              </span>
+            )}
             {unreadCount > 0 && (
               <span
                 className="rounded-[var(--vestara-radius-full)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_60%,var(--vestara-accent-dark))] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-zinc-950)] shadow-[0_2px_10px_var(--vestara-accent-bg)]"
@@ -342,37 +460,37 @@ const ParticipantRow = memo(function ParticipantRow({
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
-          </span>
-          {/* Compact secondary line: metadata, work state, assignment, and
-              membership share one scan line and truncate as a unit. */}
-          <span className="mt-0.5 flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-[var(--vestara-text-muted)]">
-            {identity.meta && <span className="min-w-0 shrink truncate font-mono text-[10px]">{identity.meta}</span>}
-            {presence && (
-              <span className="inline-flex shrink-0 items-center gap-1 capitalize">
-                <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
-                {humanizeIdentifier(presence)}
+            {membershipLabel && (
+              <span className={`ar-badge ${hasLeft ? 'ar-badge--neutral' : 'ar-badge--info'}`}>
+                {membershipLabel}
               </span>
             )}
+          </span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-[var(--vestara-text-muted)]">
             {work && (
               <span
-                title={work.label}
-                className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
+                title={staleWork ? `No activity since ${formatRelative(participant.lastActivityAt)} — the run may have ended without reporting completion` : work.label}
+                className={`ar-badge ar-badge--${workTone}`}
               >
                 <StatusIndicator
-                  variant={work.variant}
+                  variant={staleWork ? 'warn' : work.variant}
                   size="xs"
-                  pulse={String(participant.workState) === 'working' || String(participant.workState) === 'building'}
+                  pulse={String(participant.workState) === 'working' && !staleWork}
                   aria-hidden
                 />
-                {work.label}
+                {staleWork ? `${work.label} · stale` : work.label}
               </span>
             )}
             {participant.currentAssignment?.taskTitle && (
-              <span className="min-w-0 truncate" title={participant.currentAssignment.taskTitle}>
+              <span className="min-w-0 flex-1 truncate text-[var(--vestara-text-dim)]" title={participant.currentAssignment.taskTitle}>
                 {participant.currentAssignment.taskTitle}
               </span>
             )}
-            {membershipLabel && <span className="shrink-0">{membershipLabel}</span>}
+            {relativeTime && (
+              <span className="ml-auto shrink-0 tabular-nums text-[var(--vestara-text-dim)]" title={participant.lastActivityAt}>
+                {relativeTime}
+              </span>
+            )}
           </span>
         </span>
       </button>

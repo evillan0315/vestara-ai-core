@@ -328,6 +328,48 @@
 .ar-signal--quiet { color: var(--vestara-text-muted); background: transparent; }
 .ar-signal--blocked { color: var(--vestara-status-error); border-color: var(--vestara-status-error-border); background: var(--vestara-status-error-bg); }
 .ar-signal--blocked strong { color: var(--vestara-status-error); }
+.ar-signal--blocked small { color: var(--vestara-status-error); }
+.ar-signal--live { color: var(--vestara-status-success); border-color: var(--vestara-status-success-border); }
+.ar-signal--live strong { color: var(--vestara-text-primary); }
+.ar-signal--live span { color: var(--vestara-text-secondary); }
+
+/* P0 sticky scope bar — stream header owns the active scope so it stays
+   visible while reading history. Header pill retained as secondary. */
+.ar-scope-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--vestara-z-index-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-element);
+  min-width: 0;
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  font-size: var(--vestara-font-size-xs);
+}
+.ar-scope-bar__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ar-scope-bar__clear {
+  flex-shrink: 0;
+  min-height: 2rem;
+  padding: 0 var(--vestara-spacing-element);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-canvas);
+  cursor: pointer;
+  font-size: var(--vestara-font-size-xs);
+}
+.ar-scope-bar__clear:hover { border-color: var(--vestara-accent-border-hover); }
+.ar-scope-bar__clear:focus-visible { outline: 2px solid var(--vestara-accent); outline-offset: 2px; }
 
 .ar-header__identity { gap: var(--vestara-spacing-section); padding-left: var(--vestara-spacing-section); }
 .ar-header__mark {
@@ -388,6 +430,50 @@
 .ar-control-button--terminal {
   font-family: var(--vestara-font-family-mono);
   font-weight: var(--vestara-font-weight-semibold);
+}
+
+/* Hero actions dropdown — vertical icon menu (pause / clear / report).
+   Token-only: surfaces, borders, text, and elevation all resolve to
+   --vestara-* (no hardcoded color, shadow, or z-index). */
+.ar-actions { position: relative; }
+.ar-actions__menu {
+  position: absolute;
+  top: calc(100% + var(--vestara-spacing-2));
+  right: 0;
+  z-index: var(--vestara-z-index-dropdown, 1000);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vestara-spacing-1);
+  min-width: 11rem;
+  padding: var(--vestara-spacing-1);
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-lg);
+  background: var(--vestara-surface-panel-raised);
+  box-shadow: var(--vestara-elevation-lg);
+}
+.ar-actions__item {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-2);
+  min-height: 2.5rem;
+  padding: 0 var(--vestara-spacing-3);
+  border: 1px solid transparent;
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--vestara-font-size-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+.ar-actions__item:hover {
+  border-color: var(--vestara-border-subtle);
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-panel);
+}
+.ar-actions__item:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: -2px;
 }
 
 .ar-workarea { align-items: stretch; }
@@ -569,8 +655,11 @@
   background: var(--ar-panel-bg);
 }
 .ar-page .ar-rail__head { background: transparent; }
-.ar-page .ar-rail__filters { align-items: center; }
-.ar-page .ar-rail__type-select { display: block; min-width: 7.5rem; }
+/* Filters stack in two rows: search owns the first row full-width so it
+   always fits narrow panes; type + status selects share the second row. */
+.ar-page .ar-rail__filters { align-items: stretch; }
+.ar-page .ar-rail__filters .ar-rail__search { flex: 1 1 100%; }
+.ar-page .ar-rail__type-select { display: block; flex: 1 1 0; min-width: 0; }
 .ar-page .ar-rail__type-select select {
   width: 100%;
   min-height: 2rem;
@@ -2396,6 +2485,7 @@ button.ar-live-now__item:focus-visible {
   outline-offset: 2px;
   border-radius: var(--vestara-radius);
 }
+button.ar-live-now__overflow { font: inherit; }
 
 .ar-live-now__name {
   font-size: 10px;
@@ -2903,6 +2993,61 @@ button.ar-live-now__item:focus-visible {
   color: var(--ar-gold-light);
 }
 
+/* Approval quick-filter chip: isolates participants holding a human
+   decision. Token-only; active state carries the warning wash. */
+.ar-rail__approval {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-2);
+  width: 100%;
+  margin-top: var(--vestara-spacing-2);
+  padding: var(--vestara-spacing-1) var(--vestara-spacing-2);
+  border: 1px solid transparent;
+  border-radius: var(--vestara-radius);
+  background: transparent;
+  cursor: pointer;
+}
+.ar-rail__approval:hover { border-color: var(--vestara-border-subtle); }
+.ar-rail__approval--active {
+  border-color: var(--vestara-status-warning-border);
+  background: var(--vestara-status-warning-bg);
+}
+.ar-rail__approval-hint {
+  font-size: 10px;
+  color: var(--vestara-text-dim);
+  white-space: nowrap;
+}
+.ar-rail__approval:focus-visible { outline: 2px solid var(--vestara-accent); outline-offset: 2px; }
+
+/* Collapsible group headers: count + chevron, keyboard accessible. */
+.ar-rail__group {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-1);
+  width: 100%;
+  padding: var(--vestara-spacing-2) var(--vestara-spacing-1) var(--vestara-spacing-1);
+  border: none;
+  background: none;
+  color: var(--vestara-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+}
+.ar-rail__group:hover { color: var(--vestara-text-secondary); }
+.ar-rail__group:focus-visible { outline: 2px solid var(--vestara-accent); outline-offset: -2px; }
+.ar-rail__group-chevron {
+  display: inline-block;
+  transform: rotate(90deg);
+  transition: transform var(--vestara-motion-fast) ease;
+  font-size: 12px;
+  line-height: 1;
+}
+.ar-rail__group-chevron--collapsed { transform: rotate(0deg); }
+
 .ar-rail__all {
   display: flex;
   align-items: center;
@@ -3051,6 +3196,48 @@ button.ar-live-now__item:focus-visible {
   border-color: var(--ar-hairline-strong);
   background: var(--vestara-surface);
   box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+}
+
+/* Token-driven status badges — every tone resolves to a canonical
+   --vestara-status-* bg/border/text triple (neutral falls back to text
+   + border tokens). Page-scoped, no hardcoded color. */
+.ar-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--vestara-spacing-1);
+  padding: 1px var(--vestara-spacing-2);
+  border: 1px solid;
+  border-radius: var(--vestara-radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.ar-badge--success {
+  color: var(--vestara-status-success);
+  border-color: var(--vestara-status-success-border);
+  background: var(--vestara-status-success-bg);
+}
+.ar-badge--warning {
+  color: var(--vestara-status-warning);
+  border-color: var(--vestara-status-warning-border);
+  background: var(--vestara-status-warning-bg);
+}
+.ar-badge--error {
+  color: var(--vestara-status-error);
+  border-color: var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
+}
+.ar-badge--info {
+  color: var(--vestara-status-info);
+  border-color: var(--vestara-status-info-border);
+  background: var(--vestara-status-info-bg);
+}
+.ar-badge--neutral {
+  color: var(--vestara-text-muted);
+  border-color: var(--vestara-border-subtle);
+  background: transparent;
 }
 
 .ar-guest__role {
@@ -3826,6 +4013,16 @@ button.ar-live-now__item:focus-visible {
   .ar-page .operational-workspace-layout__context,
   .ar-page .operational-workspace-layout__main {
     overflow: hidden;
+  }
+
+  /* Resizable work region owns pane widths inline (ThreePaneLayout sets
+     section width directly on drag). Page asides must FILL their pane —
+     the legacy fixed rail width would pin the visible panel while the
+     section stretches behind it, making resize look broken. */
+  .ar-page section.operational-workspace-layout__rail > .ar-panel--rail,
+  .ar-page section.operational-workspace-layout__context > .ar-panel--context {
+    width: 100%;
+    max-width: none;
   }
 
   /* Rail aside stretches to the row and contains without scrolling;
