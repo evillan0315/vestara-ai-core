@@ -83,14 +83,25 @@ function inferOperation(type: string): OperationType {
   return 'unknown';
 }
 
-function inferStatus(type: string, detail: string): AgentStatus {
+export const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+export function inferStatus(type: string, detail: string): AgentStatus {
   if (detail.startsWith('✓')) return 'completed';
   if (detail.startsWith('✗')) return 'failed';
+  const trimmed = detail.trim().toLowerCase();
+  if (trimmed.startsWith('outcome:')) {
+    if (/^outcome:\s*(failed|fail|failure|error|errors)/.test(trimmed)) return 'failed';
+    if (/^outcome:\s*(passed|pass|success|successful|completed|ok|done)/.test(trimmed)) return 'completed';
+  }
   if (type.includes('completed')) return 'completed';
   if (type.includes('failed')) return 'failed';
   if (type.includes('started')) return 'working';
   if (type.includes('reading') || type.includes('writing')) return 'working';
   return 'working';
+}
+
+function isTerminalStatus(status: AgentStatus): boolean {
+  return status === 'completed' || status === 'failed';
 }
 
 function toEvent(ws: WorkspaceEvent): TelemetryEvent | null {
@@ -99,7 +110,10 @@ function toEvent(ws: WorkspaceEvent): TelemetryEvent | null {
   const actor = (ws as any).actor ?? {};
   const agentId = typeof actor === 'object' ? (actor.id || 'system') : 'system';
   const detail = (ws as any).message || payload.detail || '';
-  const status = inferStatus(type, detail);
+  const inferred = inferStatus(type, detail);
+  // Terminal detail (e.g. `Outcome: failed`) wins over a stale payload status
+  // so a final `agent-message` cannot re-latch an agent to `working`.
+  const status = isTerminalStatus(inferred) ? inferred : payload.status || inferred;
 
   return {
     id: ws.id,
@@ -181,7 +195,29 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
       setTick((t) => t + 1);
     });
 
-    return unsub;
+    // Idle decay: an agent stuck in a live status with no events for
+    // longer than IDLE_TIMEOUT_MS falls back to `idle` so a stale
+    // `working` latch cannot render as Active forever.
+    const idleTimer = window.setInterval(() => {
+      const now = Date.now();
+      let changed = false;
+      for (const agent of agentsRef.current.values()) {
+        if (agent.status === 'idle' || agent.status === 'completed' || agent.status === 'failed') continue;
+        if (!agent.updatedAt) continue;
+        const updatedAtMs = Date.parse(agent.updatedAt);
+        if (Number.isNaN(updatedAtMs)) continue;
+        if (now - updatedAtMs > IDLE_TIMEOUT_MS) {
+          agent.status = 'idle';
+          changed = true;
+        }
+      }
+      if (changed) setTick((t) => t + 1);
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(idleTimer);
+      unsub();
+    };
   }, []);
 
   const store = useMemo<TelemetryStore>(() => {

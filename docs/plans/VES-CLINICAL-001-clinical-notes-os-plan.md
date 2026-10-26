@@ -20,7 +20,7 @@ next-review: 2026-11-21
 |---|---|
 | Clinical UI template | `../../assets/templates/html/Vestara-Clinical-Notes-Ai.html` |
 | Build plan template | `../../assets/templates/html/Vestara-Clinical-Notes-Build-Plan.html` |
-| Source copies | `/home/user/Downloads/Vestara-Clinical-Notes-Ai.html`, `/home/user/Downloads/Vestara-Clinical-Notes-Build-Plan.html` |
+| Source copies | `~/Downloads/Vestara-Clinical-Notes-Ai.html`, `~/Downloads/Vestara-Clinical-Notes-Build-Plan.html` (local copies, not committed) |
 
 ## Architecture (5 layers from clinicalnotes.ai)
 

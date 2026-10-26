@@ -488,6 +488,12 @@ docs/build/
 !src/assets/**/*.jpg
 !src/assets/**/*.jpeg
 !src/assets/**/*.svg
+!apps/workspace-ui-v2/src/assets/**/*.png
+!apps/workspace-ui-v2/src/assets/**/*.jpg
+!apps/workspace-ui-v2/src/assets/**/*.jpeg
+!apps/workspace-ui-v2/src/assets/**/*.webp
+!apps/workspace-ui-v2/src/assets/**/*.gif
+!apps/workspace-ui-v2/src/assets/**/*.svg
 
 ###############################################################################
 # Keep empty directories

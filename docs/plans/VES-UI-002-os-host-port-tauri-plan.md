@@ -50,7 +50,7 @@ Acceptance gates per task (from the plan):
 ## 2. Blocker diagnosis (2026-10-21)
 
 The project could not progress. Three distinct conditions, all recorded in the
-orchestration event stream (`GET /api/orchestration/projects/project-1792534106380-1/audit`):
+orchestration event stream (`GET /api/orchestration/projects/:id/audit`):
 
 | Condition | Evidence | Why it blocks |
 |---|---|---|
@@ -79,7 +79,7 @@ states the automatic loop cannot leave on its own:
   `releasedPaths`.
 - A task persisted as `failed` cannot reach `assigned` directly, so recovery
   walks the legal path `failed → retrying → assigned` and audits the hop.
-- The API route `POST /api/orchestration/projects/:id/tasks/:taskId/retry`
+- The API route `POST /api/orchestration/projects/:id/tasks/:id/retry`
   (`apps/api/src/routes/orchestration.ts`) passes the operator-supplied
   `reason` through to the audit trail.
 
@@ -90,7 +90,7 @@ resume, and refusal of non-recoverable statuses).
 
 ## 4. Recovery record (2026-10-21)
 
-Applied through the API (`POST /api/orchestration/projects/project-1792534106380-1/tasks/:taskId/retry`):
+Applied through the API (`POST /api/orchestration/projects/:id/tasks/:id/retry`):
 
 | Task | Recovered from | Reclaimed locks | Audit event |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Applied through the API (`POST /api/orchestration/projects/project-1792534106380
 
 After the recovery: no unreleased file locks remain, and all five tasks sit in
 `assigned` — the state the execution loop dispatches from. The project was
-re-dispatched with `POST /api/orchestration/projects/project-1792534106380-1/execute`.
+re-dispatched via the `execute` phase action on the project.
 
 ## 5. Exit criteria
 
