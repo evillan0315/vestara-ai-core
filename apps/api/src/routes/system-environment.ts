@@ -230,6 +230,13 @@ const REGISTRY: readonly RegistryEntry[] = [
   { name: 'VESTARA_GA_TURN_TIMEOUT_MS', scope: 'api-process', description: 'Assistant turn timeout in milliseconds.' },
   { name: 'VESTARA_GA_MAX_TOOL_CALLS', scope: 'api-process', description: 'Assistant maximum tool calls per turn.' },
   {
+    name: 'VESTARA_WORKSPACE_UI_VERSION',
+    scope: 'api-process',
+    description: 'Active workspace UI build (v1 | v2). Selects apps/workspace vs apps/workspace-ui-v2 dist.',
+    defaultValue: 'v1',
+    configKey: 'general.workspaceUiVersion',
+  },
+  {
     name: 'VESTARA_UI_TESTER_AUTOTRIGGER',
     scope: 'api-process',
     description: "Set to '1' to enable UI tester autotrigger.",

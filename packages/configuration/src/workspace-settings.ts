@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { WORKSPACE_UI_VERSION_DEFAULT, WORKSPACE_UI_VERSION_OPTIONS } from './ui-version.js';
 
 export type ConfigurationSource = 'default' | 'user' | 'workspace' | 'session' | 'command';
 export type CodexTransport = 'app-server' | 'sdk';
@@ -211,6 +212,11 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
   'general.dateTimeFormat': { section: 'general', defaultValue: 'locale', validate: oneOf(['locale', 'iso']) },
   'general.logFormat': { section: 'general', defaultValue: 'structured', validate: oneOf(['structured', 'compact']) },
   'general.defaultLandingPage': { section: 'general', defaultValue: '/overview', validate: stringValue },
+  'general.workspaceUiVersion': {
+    section: 'general',
+    defaultValue: WORKSPACE_UI_VERSION_DEFAULT,
+    validate: oneOf(WORKSPACE_UI_VERSION_OPTIONS),
+  },
   'general.composerMaxChars': {
     section: 'general',
     defaultValue: 100_000,

@@ -38,6 +38,10 @@ const GENERAL_SELECT_OPTIONS: Record<string, readonly { value: string; label: st
     { value: 'structured', label: 'Structured' },
     { value: 'compact', label: 'Compact' },
   ],
+  'general.workspaceUiVersion': [
+    { value: 'v1', label: 'v1 (stable)' },
+    { value: 'v2', label: 'v2 (next)' },
+  ],
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -47,6 +51,7 @@ const FIELD_LABELS: Record<string, string> = {
   'general.dateTimeFormat': 'Date Format',
   'general.logFormat': 'Log Format',
   'general.defaultLandingPage': 'Default Landing Page',
+  'general.workspaceUiVersion': 'Workspace UI Version',
   'general.composerMaxChars': 'Composer Max Characters',
   'notifications.enabled': 'Enable sound notifications',
 };
@@ -60,6 +65,8 @@ const FIELD_HELP: Record<string, string> = {
   'general.startupBehavior': 'What to restore or open on launch.',
   'general.dateTimeFormat': 'Locale follows your browser; ISO 8601 sorts cleanly.',
   'general.logFormat': 'Structured suits machine parsing; compact suits skimming.',
+  'general.workspaceUiVersion':
+    'Which UI build the API serves (v1 stable, v2 next). VESTARA_WORKSPACE_UI_VERSION wins when set; applies immediately to API-served pages.',
   'notifications.enabled': 'Audible cue when operations finish or need attention.',
 };
 
@@ -358,6 +365,7 @@ function WorkspaceIdentityCard({
     'general.workspaceName',
     'general.defaultBranch',
     'general.defaultLandingPage',
+    'general.workspaceUiVersion',
     'general.composerMaxChars',
     'general.startupBehavior',
     'general.dateTimeFormat',

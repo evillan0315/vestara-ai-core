@@ -18,6 +18,9 @@ import {
   SETTINGS_SECTIONS,
   SETTINGS_TOKENS_DOC,
   SETTINGS_TOPBAR_PILLS,
+  WORKSPACE_UI_VERSION_FIXTURE,
+  WORKSPACE_UI_VERSION_HELP,
+  WORKSPACE_UI_VERSION_OPTIONS,
 } from './settings.fixtures';
 import { TERMINAL_LINES, TERMINAL_PROMPT } from './terminal.fixtures';
 
@@ -63,6 +66,12 @@ describe('package fixtures', () => {
     expect(SETTINGS_TOPBAR_PILLS.filter((p) => p.active)).toHaveLength(1);
     expect(SETTINGS_MENU_ROWS).toHaveLength(4);
     expect(SETTINGS_TOKENS_DOC).toContain('#2de8c3');
+  });
+
+  it('settings holds the workspace UI toggle options + fixture', () => {
+    expect(WORKSPACE_UI_VERSION_OPTIONS.map((o) => o.value)).toEqual(['v1', 'v2']);
+    expect(WORKSPACE_UI_VERSION_FIXTURE).toBe('v2');
+    expect(WORKSPACE_UI_VERSION_HELP).toContain('general.workspaceUiVersion');
   });
 
   it('diagnostic holds strip shape + seed', () => {

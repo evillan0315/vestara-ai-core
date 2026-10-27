@@ -12,6 +12,7 @@ import * as http from 'node:http';
 import type { Socket } from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { normalizeWorkspaceUiVersion } from '@vestara/configuration';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
@@ -234,12 +235,60 @@ function buildGroups(): RouteGroup[] {
 }
 
 /**
- * Serve the built Workspace UI (apps/workspace/dist) for non-API GET requests.
- * The compiled API lives at `apps/api/dist/index.js`, so the UI build is two
- * levels up under `apps/workspace/dist`. Requests that do not map to a real
- * asset fall back to index.html (SPA client-side routing).
+ * Serve the built Workspace UI (apps/workspace/dist v1 or
+ * apps/workspace-ui-v2/dist v2) for non-API GET requests.
+ * The compiled API lives at `apps/api/dist/index.js`, so each UI build is
+ * three levels up under `apps/<ui>/dist`. Requests that do not map to a
+ * real asset fall back to index.html (SPA client-side routing).
+ *
+ * Selection precedence: `VESTARA_WORKSPACE_UI_VERSION` env (when set) >
+ * persisted `general.workspaceUiVersion` setting > v1 default.
+ * Unknown values warn and fall back to the next layer.
  */
-const UI_DIST = path.resolve(__dirname, '..', '..', '..', 'apps', 'workspace', 'dist');
+export const UI_DIST_V1 = path.resolve(__dirname, '..', '..', '..', 'apps', 'workspace', 'dist');
+export const UI_DIST_V2 = path.resolve(__dirname, '..', '..', '..', 'apps', 'workspace-ui-v2', 'dist');
+
+/**
+ * Resolve the active UI version.
+ * Precedence: explicit env value > persisted setting value > v1 default.
+ * Unknown values fall back to the next layer (never throw on the hot path).
+ */
+export function resolveWorkspaceUiVersion(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  settingValue?: unknown,
+): 'v1' | 'v2' {
+  const raw = (env.VESTARA_WORKSPACE_UI_VERSION ?? '').trim().toLowerCase();
+  if (raw !== '') {
+    if (raw === 'v2' || raw === '2' || raw === 'next') return 'v2';
+    if (raw === 'v1' || raw === '1' || raw === 'classic') return 'v1';
+    console.warn(`[api] unknown VESTARA_WORKSPACE_UI_VERSION "${raw}" — falling back to v1`);
+    return 'v1';
+  }
+  return normalizeWorkspaceUiVersion(settingValue) ?? 'v1';
+}
+
+/** Resolve the dist directory for the active UI version. */
+export function resolveUiDistDir(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  settingValue?: unknown,
+): string {
+  return resolveWorkspaceUiVersion(env, settingValue) === 'v2' ? UI_DIST_V2 : UI_DIST_V1;
+}
+
+/**
+ * Read the persisted UI version for the static server. Never throws —
+ * a missing/unreadable configuration simply yields the v1 default.
+ */
+function persistedUiVersion(ctx: WorkspaceContext): unknown {
+  try {
+    return ctx.settings.resolve().settings.find((setting) => setting.key === 'general.workspaceUiVersion')?.value;
+  } catch {
+    return undefined;
+  }
+}
+
+/** @deprecated Use UI_DIST_V1 / resolveUiDistDir() — kept for test compatibility. */
+export const UI_DIST = UI_DIST_V1;
 
 const UI_CONTENT_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -284,13 +333,14 @@ function uiCacheControl(filename: string): string {
  * Serve a built Workspace UI asset with content negotiation + caching.
  * `distDir` is injectable so the policy can be tested without a real build.
  */
-export function serveWorkspaceUi(res: http.ServerResponse, pathname: string, distDir: string = UI_DIST): boolean {
+export function serveWorkspaceUi(res: http.ServerResponse, pathname: string, distDir?: string): boolean {
+  const root = distDir ?? resolveUiDistDir();
   const decoded = decodeURIComponent(pathname);
   const rel = decoded === '/' || decoded === '' ? '/index.html' : decoded;
-  const filePath = path.normalize(path.join(distDir, rel));
-  const isSafe = filePath === distDir || filePath.startsWith(`${distDir}${path.sep}`);
+  const filePath = path.normalize(path.join(root, rel));
+  const isSafe = filePath === root || filePath.startsWith(`${root}${path.sep}`);
   const isFile = isSafe && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
-  const target = isFile ? filePath : path.join(distDir, 'index.html');
+  const target = isFile ? filePath : path.join(root, 'index.html');
   if (!fs.existsSync(target)) return false;
 
   const stat = fs.statSync(target);
@@ -670,8 +720,11 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
         }
 
         // Serve the built Workspace UI for non-API GET requests (SPA fallback).
+        // The active dist follows VESTARA_WORKSPACE_UI_VERSION env >
+        // general.workspaceUiVersion setting > v1, resolved per request so
+        // a Settings save applies without an API restart.
         if (method === 'GET' && !pathname.startsWith('/api') && !pathname.startsWith('/ws')) {
-          if (serveWorkspaceUi(res, pathname)) {
+          if (serveWorkspaceUi(res, pathname, resolveUiDistDir(process.env, persistedUiVersion(ctx)))) {
             complete(res.statusCode ?? 200, responseBytes);
             return;
           }

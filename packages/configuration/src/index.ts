@@ -12,6 +12,7 @@
 import type { ConfigChangeHandler, ConfigSource } from '@vestara/shared';
 
 export * from './workspace-settings.js';
+export * from './ui-version.js';
 
 export interface ConfigurationProvider {
   get<T>(key: string, defaultValue?: T): T;

@@ -5,6 +5,7 @@ import {
   SETTINGS_TOKENS_DOC,
   SETTINGS_TOPBAR_PILLS,
 } from './settings.fixtures';
+import { WorkspaceUiToggle } from './WorkspaceUiToggle';
 
 export function SettingsPkg() {
   return (
@@ -20,6 +21,7 @@ export function SettingsPkg() {
         ))}
       </div>
       <div className="space-y-4">
+        <WorkspaceUiToggle />
         <div className="rounded-[var(--vestara-radius-md-plus)] bg-[var(--vestara-surface-shell-raised)] border border-[var(--vestara-border-shell)] p-3">
           <div className="text-[length:var(--vestara-font-size-label)] tracking-[0.12em] text-[var(--vestara-text-shell-muted)] mb-2">
             TOPBAR • 32PX SMALL CLEAN
