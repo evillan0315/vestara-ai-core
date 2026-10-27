@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
-import { ActionIcon, Badge, Button, EmptyState, Input, List, ListItemText, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
+import { ActionIcon, Badge, Button, EmptyState, Input, List, ListItemText, PanelFooter, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { icons, Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
@@ -136,6 +136,8 @@ const RAIL_FILTERS: Array<{ id: RailStatusFilter; label: string }> = [
 
 /** Project phases that carry runnable tasks and can be re-run from scratch. */
 const RERUNNABLE_PHASES: ReadonlySet<string> = new Set(['executing', 'verifying', 'completed', 'cancelled']);
+/** Terminal phases whose record can be filed away without deleting history. */
+const ARCHIVABLE_PHASES: ReadonlySet<string> = new Set(['completed', 'cancelled']);
 
 const GRAPH_LAYOUTS: ReadonlyArray<{ id: WorkflowGraphLayoutName; label: string; hint: string }> = [
   { id: 'breadthfirst', label: 'Dependency', hint: 'Top-down dependency waves' },
@@ -485,23 +487,13 @@ function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
 }
 
 /**
- * Full card view for one project — rendered inside the rail hover tooltip.
- * Extracted so the tooltip shows the same card by construction (goal, phase
- * chips, counts, progress, recommended-action banner, approvals, Re-run /
- * Open graph, selection note).
+ * Summary half of the rail hover tooltip — phase chips, goal, counts, and
+ * task progress. Ends at task progress: actions live in the tooltip header
+ * (top-right, beside the project name) and approvals stay in the inspector.
  */
-function ProjectCardBody({ project, metrics, approvals, action, busy, projectDetail, expanded, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
+function ProjectCardBody({ project, metrics }: {
   project: ProjectSummary;
   metrics?: ProjectMetrics;
-  approvals: ApprovalTask[];
-  action: ReturnType<typeof getProjectAction> | undefined;
-  busy: string | null;
-  projectDetail?: { snapshot: Snapshot; audit: AuditEvent[] };
-  expanded: boolean;
-  onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
-  onOpenGraph: (projectId: string) => void;
-  onExecuteAction: (projectId: string, kind: string) => void;
-  onRerun: (projectId: string) => void;
 }) {
   const done = metrics?.tasks.completed ?? 0;
   const total = metrics?.tasks.total ?? 0;
@@ -533,80 +525,7 @@ function ProjectCardBody({ project, metrics, approvals, action, busy, projectDet
         <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
           Task progress {done}/{total} {pct}%
         </span>
-        <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-1)]">
-          {RERUNNABLE_PHASES.has(project.phase) && (
-            <ActionIcon
-              size="sm"
-              label={
-                busy === `rerun-${project.id}`
-                  ? `Re-running ${project.name}…`
-                  : `Re-run ${project.name} — reset every task and run again from the executing phase`
-              }
-              icon={
-                <span aria-hidden="true" className="text-[length:var(--vestara-font-size-sm)]">
-                  ↻
-                </span>
-              }
-              onClick={() => onRerun(project.id)}
-              disabled={busy === `rerun-${project.id}`}
-            />
-          )}
-          <ActionIcon
-            size="sm"
-            label={`Open graph for ${project.name}`}
-            icon={<icons.ArrowRight size={14} />}
-            onClick={() => onOpenGraph(project.id)}
-          />
-        </div>
       </div>
-
-      {action && (
-        <div
-          className={`mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border px-2.5 py-[var(--vestara-spacing-element)] ${
-            action.actionable
-              ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)]'
-              : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]'
-          }`}
-          role="status"
-          title={action.detail}
-        >
-          <span
-            className={`truncate text-[length:var(--vestara-font-size-xs)] ${
-              action.actionable ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-secondary)]'
-            }`}
-          >
-            {action.actionable ? '⚡' : 'ℹ'} {action.title}
-          </span>
-          <ActionIcon
-            size="sm"
-            tone="accent"
-            label={`${action.ctaLabel} for ${project.name}`}
-            tooltip={`${action.ctaLabel} — ${action.title}`}
-            icon={<icons.ArrowRight size={14} />}
-            onClick={() => onExecuteAction(project.id, action.kind)}
-          />
-        </div>
-      )}
-
-      <ApprovalActions projectId={project.id} approvals={approvals} busy={busy} onResolve={onResolveApproval} />
-
-      {expanded && (
-        <div className="workflow-project-selection-note">
-          {projectDetail ? (
-            <>
-              <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
-              <ActionIcon
-                size="sm"
-                label={`Open graph for ${project.name}`}
-                icon={<icons.ArrowRight size={14} />}
-                onClick={() => onOpenGraph(project.id)}
-              />
-            </>
-          ) : (
-            <span>Loading workflow snapshot...</span>
-          )}
-        </div>
-      )}
     </>
   );
 }
@@ -639,7 +558,7 @@ function rowStatusVariant(
  * chevron); hovering or keyboard-focusing a row reveals the full card view
  * inline, and selecting a row pins it open + loads the inspector.
  */
-function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
+function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, onToggle, onOpenGraph, onRerun, onArchive }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
@@ -648,12 +567,10 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
   nextProjectId: string | null;
   expandedId: string | null;
   busy: string | null;
-  detail: Record<string, { snapshot: Snapshot; audit: AuditEvent[] }>;
   onToggle: (projectId: string) => void;
-  onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
   onOpenGraph: (projectId: string) => void;
-  onExecuteAction: (projectId: string, kind: string) => void;
   onRerun: (projectId: string) => void;
+  onArchive: (projectId: string) => void;
 }) {
   // Hover/focus tooltip anchor — a floating card preview positioned beside
   // the hovered row (portal to document.body so rail scroll never clips it).
@@ -716,10 +633,6 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
     ? {
         project: previewProject,
         metrics: metricsByProject[previewProject.id],
-        approvals: approvalsByProject[previewProject.id] ?? [],
-        action: projectActions[previewProject.id],
-        projectDetail: detail[previewProject.id],
-        expanded: expandedId === previewProject.id,
       }
     : null;
 
@@ -771,7 +684,9 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
                 }
               }}
               className={`flex cursor-pointer items-center gap-[var(--vestara-spacing-3)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-2)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--vestara-accent)] ${
-                expanded ? 'bg-[var(--vestara-accent-primary)]/10' : 'hover:bg-[var(--vestara-surface-interactive)]'
+                expanded
+                  ? 'bg-[var(--vestara-surface-panel-raised)]'
+                  : 'hover:bg-[var(--vestara-surface-interactive)]'
               }`}
             >
               <span className="shrink-0">
@@ -834,22 +749,50 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
           className="fixed z-[var(--vestara-z-index-tooltip)] w-80 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-[var(--vestara-spacing-4)] shadow-[var(--vestara-elevation-lg)]"
           style={{ top: preview?.top, left: preview?.left, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}
         >
-          <div className="mb-[var(--vestara-spacing-2)] truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-            {previewData.project.name}
+          <div className="mb-[var(--vestara-spacing-2)] flex items-center gap-[var(--vestara-spacing-2)]">
+            <div className="min-w-0 flex-1 truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
+              {previewData.project.name}
+            </div>
+            <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-1)]">
+              {RERUNNABLE_PHASES.has(previewData.project.phase) && (
+                <ActionIcon
+                  size="sm"
+                  label={
+                    busy === `rerun-${previewData.project.id}`
+                      ? `Re-running ${previewData.project.name}…`
+                      : `Re-run ${previewData.project.name} — reset every task and run again from the executing phase`
+                  }
+                  icon={
+                    <span aria-hidden="true" className="text-[length:var(--vestara-font-size-sm)]">
+                      ↻
+                    </span>
+                  }
+                  onClick={() => onRerun(previewData.project.id)}
+                  disabled={busy === `rerun-${previewData.project.id}`}
+                />
+              )}
+              {ARCHIVABLE_PHASES.has(previewData.project.phase) && (
+                <ActionIcon
+                  size="sm"
+                  label={
+                    busy === `archive-${previewData.project.id}`
+                      ? `Archiving ${previewData.project.name}…`
+                      : `Archive ${previewData.project.name}`
+                  }
+                  icon={<icons.Box size={14} />}
+                  onClick={() => onArchive(previewData.project.id)}
+                  disabled={busy === `archive-${previewData.project.id}`}
+                />
+              )}
+              <ActionIcon
+                size="sm"
+                label={`Open graph for ${previewData.project.name}`}
+                icon={<icons.GitBranch size={14} />}
+                onClick={() => onOpenGraph(previewData.project.id)}
+              />
+            </div>
           </div>
-          <ProjectCardBody
-            project={previewData.project}
-            metrics={previewData.metrics}
-            approvals={previewData.approvals}
-            action={previewData.action}
-            busy={busy}
-            projectDetail={previewData.projectDetail}
-            expanded={previewData.expanded}
-            onResolveApproval={onResolveApproval}
-            onOpenGraph={onOpenGraph}
-            onExecuteAction={onExecuteAction}
-            onRerun={onRerun}
-          />
+          <ProjectCardBody project={previewData.project} metrics={previewData.metrics} />
         </div>,
         document.body,
       )}
@@ -1334,6 +1277,22 @@ export default function OrchestrationPage() {
     }
   };
 
+  const archiveProject = async (projectId: string) => {
+    setBusy(`archive-${projectId}`);
+    setActionError(null);
+    try {
+      const result = await postJson<{ snapshot: Snapshot }>(`${API}/projects/${projectId}/archive`);
+      if (!result) throw new Error('Archive request failed — the server returned an error.');
+      await refresh();
+      if (detail[projectId] || expandedId === projectId) await loadDetail(projectId);
+      if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Archive failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const retryTask = async (projectId: string, taskId: string) => {
     setBusy(`retry-${taskId}`);
     setActionError(null);
@@ -1452,6 +1411,39 @@ export default function OrchestrationPage() {
     : 0;
   const selectedTotal = selectedDetail ? selectedDetail.snapshot.tasks.length : 0;
   const selectedPct = selectedTotal > 0 ? Math.round((selectedDone / selectedTotal) * 100) : 0;
+
+  // Overview scoping: while a project is selected the overview tab shows only
+  // that project's data (action, progress, status, stats) instead of the
+  // workspace aggregates. Metrics fall back to zeros until loaded.
+  const selectedOverview = useMemo(() => {
+    if (!selectedProject) return null;
+    const metrics = metricsByProject[selectedProject.id];
+    const tasks = metrics?.tasks ?? {
+      total: 0,
+      completed: 0,
+      running: 0,
+      failed: 0,
+      blocked: 0,
+      awaitingApproval: 0,
+    };
+    const total = tasks.total;
+    const done = tasks.completed;
+    return {
+      metrics,
+      approvals: approvalsByProject[selectedProject.id] ?? [],
+      action: projectActions[selectedProject.id] ?? null,
+      planStatus: selectedDetail?.snapshot.plan?.status,
+      artifactCount: metrics?.artifacts ?? 0,
+      retries: metrics?.retries ?? 0,
+      done,
+      total,
+      pct: total > 0 ? Math.round((done / total) * 100) : 0,
+      running: tasks.running,
+      failed: tasks.failed,
+      blocked: tasks.blocked,
+      awaitingApproval: tasks.awaitingApproval,
+    };
+  }, [selectedProject, metricsByProject, approvalsByProject, projectActions, selectedDetail]);
 
   const selectedGraphMetrics = useMemo(() => {
     const tasks = selectedDetail?.snapshot.tasks ?? [];
@@ -1787,12 +1779,21 @@ export default function OrchestrationPage() {
           rail={
             <aside className="ar-panel workflow-rail" aria-label="Projects">
               <PanelHeader
-                title={`Projects · ${projects.length}`}
+                title={`Projects · ${isRailFiltered ? `${visibleProjects.length} of ${projects.length}` : projects.length}`}
                 icon={navIcon('projects')}
                 actions={
-                  <button type="button" className="workflow-tab-action" onClick={() => setCreateOpen(true)}>
-                    + New
-                  </button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={
+                      <span aria-hidden="true" className="inline-flex items-center">
+                        <icons.Plus size={14} />
+                      </span>
+                    }
+                    onClick={() => setCreateOpen(true)}
+                  >
+                    New
+                  </Button>
                 }
               />
               {loading ? (
@@ -1840,33 +1841,32 @@ export default function OrchestrationPage() {
                   nextProjectId={nextProjectId}
                   expandedId={expandedId}
                   busy={busy}
-                  detail={detail}
                   onToggle={toggleExpand}
-                  onResolveApproval={(projectId, taskId, approved) => void resolveApproval(projectId, taskId, approved)}
                   onOpenGraph={openProjectGraph}
-                  onExecuteAction={handleProjectAction}
                   onRerun={(projectId) => void rerunProject(projectId)}
+                  onArchive={(projectId) => void archiveProject(projectId)}
                 />
               )}
               {dashboard.phases.length > 0 && (
-                <div className="mt-[var(--vestara-spacing-3)] border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-3)]">
-                  <span className="ar-panel__label">PhaseCards</span>
-                  <div className="mt-[var(--vestara-spacing-2)] grid grid-cols-2 gap-[var(--vestara-spacing-2)]">
+                <PanelFooter ariaLabel="Projects by phase">
+                  <span className="ar-panel__label">By phase</span>
+                  <div className="grid w-full grid-cols-2 gap-[var(--vestara-spacing-2)]">
                     {dashboard.phases.map(([phase, count]) => (
                       <div
                         key={phase}
-                        className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-2)]"
+                        className="flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-element)]"
+                        title={`${count} project${count === 1 ? '' : 's'} in ${phase.replaceAll('-', ' ')}`}
                       >
-                        <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-wide text-[var(--vestara-text-secondary)]">
+                        <span className="workflow-status-chip" data-status={phase}>
                           {phase.replaceAll('-', ' ')}
-                        </div>
-                        <div className="mt-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                          {count} project{count === 1 ? '' : 's'}
-                        </div>
+                        </span>
+                        <span className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-secondary)]">
+                          {count}
+                        </span>
                       </div>
                     ))}
                   </div>
-                </div>
+                </PanelFooter>
               )}
             </aside>
           }
@@ -2318,6 +2318,89 @@ export default function OrchestrationPage() {
                     owns the single primary create CTA, so the "New project"
                     quick tile does not duplicate it. */}
                 {!loading && projects.length > 0 && <WorkflowQuickActions actions={quickActions} />}
+                {selectedProject && selectedOverview ? (
+                  <>
+                    {!loading && selectedOverview.action && (
+                      <OperationalPanel
+                        icon={navIcon('workflows')}
+                        title="Next action"
+                        description={selectedProject.name}
+                        actions={
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              const kind = selectedOverview.action?.kind;
+                              if (kind) handleProjectAction(selectedProject.id, kind);
+                            }}
+                            disabled={
+                              selectedOverview.action.kind === 'resume' && busy === `resume-${selectedProject.id}`
+                            }
+                          >
+                            {selectedOverview.action.ctaLabel}
+                          </Button>
+                        }
+                      >
+                        <p className="text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]">
+                          {selectedOverview.action.title}
+                        </p>
+                        <p className="mt-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                          {selectedOverview.action.detail}
+                        </p>
+                      </OperationalPanel>
+                    )}
+                    {!loading && (
+                      <>
+                        <div className="grid grid-cols-1 gap-[var(--vestara-spacing-4)] md:grid-cols-2">
+                          <OperationalPanel
+                            icon={navIcon('executions')}
+                            title="Task progress"
+                            description={`${selectedOverview.done} / ${selectedOverview.total} tasks in ${selectedProject.name}`}
+                          >
+                            <ProgressBar pct={selectedOverview.pct} size="md" />
+                            <div className="mt-[var(--vestara-spacing-3)] flex flex-wrap gap-[var(--vestara-spacing-2)]">
+                              <Badge variant="default" size="sm">{selectedOverview.pct}% complete</Badge>
+                              <Badge variant="info" size="sm">{selectedOverview.running} running</Badge>
+                              <Badge variant="warning" size="sm">{selectedOverview.blocked} blocked</Badge>
+                              <Badge variant="error" size="sm">{selectedOverview.failed} failed</Badge>
+                              <Badge variant="warning" size="sm">{selectedOverview.awaitingApproval} awaiting approval</Badge>
+                            </div>
+                          </OperationalPanel>
+
+                          <OperationalPanel
+                            icon={navIcon('dashboard')}
+                            title="Workflow status"
+                            description={selectedProject.goal}
+                          >
+                            <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]">
+                              <span className="workflow-status-chip" data-status={selectedProject.phase}>
+                                {selectedProject.phase.replaceAll('-', ' ')}
+                              </span>
+                              <span className="workflow-status-chip" data-status={selectedProject.status}>
+                                {selectedProject.status.replaceAll('-', ' ')}
+                              </span>
+                              {selectedOverview.planStatus && (
+                                <Badge variant="default" size="sm">Plan: {selectedOverview.planStatus}</Badge>
+                              )}
+                            </div>
+                            <p className="mt-[var(--vestara-spacing-3)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
+                              {selectedOverview.approvals.length} approvals pending ·{' '}
+                              {selectedOverview.blocked + selectedOverview.failed} blocked / failed ·{' '}
+                              {selectedOverview.retries} retries · {selectedOverview.artifactCount} artifacts
+                            </p>
+                          </OperationalPanel>
+                        </div>
+                        <div className="mt-[var(--vestara-spacing-4)] grid grid-cols-2 gap-[var(--vestara-spacing-4)] md:grid-cols-4">
+                          <StatCard label="Running tasks" value={selectedOverview.running} accent="var(--vestara-status-info)" />
+                          <StatCard label="Blocked / failed" value={selectedOverview.blocked + selectedOverview.failed} accent="var(--vestara-status-error)" />
+                          <StatCard label="Awaiting approval" value={selectedOverview.awaitingApproval} accent="var(--vestara-status-warning)" />
+                          <StatCard label="Artifacts" value={selectedOverview.artifactCount} accent="var(--vestara-status-success)" />
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
                 {!loading && visibleNextActions.length > 0 && (
                   <OperationalPanel
                     icon={navIcon('workflows')}
@@ -2386,6 +2469,8 @@ export default function OrchestrationPage() {
         </div>
         </>
         )}
+                  </>
+                )}
 
         {loading ? (
           <div className="space-y-[var(--vestara-spacing-4)]" role="status" aria-live="polite" aria-label="Loading workflows">
