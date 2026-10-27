@@ -95,6 +95,11 @@ export class ProjectStore {
     dbRun(this.db, 'UPDATE orchestrated_projects SET phase = ?, updated_at = ? WHERE id = ?', ['archived', now(), id]);
   }
 
+  /** Permanently remove a project row (runtime state only; the event log keeps its audit trail). */
+  async delete(id: string): Promise<void> {
+    dbRun(this.db, 'DELETE FROM orchestrated_projects WHERE id = ?', [id]);
+  }
+
   /**
    * Reset a project for a full workflow re-run. Terminal phases (`completed`,
    * `cancelled`) have no outgoing edges in the project state machine, so this

@@ -172,6 +172,11 @@ export class TaskStore {
     return this.get(id);
   }
 
+  /** Permanently remove every task in a plan (project delete cascade). */
+  async deleteForPlan(planId: string): Promise<void> {
+    dbRun(this.db, 'DELETE FROM orchestrated_tasks WHERE plan_id = ?', [planId]);
+  }
+
   async recordFailure(id: string, error: string, attempt: number): Promise<void> {
     dbRun(
       this.db,

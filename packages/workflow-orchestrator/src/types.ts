@@ -325,6 +325,13 @@ export type OrchestrationEvent =
       readonly taskCount: number;
       readonly reason?: string;
       readonly at: string;
+    }
+  | {
+      readonly type: 'project.deleted';
+      readonly projectId: string;
+      readonly name: string;
+      readonly taskCount: number;
+      readonly at: string;
     };
 
 export interface OrchestrationEventSink {

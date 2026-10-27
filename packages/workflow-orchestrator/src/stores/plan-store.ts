@@ -59,6 +59,11 @@ export class PlanStore {
     return this.get(id);
   }
 
+  /** Permanently remove every plan in a project (project delete cascade). */
+  async deleteForProject(projectId: string): Promise<void> {
+    dbRun(this.db, 'DELETE FROM orchestrated_plans WHERE project_id = ?', [projectId]);
+  }
+
   async setApproval(id: string, approvalId: string): Promise<void> {
     dbRun(this.db, 'UPDATE orchestrated_plans SET approval_id = ?, updated_at = ? WHERE id = ?', [
       approvalId,

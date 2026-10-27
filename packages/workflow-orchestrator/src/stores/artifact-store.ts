@@ -68,6 +68,11 @@ export class ArtifactStore {
     return rows.map((row) => this.rowToArtifact(row));
   }
 
+  /** Permanently remove every artifact in a project (project delete cascade). */
+  async deleteForProject(projectId: string): Promise<void> {
+    dbRun(this.db, 'DELETE FROM orchestrated_artifacts WHERE project_id = ?', [projectId]);
+  }
+
   private rowToArtifact(row: Record<string, unknown>): WorkflowArtifact {
     return {
       id: str(row.id),

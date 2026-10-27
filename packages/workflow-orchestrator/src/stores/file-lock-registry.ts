@@ -67,6 +67,11 @@ export class FileLockRegistry {
     return row !== null;
   }
 
+  /** Permanently remove every lock held by a task (project delete cascade). */
+  async deleteForTask(taskId: string): Promise<void> {
+    dbRun(this.db, 'DELETE FROM orchestrated_file_locks WHERE task_id = ?', [taskId]);
+  }
+
   async listActive(): Promise<FileLock[]> {
     const rows = dbAll(
       this.db,

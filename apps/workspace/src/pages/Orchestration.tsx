@@ -136,8 +136,6 @@ const RAIL_FILTERS: Array<{ id: RailStatusFilter; label: string }> = [
 
 /** Project phases that carry runnable tasks and can be re-run from scratch. */
 const RERUNNABLE_PHASES: ReadonlySet<string> = new Set(['executing', 'verifying', 'completed', 'cancelled']);
-/** Terminal phases whose record can be filed away without deleting history. */
-const ARCHIVABLE_PHASES: ReadonlySet<string> = new Set(['completed', 'cancelled']);
 
 const GRAPH_LAYOUTS: ReadonlyArray<{ id: WorkflowGraphLayoutName; label: string; hint: string }> = [
   { id: 'breadthfirst', label: 'Dependency', hint: 'Top-down dependency waves' },
@@ -558,7 +556,7 @@ function rowStatusVariant(
  * chevron); hovering or keyboard-focusing a row reveals the full card view
  * inline, and selecting a row pins it open + loads the inspector.
  */
-function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, onToggle, onOpenGraph, onRerun, onArchive }: {
+function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, onToggle, onOpenGraph, onRerun, onArchive, onDelete }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
@@ -571,11 +569,16 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
   onOpenGraph: (projectId: string) => void;
   onRerun: (projectId: string) => void;
   onArchive: (projectId: string) => void;
+  onDelete: (projectId: string) => void;
 }) {
   // Hover/focus tooltip anchor — a floating card preview positioned beside
   // the hovered row (portal to document.body so rail scroll never clips it).
   const [preview, setPreview] = useState<{ id: string; top: number; left: number } | null>(null);
+  // Two-click delete confirm: the first click arms, the second executes. The
+  // arm expires after a few seconds so a stray click never deletes later.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const closeTimer = useRef<number | null>(null);
+  const armTimer = useRef<number | null>(null);
   const tooltipId = useId();
 
   const cancelClose = useCallback(() => {
@@ -588,8 +591,28 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
   useEffect(
     () => () => {
       if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+      if (armTimer.current !== null) window.clearTimeout(armTimer.current);
     },
     [],
+  );
+
+  const handleDelete = useCallback(
+    (project: { id: string; name: string }) => {
+      if (confirmDeleteId === project.id) {
+        if (armTimer.current !== null) {
+          window.clearTimeout(armTimer.current);
+          armTimer.current = null;
+        }
+        setConfirmDeleteId(null);
+        setPreview(null);
+        onDelete(project.id);
+      } else {
+        setConfirmDeleteId(project.id);
+        if (armTimer.current !== null) window.clearTimeout(armTimer.current);
+        armTimer.current = window.setTimeout(() => setConfirmDeleteId(null), 3000);
+      }
+    },
+    [confirmDeleteId, onDelete],
   );
 
   const previewOpen = preview !== null;
@@ -771,24 +794,34 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
                   disabled={busy === `rerun-${previewData.project.id}`}
                 />
               )}
-              {ARCHIVABLE_PHASES.has(previewData.project.phase) && (
-                <ActionIcon
-                  size="sm"
-                  label={
-                    busy === `archive-${previewData.project.id}`
-                      ? `Archiving ${previewData.project.name}…`
-                      : `Archive ${previewData.project.name}`
-                  }
-                  icon={<icons.Box size={14} />}
-                  onClick={() => onArchive(previewData.project.id)}
-                  disabled={busy === `archive-${previewData.project.id}`}
-                />
-              )}
+              <ActionIcon
+                size="sm"
+                label={
+                  busy === `archive-${previewData.project.id}`
+                    ? `Archiving ${previewData.project.name}…`
+                    : `Archive ${previewData.project.name}`
+                }
+                icon={<icons.Box size={14} />}
+                onClick={() => onArchive(previewData.project.id)}
+                disabled={busy === `archive-${previewData.project.id}`}
+              />
               <ActionIcon
                 size="sm"
                 label={`Open graph for ${previewData.project.name}`}
                 icon={<icons.GitBranch size={14} />}
                 onClick={() => onOpenGraph(previewData.project.id)}
+              />
+              <ActionIcon
+                size="sm"
+                tone="destructive"
+                label={
+                  confirmDeleteId === previewData.project.id
+                    ? `Click again to confirm deleting ${previewData.project.name} — this cannot be undone`
+                    : `Delete ${previewData.project.name}`
+                }
+                icon={<icons.Trash2 size={14} />}
+                onClick={() => handleDelete(previewData.project)}
+                disabled={busy === `delete-${previewData.project.id}`}
               />
             </div>
           </div>
@@ -1288,6 +1321,36 @@ export default function OrchestrationPage() {
       if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Archive failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const deleteProject = async (projectId: string) => {
+    setBusy(`delete-${projectId}`);
+    setActionError(null);
+    try {
+      const res = await fetch(`${API}/projects/${projectId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        let message = `Delete request failed (${res.status})`;
+        try {
+          const data = (await res.json()) as { error?: string };
+          if (data.error) message = data.error;
+        } catch {
+          // Non-JSON error body — keep the status-based message.
+        }
+        throw new Error(message);
+      }
+      if (expandedId === projectId) setExpandedId(null);
+      setDetail((prev) => {
+        if (!(projectId in prev)) return prev;
+        const next = { ...prev };
+        delete next[projectId];
+        return next;
+      });
+      await refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Delete failed.');
     } finally {
       setBusy(null);
     }
@@ -1845,6 +1908,7 @@ export default function OrchestrationPage() {
                   onOpenGraph={openProjectGraph}
                   onRerun={(projectId) => void rerunProject(projectId)}
                   onArchive={(projectId) => void archiveProject(projectId)}
+                  onDelete={(projectId) => void deleteProject(projectId)}
                 />
               )}
               {dashboard.phases.length > 0 && (

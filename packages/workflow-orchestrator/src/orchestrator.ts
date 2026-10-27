@@ -595,6 +595,35 @@ export class WorkflowOrchestrator {
     return this.snapshot(projectId);
   }
 
+  /**
+   * Permanently delete a workflow and its runtime state (plans, tasks,
+   * artifacts, file locks). Allowed from any phase; the event log keeps its
+   * audit trail, so `rebuild` refuses the deleted project instead of
+   * resurrecting it. There is no undo — callers must confirm.
+   */
+  async deleteProject(projectId: string): Promise<{ id: string; name: string; taskCount: number }> {
+    const project = await this.mustGetProject(projectId);
+    const plans = await this.plans.listForProject(projectId);
+    const tasks = await this.tasks.listForProject(projectId);
+    for (const task of tasks) {
+      await this.locks.deleteForTask(task.id);
+    }
+    for (const plan of plans) {
+      await this.tasks.deleteForPlan(plan.id);
+    }
+    await this.artifacts.deleteForProject(projectId);
+    await this.plans.deleteForProject(projectId);
+    await this.projects.delete(projectId);
+    await this.events.append({
+      type: 'project.deleted',
+      projectId,
+      name: project.name,
+      taskCount: tasks.length,
+      at: now(),
+    });
+    return { id: project.id, name: project.name, taskCount: tasks.length };
+  }
+
   /** Idempotent re-entry: reload persisted state and continue in-progress work. */
   async resume(projectId: string): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
@@ -761,6 +790,8 @@ export class WorkflowOrchestrator {
           phase = 'executing';
           cancelReason = undefined;
           break;
+        case 'project.deleted':
+          throw new Error(`Project ${projectId} was deleted`);
         case 'plan.generated':
           planById.set(event.planId, {
             id: event.planId,

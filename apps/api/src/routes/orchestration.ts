@@ -211,6 +211,21 @@ export async function handleOrchestrationRoute(
     return true;
   }
 
+  // DELETE /api/orchestration/projects/:projectId — permanently removes the
+  // workflow runtime state (plans, tasks, artifacts, locks). The event log
+  // keeps its audit trail. There is no undo; the UI confirms before calling.
+  const projectDeleteMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)$/);
+  if (projectDeleteMatch && method === 'DELETE') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const projectId = decodeURIComponent(projectDeleteMatch[1]);
+    try {
+      json(res, 200, { deleted: await orchestrator.deleteProject(projectId) });
+    } catch (error) {
+      json(res, 404, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
+
   const projectMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)$/);
   if (projectMatch && method === 'GET') {
     const projectId = decodeURIComponent(projectMatch[1]);
