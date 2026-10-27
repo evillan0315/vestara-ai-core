@@ -50,10 +50,13 @@ function AgentRoleIcon({ role }: { role: string }) {
   // Simple role-based icons
   const iconMap: Record<string, string> = {
     context: '🔍',
-    developer: '💻',
+    analyst: '🔬',
     planning: '📋',
+    architect: '🏗️',
+    developer: '💻',
     reviewer: '👁️',
     verifier: '✅',
+    system: '⚙️',
     assistant: '⚡',
     custom: '🔧',
   };

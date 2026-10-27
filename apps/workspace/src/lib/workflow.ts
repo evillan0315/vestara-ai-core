@@ -133,6 +133,7 @@ export interface WorkflowStartResult {
 
 export type MultiAgentWorkflowTemplateId =
   | 'default'
+  | 'full-pipeline'
   | 'agent-control-restructure'
   | 'activity-room-premium-redesign';
 

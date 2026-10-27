@@ -34,6 +34,11 @@ export interface WorkflowGraphTaskNode {
   readonly label: string;
   readonly status: TaskStatus;
   readonly source: WorkflowGraphSourceRef<'task'>;
+  /**
+   * Canonical owning agent (registry `agent-*` id) when the orchestrator has
+   * assigned one. Absent while unassigned — renderers must not infer it.
+   */
+  readonly assignedAgentId?: string;
 }
 
 export type WorkflowGraphNode = WorkflowGraphPlanNode | WorkflowGraphTaskNode;

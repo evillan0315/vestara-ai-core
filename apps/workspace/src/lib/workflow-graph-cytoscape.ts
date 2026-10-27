@@ -6,6 +6,8 @@ export type WorkflowGraphElementData = {
   kind: 'plan' | 'task' | 'contains' | 'depends_on';
   label?: string;
   status?: string;
+  /** Owning registry agent id for task nodes (absent when unassigned). */
+  agentId?: string;
   sourceKind?: 'plan' | 'task';
   sourceId?: string;
   source?: string;
@@ -24,6 +26,7 @@ export function workflowGraphToCytoscapeElements(
         kind: node.kind,
         label: node.label,
         status: node.status,
+        ...(node.kind === 'task' && node.assignedAgentId ? { agentId: node.assignedAgentId } : {}),
         sourceKind: node.source.kind,
         sourceId: node.source.id,
       },

@@ -137,10 +137,13 @@ interface AssistantExecutionConfig {
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'agent-assistant': 'Assistant',
   'agent-context': 'Context',
+  'agent-analyst': 'Analyst',
   'agent-developer': 'Developer',
   'agent-reviewer': 'Reviewer',
   'agent-planner': 'Planner',
+  'agent-architect': 'Architect',
   'agent-verifier': 'Verifier',
+  'agent-system': 'System',
 };
 
 /**

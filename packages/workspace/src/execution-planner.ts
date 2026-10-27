@@ -140,6 +140,9 @@ export class ExecutionPlanner {
     const roleToAgentRole: Record<string, string> = {
       architect: 'architect',
       planner: 'planning',
+      analyst: 'analyst',
+      system: 'system',
+      context: 'context',
       developer: 'developer',
       tester: 'tester',
       reviewer: 'reviewer',

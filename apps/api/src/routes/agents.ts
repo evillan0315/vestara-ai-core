@@ -1,50 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type * as http from 'node:http';
 import { join } from 'node:path';
-import { CANONICAL_AGENTS } from '@vestara/workspace';
+import { CANONICAL_AGENTS, renderOpencodeAgentFile } from '@vestara/workspace';
 import { AuditAction, logAudit } from '../audit-log';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
 import { getActor, json, readBody } from './types';
-
-/** Render a canonical agent to an OpenCode `.md` file with YAML frontmatter. */
-function renderAgentMd(agent: (typeof CANONICAL_AGENTS)[number]): string {
-  const p = agent.opencodePermissions;
-  const model = agent.model?.startsWith('opencode/') ? agent.model : `opencode/${agent.model ?? ''}`;
-  const permissionKeys = [
-    'read',
-    'edit',
-    'glob',
-    'grep',
-    'list',
-    'bash',
-    'task',
-    'external_directory',
-    'todowrite',
-    'webfetch',
-    'websearch',
-    'lsp',
-    'skill',
-    'question',
-    'doom_loop',
-  ];
-  const permissionLines = permissionKeys
-    .filter((k) => p[k as keyof typeof p] !== undefined)
-    .map((k) => `  ${k}: ${p[k as keyof typeof p]}`);
-  const frontmatter = [
-    '---',
-    `description: "${agent.description ?? ''}"`,
-    `mode: ${agent.mode}`,
-    `model: ${model}`,
-    'permission:',
-    ...permissionLines,
-    '---',
-    '',
-    agent.opencodePrompt.trim(),
-    '',
-  ];
-  return frontmatter.join('\n');
-}
 
 /**
  * Annotate Vestara-governed workspace agents with their OpenCode runtime twin.
@@ -390,7 +351,9 @@ export async function handleAgentsRoute(
       for (const agent of CANONICAL_AGENTS) {
         const name = agent.runtimeAgent ?? agent.role;
         const file = join(agentsDir, `${name}.md`);
-        writeFileSync(file, renderAgentMd(agent));
+        // Single source of truth: the canonical registry renderer (same bytes
+        // as `pnpm agents:sync`) so API-triggered syncs never drift.
+        writeFileSync(file, renderOpencodeAgentFile(agent));
         written.push(`${name}.md`);
       }
 

@@ -806,9 +806,9 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
 
 /**
  * Agent ids that take conversation-runtime turns when a composer message
- * targets them (@assistant, @context, @planner, @developer, @reviewer,
- * @verifier). Addressability contract (AR Convergence step 2):
- * - assistant/context/planner/developer/reviewer/verifier = addressable
+ * targets them (@assistant, @context, @analyst, @planner, @architect,
+ * @developer, @reviewer, @verifier, @system). Addressability contract (AR Convergence step 2):
+ * - assistant/context/analyst/planner/architect/developer/reviewer/verifier/system = addressable
  * - browser/coder/all-agents/unknown = NOT addressable (no turn, no fallback)
  * Step 3 removed the silent Assistant fallback: a non-addressable target
  * must never impersonate another agent.
@@ -816,10 +816,13 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
 const TURN_CAPABLE_AGENTS = new Set([
   'agent-assistant',
   'agent-context',
+  'agent-analyst',
   'agent-planner',
+  'agent-architect',
   'agent-developer',
   'agent-reviewer',
   'agent-verifier',
+  'agent-system',
 ]);
 
 /**
@@ -840,10 +843,13 @@ function isTurnProjected(agentId: string | undefined): boolean {
 const TURN_AGENT_IDENTITY: Record<string, { displayName: string; role: string }> = {
   'agent-assistant': { displayName: 'Assistant', role: 'assistant' },
   'agent-context': { displayName: 'Context', role: 'context' },
+  'agent-analyst': { displayName: 'Analyst', role: 'analyst' },
   'agent-developer': { displayName: 'Developer', role: 'developer' },
   'agent-reviewer': { displayName: 'Reviewer', role: 'reviewer' },
   'agent-planner': { displayName: 'Planner', role: 'planning' },
+  'agent-architect': { displayName: 'Architect', role: 'architect' },
   'agent-verifier': { displayName: 'Verifier', role: 'verifier' },
+  'agent-system': { displayName: 'System', role: 'system' },
 };
 
 /**

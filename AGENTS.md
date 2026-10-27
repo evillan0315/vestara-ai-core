@@ -186,7 +186,7 @@ Observed runtime state (2026-09-11):
 
 ## Agent Runtimes (managed by `pnpm agents:sync`)
 
-Single source of truth: `packages/workspace/src/agents.registry.ts` (7 canonical agents).
+Single source of truth: `packages/workspace/src/agents.registry.ts` (10 canonical agents).
 
 Rendered targets (identical core prompts, per-target adapter addenda only):
 

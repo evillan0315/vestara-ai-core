@@ -14,9 +14,12 @@ UI rules (summary): tokens mandatory (`packages/ui-tokens/src/tokens.ts` → `va
 ## Canonical agents (managed by `pnpm agents:sync`)
 
 - `vestara-context` — Discover repository state before planning begins.
+- `vestara-analyst` — Investigate failures, flakiness, and unknowns — produce evidence, never implement.
 - `vestara-developer` — Implement approved tasks — never invent scope.
 - `vestara-planner` — Analyze, prioritize, recommend — never write code.
+- `vestara-architect` — Design system structure and contracts — never write implementation code.
 - `vestara-reviewer` — Review implementations — never modify code.
 - `vestara-verifier` — Prove correctness via evidence — never think, never review.
 - `vestara-assistant` — Global conversational assistant for Workspace users.
 - `vestara-browser` — Interact with web applications through a governed browser session — observe, navigate, click, type, and collect evidence.
+- `vestara-system` — Govern workflow lifecycle, acceptance, and convergence — never implement.

@@ -27,7 +27,7 @@ export default function WorkflowPanel({ open, onStart }: WorkflowPanelProps) {
   return (
     <div className="p-3 mb-4 bg-(--vestara-accent-bg) border border-purple-400/30 rounded-lg">
       <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-        Multi-Agent Workflow — planner → developer → verifier → reviewer
+        Multi-Agent Workflow — standard, full 8-stage, or curated pipeline
       </div>
       <div className="flex items-center gap-2">
         <select
@@ -37,6 +37,7 @@ export default function WorkflowPanel({ open, onStart }: WorkflowPanelProps) {
           title="Workflow template (preset stage plan)"
         >
           <option value="default">Standard pipeline</option>
+          <option value="full-pipeline">Full pipeline (all 8 stages)</option>
           <option value="agent-control-restructure">Restructure Agent Control</option>
           <option value="activity-room-premium-redesign">Activity Room Premium Redesign</option>
         </select>

@@ -10,7 +10,7 @@ const ROLE_COLORS: Record<string, string> = {
   developer: '#3b82f6',
   verifier: '#10b981',
   documenter: '#f59e0b',
-  analyst: '#a855f7',
+  analyst: '#06b6d4',
   reviewer: '#14b8a6',
   tester: '#84cc16',
   'security-agent': '#ef4444',
@@ -19,6 +19,13 @@ const ROLE_COLORS: Record<string, string> = {
   'refactoring-agent': '#0ea5e9',
   'release-agent': '#eab308',
   planner: '#d946ef',
+  // Canonical registry roles (packages/workspace/src/agents.registry.ts):
+  // the planner agent uses role 'planning', the browser uses 'custom'.
+  planning: '#eab308',
+  context: '#a855f7',
+  assistant: '#3b82f6',
+  system: '#64748b',
+  custom: '#f59e0b',
   conversation: '#6366f1',
   'dashboard-curator': '#06b6d4',
   frontend: '#ec4899',

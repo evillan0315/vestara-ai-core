@@ -105,7 +105,7 @@ export async function handleOrchestrationRoute(
         case 'analysis': {
           json(res, 200, {
             snapshot: await orchestrator.completeAnalysis(projectId, {
-              analystId: str(body.analystId) ?? 'analyst',
+              analystId: str(body.analystId) ?? 'agent-analyst',
               report: (body.report as Body) ?? {},
             }),
           });
@@ -119,7 +119,7 @@ export async function handleOrchestrationRoute(
           }
           json(res, 200, {
             snapshot: await orchestrator.generatePlan(projectId, {
-              plannerId: str(body.plannerId) ?? 'planner',
+              plannerId: str(body.plannerId) ?? 'agent-planner',
               title: goalOf(body.title),
               goal: goalOf(body.goal),
               tasks,
@@ -130,7 +130,7 @@ export async function handleOrchestrationRoute(
         case 'architecture': {
           json(res, 200, {
             snapshot: await orchestrator.reviewArchitecture(projectId, {
-              architectId: str(body.architectId) ?? 'architect',
+              architectId: str(body.architectId) ?? 'agent-architect',
               status: body.status === 'violations' ? 'violations' : 'approved',
               findings: Array.isArray(body.findings) ? (body.findings as Body[]) : undefined,
             }),

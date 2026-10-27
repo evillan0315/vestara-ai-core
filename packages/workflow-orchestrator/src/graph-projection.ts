@@ -69,6 +69,7 @@ function taskNode(task: WorkflowTask): WorkflowGraphNode {
     label: task.summary,
     status: task.status,
     source: { kind: 'task', id: task.id },
+    ...(task.assignedAgentId ? { assignedAgentId: task.assignedAgentId } : {}),
   };
 }
 

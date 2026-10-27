@@ -87,7 +87,7 @@ const ALL_ROLES = [
   'conversation', 'planning', 'refactoring', 'custom', 'dashboard-curator',
   'frontend', 'analyst', 'reviewer', 'tester', 'continuous-tester',
   'security-agent', 'performance-agent', 'documentation-agent',
-  'refactoring-agent', 'release-agent', 'context',
+  'refactoring-agent', 'release-agent', 'context', 'assistant', 'system',
 ] as const;
 
 const ROLE_OPTIONS = ALL_ROLES.map((r) => ({ value: r, label: r }));

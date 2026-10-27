@@ -104,7 +104,11 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
  * plan (role + agent + instruction) startable from the Workspace WorkflowRail.
  * `'default'` is the generic pipeline used when no template is requested.
  */
-export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure' | 'activity-room-premium-redesign';
+export type MultiAgentWorkflowTemplateId =
+  | 'default'
+  | 'full-pipeline'
+  | 'agent-control-restructure'
+  | 'activity-room-premium-redesign';
 
 export interface MultiAgentWorkflowTemplate {
   readonly id: MultiAgentWorkflowTemplateId;
@@ -119,6 +123,76 @@ export const MULTI_AGENT_WORKFLOW_TEMPLATES: Record<MultiAgentWorkflowTemplateId
     name: 'Standard pipeline',
     description: 'planner → developer → verifier → reviewer.',
     stages: DEFAULT_STAGES,
+  },
+  'full-pipeline': {
+    id: 'full-pipeline',
+    name: 'Full pipeline',
+    description: 'context → analyst → planner → architect → developer → verifier → reviewer → system.',
+    stages: [
+      {
+        role: 'context',
+        agentId: 'vestara-context',
+        instruction:
+          'Discover the repository state for this goal: project tree, architecture, recent commits, ' +
+          'build/test/lint status, roadmap milestone, unfinished work, and relevant Engineering Knowledge. ' +
+          'Produce the Context Report with recommended reading for downstream stages.',
+      },
+      {
+        role: 'analyst',
+        agentId: 'vestara-analyst',
+        instruction:
+          'Investigate the unknowns, failures, and risks behind this goal using the Context Report. ' +
+          'Gather evidence (logs, history, diagnostics), rank root-cause hypotheses, and hand a precise ' +
+          'question to the Planner. Never propose implementations.',
+      },
+      {
+        role: 'planner',
+        agentId: 'vestara-planner',
+        instruction:
+          'Analyze the goal with the Context Report and Analyst evidence, and produce a concrete ' +
+          'implementation plan with the acceptance boundary (observable obligations plus material ' +
+          'uncertainties). Never write or edit code.',
+      },
+      {
+        role: 'architect',
+        agentId: 'vestara-architect',
+        instruction:
+          'Design the implementation from the approved plan: component boundaries, data flow and ' +
+          'contracts, monorepo-boundary conformance, and ordered independently-verifiable slices for ' +
+          'the Developer. Never write implementation code.',
+      },
+      {
+        role: 'developer',
+        agentId: 'vestara-developer',
+        instruction:
+          'Implement the Architect design slices in order: create or update files, run builds and ' +
+          'tests, and report what changed. Never expand scope beyond the design.',
+      },
+      {
+        role: 'verifier',
+        agentId: 'vestara-verifier',
+        instruction:
+          'Verify the implementation: run the verification profile, check the changed files, and ' +
+          'for each acceptance obligation state ESTABLISHED or NOT ESTABLISHED with evidence. ' +
+          'Report facts only, no design commentary.',
+      },
+      {
+        role: 'reviewer',
+        agentId: 'vestara-reviewer',
+        instruction:
+          'Review the diff and verification results against the acceptance boundary: acceptance ' +
+          'alignment, correctness, conventions, completeness, and risk. Approve or request revisions ' +
+          'with specific findings. Never modify files.',
+      },
+      {
+        role: 'system',
+        agentId: 'vestara-system',
+        instruction:
+          'Govern the workflow close-out: adjudicate every acceptance obligation, check convergence ' +
+          'across passes, guard against scope drift, and deliver the verdict — COMPLETE, CHANGES ' +
+          'REQUESTED, or ESCALATE TO HUMAN. Completion requires evidence, never assertion.',
+      },
+    ],
   },
   'agent-control-restructure': {
     id: 'agent-control-restructure',
@@ -286,9 +360,11 @@ function stageRole(agentId: string): string {
   const lower = agentId.toLowerCase();
   if (lower.includes('verif')) return 'verifier';
   if (lower.includes('review')) return 'reviewer';
-  if (lower.includes('plan') || lower.includes('architect')) return 'planner';
+  if (lower.includes('architect')) return 'architect';
+  if (lower.includes('plan')) return 'planner';
   if (lower.includes('dev') || lower.includes('implement')) return 'developer';
   if (lower.includes('analyst') || lower.includes('investigat')) return 'analyst';
+  if (lower.includes('system')) return 'system';
   return 'developer';
 }
 

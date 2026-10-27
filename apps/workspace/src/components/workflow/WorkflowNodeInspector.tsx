@@ -51,6 +51,9 @@ export function WorkflowNodeInspector({ node, task }: WorkflowNodeInspectorProps
         <DetailRow label="Source ID" value={node.source.id} />
         <DetailRow label="Node kind" value={node.kind} />
         {node.kind === 'task' && task && <DetailRow label="Plan ID" value={task.planId} />}
+        {node.kind === 'task' && node.assignedAgentId && (
+          <DetailRow label="Owning agent" value={node.assignedAgentId} />
+        )}
       </dl>
     </WorkspaceOperationalPanel>
   );

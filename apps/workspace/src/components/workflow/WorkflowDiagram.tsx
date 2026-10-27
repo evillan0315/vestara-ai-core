@@ -7,19 +7,40 @@
 
 import { useState } from 'react';
 import type { WorkflowProjection, WorkflowStage } from '../../lib/workflow';
+import { agentTone } from './WorkflowRail';
 
 function mark(stage: WorkflowStage): { glyph: string; color: string; bg: string } {
   switch (stage.status) {
     case 'completed':
-      return { glyph: '✓', color: 'text-(--vestara-green)', bg: 'bg-(--vestara-green)/10' };
+      return {
+        glyph: '✓',
+        color: 'text-[var(--vestara-status-success)]',
+        bg: 'bg-[var(--vestara-status-success-bg)]',
+      };
     case 'failed':
-      return { glyph: '✗', color: 'text-(--vestara-red)', bg: 'bg-(--vestara-red)/10' };
+      return {
+        glyph: '✗',
+        color: 'text-[var(--vestara-status-error)]',
+        bg: 'bg-[var(--vestara-status-error-bg)]',
+      };
     case 'blocked':
-      return { glyph: '⊘', color: 'text-(--vestara-amber)', bg: 'bg-(--vestara-amber)/10' };
+      return {
+        glyph: '⊘',
+        color: 'text-[var(--vestara-status-error)]',
+        bg: 'bg-[var(--vestara-status-error-bg)]',
+      };
     case 'active':
-      return { glyph: '●', color: 'text-(--vestara-accent-text)', bg: 'bg-(--vestara-accent-bg)' };
+      return {
+        glyph: '●',
+        color: 'text-[var(--vestara-accent-text)]',
+        bg: 'bg-[var(--vestara-accent-bg)]',
+      };
     default:
-      return { glyph: '○', color: 'text-(--vestara-text-dim)', bg: 'bg-zinc-800/40' };
+      return {
+        glyph: '○',
+        color: 'text-[var(--vestara-text-muted)]',
+        bg: 'bg-[var(--vestara-surface-panel-raised)]',
+      };
   }
 }
 
@@ -30,8 +51,8 @@ export function WorkflowDiagram({ workflow }: { workflow: WorkflowProjection | n
   const selected = workflow.stages.find((stage) => stage.id === expanded);
 
   return (
-    <div className="mt-2 p-2 bg-black/30 border border-(--vestara-accent-border)/50 rounded-md">
-      <div className="text-[9px] uppercase tracking-wider text-(--vestara-text-muted) mb-2">
+    <div className="mt-2 rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-2">
+      <div className="mb-2 text-[length:var(--vestara-font-size-caption)] uppercase tracking-wider text-[var(--vestara-text-muted)]">
         Lifecycle Graph
       </div>
       {/* Horizontal flow */}
@@ -39,11 +60,12 @@ export function WorkflowDiagram({ workflow }: { workflow: WorkflowProjection | n
         {workflow.stages.map((stage, index) => {
           const { glyph, color, bg } = mark(stage);
           const isActive = stage.status === 'active';
+          const isStuck = stage.status === 'blocked' || stage.status === 'failed';
           return (
-            <div key={stage.id} className="flex items-center gap-1 shrink-0">
+            <div key={stage.id} className="flex shrink-0 items-center gap-1">
               {index > 0 && (
                 <span
-                  className={`text-(--vestara-text-dim) text-[11px] ${isActive ? 'animate-pulse text-(--vestara-accent-text)' : ''}`}
+                  className={`text-[11px] text-[var(--vestara-text-muted)] ${isActive ? 'motion-safe:animate-pulse text-[var(--vestara-accent-text)]' : ''}`}
                 >
                   ━━
                 </span>
@@ -51,15 +73,21 @@ export function WorkflowDiagram({ workflow }: { workflow: WorkflowProjection | n
               <button
                 type="button"
                 onClick={() => setExpanded(expanded === stage.id ? null : stage.id)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${bg} cursor-pointer transition-colors ${
-                  expanded === stage.id ? 'border-(--vestara-accent-border-active)' : 'border-(--vestara-accent-border)'
-                } ${isActive ? 'ring-1 ring-(--vestara-accent-border)' : ''}`}
+                aria-current={isStuck ? 'true' : undefined}
+                title={stage.blockingReason ? `Blocked: ${stage.blockingReason}` : `${stage.label} — ${stage.status}`}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 transition-colors ${bg} ${
+                  isStuck
+                    ? 'border-dashed border-[var(--vestara-status-error-border)] ring-1 ring-[var(--vestara-status-error-border)]'
+                    : expanded === stage.id
+                      ? 'border-[var(--vestara-accent-border-active)]'
+                      : 'border-[var(--vestara-border-subtle)]'
+                } ${isActive ? 'ring-1 ring-[var(--vestara-accent-border)]' : ''}`}
               >
                 <span className={`${color} text-[11px] font-medium`}>
                   {glyph} {stage.label}
                 </span>
                 {stage.agentId && (
-                  <span className="text-[8px] text-(--vestara-text-muted)">({stage.agentId})</span>
+                  <span className={`text-[8px] ${agentTone(stage.agentId)}`}>({stage.agentId})</span>
                 )}
                 {stage.durationMs != null && (
                   <span className="text-[8px] text-(--vestara-text-dim)">{(stage.durationMs / 1000).toFixed(1)}s</span>
@@ -77,11 +105,22 @@ export function WorkflowDiagram({ workflow }: { workflow: WorkflowProjection | n
             <span className={`text-[10px] font-semibold ${mark(selected).color}`}>{selected.label}</span>
             <span className="text-[9px] text-(--vestara-text-muted)">
               {selected.status}
-              {selected.agentId ? ` · ${selected.agentId}` : ''}
+              {selected.agentId ? (
+                <>
+                  {' · '}<span className={agentTone(selected.agentId)}>{selected.agentId}</span>
+                </>
+              ) : (
+                ''
+              )}
             </span>
           </div>
           {selected.blockingReason && (
-            <div className="text-[10px] text-(--vestara-amber) mb-1">blocked: {selected.blockingReason}</div>
+            <div
+              role="alert"
+              className="mb-1 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-2 py-1 text-[length:var(--vestara-font-size-xs)] font-medium text-[var(--vestara-status-error)]"
+            >
+              ⊘ Blocked — {selected.blockingReason}
+            </div>
           )}
           {selected.verification?.retryCount ? (
             <div className="text-[9px] text-(--vestara-text-muted) mb-1">
@@ -99,18 +138,24 @@ export function WorkflowDiagram({ workflow }: { workflow: WorkflowProjection | n
             </div>
           </div>
           {selected.tools.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {selected.tools.slice(0, 8).map((tool) => (
-                <span key={tool} className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-muted) font-mono">
+                <span
+                  key={tool}
+                  className="rounded bg-[var(--vestara-surface-panel-raised)] px-1 py-0.5 font-mono text-[8px] text-[var(--vestara-text-muted)]"
+                >
                   {tool}
                 </span>
               ))}
             </div>
           )}
           {selected.files.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
+            <div className="mt-1 flex flex-wrap gap-1">
               {selected.files.slice(0, 6).map((file) => (
-                <span key={file} className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) font-mono">
+                <span
+                  key={file}
+                  className="rounded bg-[var(--vestara-surface-panel-raised)] px-1 py-0.5 font-mono text-[8px] text-[var(--vestara-text-secondary)]"
+                >
                   {file}
                 </span>
               ))}

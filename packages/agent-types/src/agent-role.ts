@@ -2,7 +2,7 @@
  * Canonical AgentRole vocabulary.
  *
  * CORE-001 found three incompatible role vocabularies:
- *   - workspace AgentRole (28 values)
+ *   - workspace AgentRole (30 values)
  *   - provider-runtime EngineeringAgentRole (6 values)
  *   - agent-performance AgentRole (6 values, with 'engineer' instead of 'developer';
  *     package removed in VESTARA-CLEANUP-001, vocabulary retained here for normalization)
@@ -46,7 +46,9 @@ export type AgentRole =
   | 'documentation-agent'
   | 'refactoring-agent'
   | 'release-agent'
-  | 'context';
+  | 'context'
+  | 'assistant'
+  | 'system';
 
 /** All canonical AgentRole values as a runtime array for iteration. */
 export const ALL_AGENT_ROLES: readonly AgentRole[] = [
@@ -78,6 +80,8 @@ export const ALL_AGENT_ROLES: readonly AgentRole[] = [
   'refactoring-agent',
   'release-agent',
   'context',
+  'assistant',
+  'system',
 ] as const;
 
 /** Runtime type guard for AgentRole. */

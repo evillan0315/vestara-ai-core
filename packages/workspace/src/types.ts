@@ -483,7 +483,8 @@ export type AgentRole =
   | 'refactoring-agent'
   | 'release-agent'
   | 'context'
-  | 'assistant';
+  | 'assistant'
+  | 'system';
 
 export type AgentSkillName =
   | 'task-decomposition'

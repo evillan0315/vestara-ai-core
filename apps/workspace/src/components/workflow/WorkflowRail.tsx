@@ -13,11 +13,11 @@ import { WorkflowSwimlanes } from './WorkflowSwimlanes';
 function mark(stage: WorkflowStage): { glyph: string; color: string } {
   switch (stage.status) {
     case 'completed':
-      return { glyph: '✓', color: 'text-(--vestara-green)' };
+      return { glyph: '✓', color: 'text-(--vestara-status-success)' };
     case 'failed':
-      return { glyph: '✗', color: 'text-(--vestara-red)' };
+      return { glyph: '✗', color: 'text-(--vestara-status-error)' };
     case 'blocked':
-      return { glyph: '⊘', color: 'text-(--vestara-amber)' };
+      return { glyph: '⊘', color: 'text-(--vestara-status-error)' };
     case 'active':
       return { glyph: '●', color: 'text-(--vestara-accent-text)' };
     default:
@@ -27,16 +27,20 @@ function mark(stage: WorkflowStage): { glyph: string; color: string } {
 
 const AGENT_TONE: Record<string, string> = {
   conversation: 'text-(--vestara-purple)',
-  analyst: 'text-(--vestara-blue)',
-  planner: 'text-(--vestara-blue)',
-  architect: 'text-(--vestara-blue)',
-  developer: 'text-(--vestara-amber)',
-  verifier: 'text-(--vestara-green)',
-  reviewer: 'text-(--vestara-green)',
+  assistant: 'text-(--vestara-purple)',
+  context: 'text-(--vestara-status-info)',
+  analyst: 'text-(--vestara-status-info)',
+  planner: 'text-(--vestara-status-info)',
+  planning: 'text-(--vestara-status-info)',
+  architect: 'text-(--vestara-status-info)',
+  developer: 'text-(--vestara-status-warning)',
+  verifier: 'text-(--vestara-status-success)',
+  reviewer: 'text-(--vestara-status-success)',
   system: 'text-(--vestara-text-muted)',
 };
 
-function agentTone(agentId: string): string {
+/** Shared agent→tone mapping (also used by WorkflowDiagram attribution). */
+export function agentTone(agentId: string): string {
   const key = agentId.toLowerCase().replace(/[^a-z]/g, '');
   for (const [name, tone] of Object.entries(AGENT_TONE)) {
     if (key.includes(name)) return tone;
@@ -59,6 +63,11 @@ export function WorkflowRail({
   const live = workflow.status === 'running' || workflow.status === 'awaiting-approval';
   const owningAgents = new Set(workflow.stages.map((stage) => stage.agentId).filter(Boolean));
   const multiAgent = owningAgents.size > 1;
+  const stuckStages = workflow.stages.filter((stage) => stage.status === 'blocked' || stage.status === 'failed');
+  const progressPct =
+    workflow.stages.length > 0
+      ? Math.round((workflow.metrics.stagesCompleted / workflow.stages.length) * 100)
+      : 0;
 
   const resolveApproval = async (approvalId: string, approved: boolean) => {
     await harnessApi.resolveApproval(workflow.threadId, approvalId, approved);
@@ -84,8 +93,17 @@ export function WorkflowRail({
           );
         })}
         {live && (
-          <span className="ml-1 px-1.5 py-0.5 rounded bg-(--vestara-red)/10 border border-(--vestara-red)/40 text-(--vestara-red) text-[8px] uppercase tracking-widest animate-pulse">
+          <span className="ml-1 px-1.5 py-0.5 rounded bg-(--vestara-status-error-bg) border border-(--vestara-status-error-border) text-(--vestara-status-error) text-[8px] uppercase tracking-widest motion-safe:animate-pulse">
             live
+          </span>
+        )}
+        {stuckStages.length > 0 && (
+          <span
+            role="alert"
+            aria-live="polite"
+            className="ml-1 px-1.5 py-0.5 rounded bg-[var(--vestara-status-error-bg)] border border-[var(--vestara-status-error-border)] text-[var(--vestara-status-error)] text-[8px] uppercase tracking-widest font-semibold"
+          >
+            ⊘ {stuckStages.length} blocked
           </span>
         )}
         {multiAgent && (
@@ -100,10 +118,25 @@ export function WorkflowRail({
           {workflow.status}
         </span>
       </div>
+      {/* Stage progress: completed share of the lifecycle spine */}
+      <div
+        className="mb-2 h-1 overflow-hidden rounded-full bg-[var(--vestara-surface-panel-raised)]"
+        role="progressbar"
+        aria-valuenow={progressPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Workflow progress ${progressPct}%`}
+        title={`${workflow.metrics.stagesCompleted}/${workflow.stages.length} stages complete`}
+      >
+        <div
+          className="h-full rounded-full bg-[var(--vestara-status-success)]"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
 
       {/* Level 2: active stage card */}
       {active && (
-        <div className="p-2 bg-black/30 border border-(--vestara-accent-border)/50 rounded-md mb-2">
+        <div className="mb-2 rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-2">
           <div className="flex items-center justify-between text-[10px]">
             <span className="font-semibold text-(--vestara-text)">
               {active.label}
@@ -119,7 +152,12 @@ export function WorkflowRail({
             <div className="text-[10px] text-(--vestara-accent-text) mt-0.5">{active.activeOperation}</div>
           )}
           {active.blockingReason && (
-            <div className="text-[10px] text-(--vestara-amber) mt-0.5">blocked: {active.blockingReason}</div>
+            <div
+              role="alert"
+              className="mt-1 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-2 py-1 text-[length:var(--vestara-font-size-xs)] font-medium text-[var(--vestara-status-error)]"
+            >
+              ⊘ Blocked — {active.blockingReason}
+            </div>
           )}
           <div className="text-[9px] text-(--vestara-text-muted) mt-0.5">
             tools {active.tools.length} · files {active.files.length} · evidence {active.evidenceCount}
@@ -167,22 +205,22 @@ export function WorkflowRail({
       {pendingApprovals.length > 0 && (
         <div className="space-y-1 mb-2">
           {pendingApprovals.map((approval) => (
-            <div key={approval.id} className="flex items-center gap-2 text-[10px] text-(--vestara-text-2)">
-              <span className="text-(--vestara-amber)">⚠</span>
+            <div key={approval.id} className="flex items-center gap-2 text-[10px] text-(--vestara-text-secondary)">
+              <span className="text-(--vestara-status-warning)">⚠</span>
               <span className="flex-1 truncate">
                 {approval.tool} — {approval.reason}
               </span>
               <button
                 type="button"
                 onClick={() => void resolveApproval(approval.id, true)}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-(--vestara-green)/10 border border-(--vestara-green)/40 text-(--vestara-green) hover:bg-(--vestara-green)/20 cursor-pointer"
+                className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--vestara-status-success-bg)] border border-[var(--vestara-status-success-border)] text-[var(--vestara-status-success)] hover:opacity-80 cursor-pointer"
               >
                 Approve
               </button>
               <button
                 type="button"
                 onClick={() => void resolveApproval(approval.id, false)}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-(--vestara-red)/10 border border-(--vestara-red)/40 text-(--vestara-red) hover:bg-(--vestara-red)/20 cursor-pointer"
+                className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--vestara-status-error-bg)] border border-[var(--vestara-status-error-border)] text-[var(--vestara-status-error)] hover:opacity-80 cursor-pointer"
               >
                 Deny
               </button>
@@ -199,10 +237,10 @@ export function WorkflowRail({
             <span
               className={
                 workflow.verification.status === 'passed'
-                  ? 'text-(--vestara-green)'
+                  ? 'text-(--vestara-status-success)'
                   : workflow.verification.status === 'failed'
-                    ? 'text-(--vestara-red)'
-                    : 'text-(--vestara-amber)'
+                    ? 'text-(--vestara-status-error)'
+                    : 'text-(--vestara-status-warning)'
               }
             >
               {workflow.verification.status}

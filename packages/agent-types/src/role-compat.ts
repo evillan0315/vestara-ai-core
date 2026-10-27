@@ -2,7 +2,7 @@
  * Role compatibility adapters.
  *
  * CORE-001 identified three incompatible role vocabularies:
- *   - workspace AgentRole (28 values): 'planning', 'documenter', 'developer'
+ *   - workspace AgentRole (30 values): 'planning', 'documenter', 'developer'
  *   - provider-runtime EngineeringAgentRole (6 values): 'planner', 'documentation', 'developer'
  *   - agent-performance AgentRole (6 values): 'planner', 'documentation', 'engineer'
  *
@@ -22,7 +22,7 @@ import type { AgentRole } from './agent-role.js';
  * This is a SEPARATE concept from AgentRole. RoutingRole represents the
  * task-category bucket used for provider/model selection. It is deliberately
  * NOT merged with AgentRole because:
- *   - AgentRole classifies the agent's identity (28 values)
+ *   - AgentRole classifies the agent's identity (30 values)
  *   - RoutingRole classifies the routing task (6 values)
  *   - The mapping is many-to-one (multiple agent roles map to one routing bucket)
  *
@@ -173,6 +173,8 @@ export function normalizeLegacyRole(role: string): AgentRole | undefined {
     'refactoring-agent': 'refactoring-agent',
     'release-agent': 'release-agent',
     context: 'context',
+    assistant: 'assistant',
+    system: 'system',
   };
 
   return canonical[role];

@@ -1052,20 +1052,26 @@ export default function M11CActivityRoomPage() {
 const AGENT_MENTION_TARGETS = [
   { pattern: /@(?:vestara|assistant|agent-assistant)\b/i, agentId: 'agent-assistant' },
   { pattern: /@(?:context|agent-context)\b/i, agentId: 'agent-context' },
+  { pattern: /@(?:analyst|agent-analyst)\b/i, agentId: 'agent-analyst' },
   { pattern: /@(?:developer|agent-developer)\b/i, agentId: 'agent-developer' },
   { pattern: /@(?:reviewer|agent-reviewer)\b/i, agentId: 'agent-reviewer' },
   { pattern: /@(?:planner|agent-planner)\b/i, agentId: 'agent-planner' },
+  { pattern: /@(?:architect|agent-architect)\b/i, agentId: 'agent-architect' },
   { pattern: /@(?:verifier|agent-verifier)\b/i, agentId: 'agent-verifier' },
+  { pattern: /@(?:system|agent-system)\b/i, agentId: 'agent-system' },
 ] as const;
 
 /** Chip labels for targeted agents. */
 const MENTION_TARGET_LABELS: Record<string, string> = {
   'agent-assistant': 'Assistant',
   'agent-context': 'Context',
+  'agent-analyst': 'Analyst',
   'agent-developer': 'Developer',
   'agent-reviewer': 'Reviewer',
   'agent-planner': 'Planner',
+  'agent-architect': 'Architect',
   'agent-verifier': 'Verifier',
+  'agent-system': 'System',
 };
 
 // ─── Visual/Non-Mutating Composer ──────────────────────────
@@ -1102,10 +1108,13 @@ function participantToAgentId(participantId: string): string | null {
 const AGENT_ALIASES: Record<string, string> = {
   'agent-assistant': 'assistant',
   'agent-context': 'context',
+  'agent-analyst': 'analyst',
   'agent-developer': 'developer',
   'agent-reviewer': 'reviewer',
   'agent-planner': 'planner',
+  'agent-architect': 'architect',
   'agent-verifier': 'verifier',
+  'agent-system': 'system',
 };
 
 function M11CComposer({

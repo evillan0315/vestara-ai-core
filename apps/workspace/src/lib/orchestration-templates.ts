@@ -96,9 +96,9 @@ export async function createAndRunOrchestrationProject(draft: OrchestrationProje
   });
   const projectId = created.project.id;
   await postJson(`/projects/${projectId}/start`);
-  await postJson(`/projects/${projectId}/analysis`, { analystId: 'analyst', report: {} });
+  await postJson(`/projects/${projectId}/analysis`, { analystId: 'agent-analyst', report: {} });
   await postJson(`/projects/${projectId}/plan`, {
-    plannerId: 'planner',
+    plannerId: 'agent-planner',
     title: draft.name,
     goal: draft.goal,
     tasks: draft.tasks.map((task) => ({
@@ -110,7 +110,7 @@ export async function createAndRunOrchestrationProject(draft: OrchestrationProje
       requiredCapabilities: [...task.requiredCapabilities],
     })),
   });
-  await postJson(`/projects/${projectId}/architecture`, { architectId: 'architect', status: 'approved' });
+  await postJson(`/projects/${projectId}/architecture`, { architectId: 'agent-architect', status: 'approved' });
   await postJson(`/projects/${projectId}/approve`, {});
   await postJson(`/projects/${projectId}/execute`);
   return projectId;
