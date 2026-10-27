@@ -25,7 +25,7 @@ const settings = (value: unknown, revision = 'rev-1') => ({
 });
 
 describe('WorkspaceUiToggle', () => {
-  it('loads the live version and flips v1 to v2 on switch', async () => {
+  it('loads the live version and selects v2 on option press', async () => {
     stubFetch(async (url, init) => {
       if (url === '/api/system/environment') return ok({ variables: [] });
       if (url === '/api/settings' && init?.method === 'PATCH')
@@ -33,17 +33,18 @@ describe('WorkspaceUiToggle', () => {
       return ok(settings('v1'));
     });
     render(<WorkspaceUiToggle />);
-    const toggle = await screen.findByRole('switch', { name: 'Workspace UI version' });
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(await screen.findByText('v1 (stable)')).toBeTruthy();
+    const v1 = await screen.findByRole('button', { name: 'v1 (stable)' });
+    const v2 = await screen.findByRole('button', { name: 'v2 (next)' });
+    expect(v1.getAttribute('aria-pressed')).toBe('true');
+    expect(v2.getAttribute('aria-pressed')).toBe('false');
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(v2);
     });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(await screen.findByText('v2 (next)')).toBeTruthy();
+    expect(v1.getAttribute('aria-pressed')).toBe('false');
+    expect(v2.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('locks the switch when the env overlay wins', async () => {
+  it('locks the options when the env overlay wins', async () => {
     stubFetch(async (url) => {
       if (url === '/api/settings') return ok(settings('v1'));
       return ok({
@@ -51,9 +52,11 @@ describe('WorkspaceUiToggle', () => {
       });
     });
     render(<WorkspaceUiToggle />);
-    const toggle = await screen.findByRole('switch', { name: 'Workspace UI version' });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect((toggle as HTMLButtonElement).disabled).toBe(true);
+    const v1 = await screen.findByRole('button', { name: 'v1 (stable)' });
+    const v2 = await screen.findByRole('button', { name: 'v2 (next)' });
+    expect(v2.getAttribute('aria-pressed')).toBe('true');
+    expect((v1 as HTMLButtonElement).disabled).toBe(true);
+    expect((v2 as HTMLButtonElement).disabled).toBe(true);
     expect(await screen.findByText(/Locked by VESTARA_WORKSPACE_UI_VERSION/)).toBeTruthy();
   });
 
@@ -62,8 +65,8 @@ describe('WorkspaceUiToggle', () => {
       throw new Error('down');
     });
     render(<WorkspaceUiToggle />);
-    const toggle = await screen.findByRole('switch', { name: 'Workspace UI version' });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    const v2 = await screen.findByRole('button', { name: 'v2 (next)' });
+    expect(v2.getAttribute('aria-pressed')).toBe('true');
     expect(await screen.findByText(/API unreachable/)).toBeTruthy();
   });
 });

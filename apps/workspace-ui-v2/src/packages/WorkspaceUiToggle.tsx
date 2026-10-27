@@ -17,10 +17,6 @@ import {
 
 type LoadStatus = 'loading' | 'ready' | 'saving';
 
-function optionLabel(version: WorkspaceUiVersion): string {
-  return WORKSPACE_UI_VERSION_OPTIONS.find((option) => option.value === version)?.label ?? version;
-}
-
 function sourceBadge(source: UiVersionState['source']): string {
   if (source === 'environment') return 'env';
   if (source === 'fixture') return 'fixture';
@@ -28,10 +24,11 @@ function sourceBadge(source: UiVersionState['source']): string {
 }
 
 /**
- * Workspace UI version switch (v1 stable ↔ v2 next).
- * Persists general.workspaceUiVersion via the Settings API; locks when
- * VESTARA_WORKSPACE_UI_VERSION is set and falls back to the v2 fixture
- * offline. Checked = v2.
+ * Workspace UI version selector (v1 stable ↔ v2 next).
+ * Mirrors the v1 Settings segmented control: two aria-pressed buttons in a
+ * pill container. Persists general.workspaceUiVersion via the Settings API;
+ * locks when VESTARA_WORKSPACE_UI_VERSION is set and falls back to the v2
+ * fixture offline.
  */
 export function WorkspaceUiToggle() {
   const [state, setState] = useState<UiVersionState>({
@@ -67,32 +64,33 @@ export function WorkspaceUiToggle() {
     };
   }, []);
 
-  const flip = useCallback(async () => {
-    if (status !== 'ready' || state.envLocked) return;
-    const target: WorkspaceUiVersion = state.version === 'v2' ? 'v1' : 'v2';
-    setStatus('saving');
-    setNotice(null);
-    try {
-      const next = await saveUiVersion(target, state.revision);
-      setState(next);
-      setStatus('ready');
-    } catch (error) {
-      if (error instanceof UiVersionApiError && error.status === 409) {
-        try {
-          const reloaded = await fetchUiVersionState();
-          setState(reloaded);
-          setNotice(error.message);
-        } catch {
-          setNotice(error.message);
+  const select = useCallback(
+    async (target: WorkspaceUiVersion) => {
+      if (status !== 'ready' || state.envLocked || target === state.version) return;
+      setStatus('saving');
+      setNotice(null);
+      try {
+        const next = await saveUiVersion(target, state.revision);
+        setState(next);
+        setStatus('ready');
+      } catch (error) {
+        if (error instanceof UiVersionApiError && error.status === 409) {
+          try {
+            const reloaded = await fetchUiVersionState();
+            setState(reloaded);
+            setNotice(error.message);
+          } catch {
+            setNotice(error.message);
+          }
+        } else {
+          setNotice(error instanceof Error ? error.message : 'Switch failed.');
         }
-      } else {
-        setNotice(error instanceof Error ? error.message : 'Switch failed.');
+        setStatus('ready');
       }
-      setStatus('ready');
-    }
-  }, [status, state]);
+    },
+    [status, state],
+  );
 
-  const checked = state.version === 'v2';
   const busy = status !== 'ready';
   const disabled = busy || state.envLocked;
 
@@ -106,37 +104,37 @@ export function WorkspaceUiToggle() {
           {sourceBadge(state.source)}
         </span>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[length:var(--vestara-font-size-body-small)] font-medium text-[var(--vestara-text-shell-primary)]">
-            {status === 'loading' ? 'Reading workspace settings…' : optionLabel(state.version)}
+      <div className="mt-2">
+        {status === 'loading' ? (
+          <div className="text-[length:var(--vestara-font-size-body-small)] text-[var(--vestara-text-shell-secondary)]">
+            Reading workspace settings…
           </div>
-          <div className="mt-0.5 text-[length:var(--vestara-font-size-caption)] text-[var(--vestara-text-shell-secondary)]">
-            {state.envLocked ? WORKSPACE_UI_VERSION_ENV_NOTE : WORKSPACE_UI_VERSION_HELP}
-          </div>
+        ) : (
+          <fieldset>
+            <legend className="sr-only">Workspace UI version</legend>
+            <div className="inline-flex flex-wrap gap-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-shell)] bg-[var(--vestara-surface-shell-panel)] p-1">
+              {WORKSPACE_UI_VERSION_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={state.version === option.value}
+                  disabled={disabled}
+                  onClick={() => select(option.value)}
+                  className={`min-h-8 rounded-[var(--vestara-radius-md)] border px-3 text-[length:var(--vestara-font-size-caption)] capitalize focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--vestara-accent-shell)] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    state.version === option.value
+                      ? 'border-[var(--vestara-accent-shell)]/20 bg-[var(--vestara-accent-shell)]/10 text-[var(--vestara-accent-shell)]'
+                      : 'border-transparent text-[var(--vestara-text-shell-secondary)] hover:text-[var(--vestara-text-shell-primary)]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <div className="mt-1.5 text-[length:var(--vestara-font-size-caption)] text-[var(--vestara-text-shell-secondary)]">
+          {state.envLocked ? WORKSPACE_UI_VERSION_ENV_NOTE : WORKSPACE_UI_VERSION_HELP}
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          aria-label="Workspace UI version"
-          disabled={disabled}
-          onClick={flip}
-          className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
-            checked
-              ? 'bg-[var(--vestara-accent-shell)] border-[var(--vestara-accent-shell)]'
-              : 'bg-[var(--vestara-surface-shell-panel)] border-[var(--vestara-border-shell)]'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-        >
-          <span
-            aria-hidden="true"
-            className={`absolute top-0.5 h-[1.125rem] w-[1.125rem] rounded-full transition-transform ${
-              checked
-                ? 'translate-x-[1.375rem] bg-[var(--vestara-surface-shell-canvas)]'
-                : 'translate-x-0.5 bg-[var(--vestara-text-shell-secondary)]'
-            }`}
-          />
-        </button>
       </div>
       {notice && (
         <div
