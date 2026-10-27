@@ -43,7 +43,7 @@
       }
     ]
   },
-  "isolation": "process",
+  "isolation": "in-process",
   "integrity": {
     "algorithm": "sha256",
     "digest": "7bf5016e8744cf2528babe797c6dfbafd0d431f0823ab60b61ee9d89ead6ae62"
