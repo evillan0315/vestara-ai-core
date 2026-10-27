@@ -133,6 +133,9 @@ const RAIL_FILTERS: Array<{ id: RailStatusFilter; label: string }> = [
   { id: 'attention', label: 'Needs approval' },
 ];
 
+/** Project phases that carry runnable tasks and can be re-run from scratch. */
+const RERUNNABLE_PHASES: ReadonlySet<string> = new Set(['executing', 'verifying', 'completed', 'cancelled']);
+
 const GRAPH_LAYOUTS: ReadonlyArray<{ id: WorkflowGraphLayoutName; label: string; hint: string }> = [
   { id: 'breadthfirst', label: 'Dependency', hint: 'Top-down dependency waves' },
   { id: 'concentric', label: 'Concentric', hint: 'Tasks grouped by dependency depth' },
@@ -478,7 +481,7 @@ function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
   );
 }
 
-function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction }: {
+function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
@@ -492,6 +495,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
   onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
   onOpenGraph: (projectId: string) => void;
   onExecuteAction: (projectId: string, kind: string) => void;
+  onRerun: (projectId: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-[var(--vestara-spacing-3)]">
@@ -578,9 +582,22 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
               <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
                 Task progress {done}/{total} {pct}%
               </span>
-              <Button variant="ghost" size="sm" onClick={() => onOpenGraph(project.id)}>
-                Open graph
-              </Button>
+              <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
+                {RERUNNABLE_PHASES.has(project.phase) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRerun(project.id)}
+                    disabled={busy === `rerun-${project.id}`}
+                    title={`Reset every task and run ${project.name} again from the executing phase`}
+                  >
+                    {busy === `rerun-${project.id}` ? 'Re-running…' : 'Re-run'}
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => onOpenGraph(project.id)}>
+                  Open graph
+                </Button>
+              </div>
             </div>
 
             {action && (
@@ -1083,6 +1100,31 @@ export default function OrchestrationPage() {
       if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Resume failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const rerunProject = async (projectId: string) => {
+    setBusy(`rerun-${projectId}`);
+    setActionError(null);
+    try {
+      const result = await postJson<{ snapshot: Snapshot }>(`${API}/projects/${projectId}/rerun`, {
+        reason: 'manual re-run from Orchestration UI',
+      });
+      if (!result) throw new Error('Re-run request failed — the server returned an error.');
+      if (result.snapshot && result.snapshot.phase !== 'executing') {
+        throw new Error(
+          `Re-run did not start: project is in phase "${result.snapshot.phase}". Re-run targets the executing phase.`,
+        );
+      }
+      await refresh();
+      // Reload the re-run project's cached detail so its graph/tasks stay
+      // fresh, plus the currently-expanded project when they differ.
+      if (detail[projectId] || expandedId === projectId) await loadDetail(projectId);
+      if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Re-run failed.');
     } finally {
       setBusy(null);
     }
@@ -1599,6 +1641,7 @@ export default function OrchestrationPage() {
                   onResolveApproval={(projectId, taskId, approved) => void resolveApproval(projectId, taskId, approved)}
                   onOpenGraph={openProjectGraph}
                   onExecuteAction={handleProjectAction}
+                  onRerun={(projectId) => void rerunProject(projectId)}
                 />
               )}
               {dashboard.phases.length > 0 && (
@@ -1732,6 +1775,17 @@ export default function OrchestrationPage() {
                             disabled={busy === `resume-${expandedId}`}
                           >
                             Resume
+                          </Button>
+                        )}
+                        {expandedId && RERUNNABLE_PHASES.has(selectedDetail.snapshot.phase) && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void rerunProject(expandedId)}
+                            disabled={busy === `rerun-${expandedId}`}
+                            title="Reset every task and run this workflow again from the executing phase"
+                          >
+                            {busy === `rerun-${expandedId}` ? 'Re-running…' : 'Re-run'}
                           </Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={() => setActiveTab('workflow-graph')}>
@@ -1869,6 +1923,17 @@ export default function OrchestrationPage() {
                                     disabled={busy === `resume-${expandedId}`}
                                   >
                                     Resume
+                                  </Button>
+                                )}
+                                {expandedId && RERUNNABLE_PHASES.has(selectedDetail.snapshot.phase) && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void rerunProject(expandedId)}
+                                    disabled={busy === `rerun-${expandedId}`}
+                                    title="Reset every task and run this workflow again from the executing phase"
+                                  >
+                                    {busy === `rerun-${expandedId}` ? 'Re-running…' : 'Re-run workflow'}
                                   </Button>
                                 )}
                                 <Button variant="ghost" size="sm" onClick={() => setActiveTab('tasks')}>

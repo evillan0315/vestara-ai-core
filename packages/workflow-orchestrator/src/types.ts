@@ -317,7 +317,15 @@ export type OrchestrationEvent =
       readonly reportId: string;
       readonly at: string;
     }
-  | { readonly type: 'workflow.checkpoint'; readonly projectId: string; readonly at: string };
+  | { readonly type: 'workflow.checkpoint'; readonly projectId: string; readonly at: string }
+  | {
+      readonly type: 'project.rerun';
+      readonly projectId: string;
+      readonly from: ProjectPhase;
+      readonly taskCount: number;
+      readonly reason?: string;
+      readonly at: string;
+    };
 
 export interface OrchestrationEventSink {
   append(event: OrchestrationEvent): Promise<void> | void;

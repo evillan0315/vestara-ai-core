@@ -528,6 +528,73 @@ export class WorkflowOrchestrator {
     return this.snapshot(projectId);
   }
 
+  /**
+   * Re-run a workflow from scratch: reset every task to `assigned` and move
+   * the project back to `executing` so the next `runExecution` pass
+   * re-dispatches the full DAG.
+   *
+   * Allowed from `executing` (stuck with blocked/failed tasks), `verifying`
+   * (failed verification awaiting approval), `completed`, and `cancelled`.
+   * Earlier phases have nothing to re-run; `archived` is immutable.
+   * Releases stale file locks, resets the plan to `approved`, and clears the
+   * verification auto-reopen budget. Each task reset is audited as
+   * `task.requeued` (with its prior status) plus a `project.rerun` summary, so
+   * the existing event-sourced `rebuild` stays replayable.
+   */
+  async rerunProject(projectId: string, options?: { readonly reason?: string }): Promise<ProjectSnapshot> {
+    const project = await this.mustGetProject(projectId);
+    if (
+      project.phase !== 'executing' &&
+      project.phase !== 'verifying' &&
+      project.phase !== 'completed' &&
+      project.phase !== 'cancelled'
+    ) {
+      throw new Error(`Project ${projectId} cannot be re-run from phase "${project.phase}"`);
+    }
+    const plans = await this.plans.listForProject(projectId);
+    const plan = plans[0];
+    if (!plan) throw new Error(`Project ${projectId} has no plan`);
+    const tasks = await this.tasks.listForProject(projectId);
+    if (tasks.length === 0) throw new Error(`Project ${projectId} has no tasks to re-run`);
+
+    // Release stale locks before resetting, so the fresh run starts clean.
+    const activeLocks = await this.locks.listActive();
+    const taskIds = new Set(tasks.map((task) => task.id));
+    for (const lock of activeLocks) {
+      if (taskIds.has(lock.taskId)) await this.releaseLocks(projectId, lock.taskId, [lock.path]);
+    }
+
+    const from = project.phase;
+    for (const task of tasks) {
+      const priorStatus = (await this.tasks.get(task.id))?.status ?? task.status;
+      await this.tasks.resetForRerun(task.id);
+      await this.events.append({
+        type: 'task.requeued',
+        projectId,
+        planId: task.planId,
+        taskId: task.id,
+        fromStatus: priorStatus,
+        reason: options?.reason ?? 'workflow re-run',
+        at: now(),
+      });
+    }
+
+    if (plan.status === 'completed' || plan.status === 'cancelled') {
+      await this.plans.updateStatus(plan.id, 'approved');
+    }
+    await this.projects.resetForRerun(projectId);
+    await this.events.append({ type: 'project.phase.changed', projectId, from, to: 'executing', at: now() });
+    await this.events.append({
+      type: 'project.rerun',
+      projectId,
+      from,
+      taskCount: tasks.length,
+      reason: options?.reason,
+      at: now(),
+    });
+    return this.snapshot(projectId);
+  }
+
   /** Idempotent re-entry: reload persisted state and continue in-progress work. */
   async resume(projectId: string): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
@@ -689,6 +756,10 @@ export class WorkflowOrchestrator {
         case 'project.cancelled':
           phase = 'cancelled';
           cancelReason = event.reason;
+          break;
+        case 'project.rerun':
+          phase = 'executing';
+          cancelReason = undefined;
           break;
         case 'plan.generated':
           planById.set(event.planId, {

@@ -149,6 +149,29 @@ export class TaskStore {
     return this.get(id);
   }
 
+  /**
+   * Reset a task for a full workflow re-run, bypassing the task state machine
+   * (terminal states like `completed` / `cancelled` have no outgoing edges).
+   * Clears attempt accounting, approval state, and any external-verification
+   * wait so the next `runExecution` pass can dispatch the task cleanly.
+   */
+  async resetForRerun(id: string): Promise<WorkflowTask | null> {
+    dbRun(
+      this.db,
+      `UPDATE orchestrated_tasks
+        SET status = ?, attempt_count = 0, last_error = NULL,
+            approval_reason = NULL, approval_interaction_id = NULL,
+            wait_verifier = NULL, wait_ref = NULL, wait_provider = NULL, wait_run_ref = NULL,
+            wait_repository = NULL, wait_commit_sha = NULL, wait_branch = NULL,
+            wait_orig_workflow_run_id = NULL, wait_orig_operation_id = NULL,
+            wait_suspended_at = NULL, wait_resumed_at = NULL, wait_decision_ref = NULL,
+            started_at = NULL, completed_at = NULL, updated_at = ?
+        WHERE id = ?`,
+      ['assigned', now(), id],
+    );
+    return this.get(id);
+  }
+
   async recordFailure(id: string, error: string, attempt: number): Promise<void> {
     dbRun(
       this.db,

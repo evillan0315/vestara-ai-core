@@ -173,6 +173,14 @@ export async function handleOrchestrationRoute(
           json(res, 200, { snapshot: await orchestrator.resume(projectId) });
           return true;
         }
+        case 'rerun': {
+          json(res, 200, {
+            snapshot: await orchestrator.rerunProject(projectId, {
+              ...(str(body.reason) !== undefined ? { reason: str(body.reason) as string } : {}),
+            }),
+          });
+          return true;
+        }
         default:
           return false;
       }

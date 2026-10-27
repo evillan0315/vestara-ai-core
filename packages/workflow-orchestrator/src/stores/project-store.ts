@@ -95,6 +95,20 @@ export class ProjectStore {
     dbRun(this.db, 'UPDATE orchestrated_projects SET phase = ?, updated_at = ? WHERE id = ?', ['archived', now(), id]);
   }
 
+  /**
+   * Reset a project for a full workflow re-run. Terminal phases (`completed`,
+   * `cancelled`) have no outgoing edges in the project state machine, so this
+   * writes the `executing` phase directly, clears the cancel reason, and
+   * resets the verification auto-reopen budget for the fresh run.
+   */
+  async resetForRerun(id: string): Promise<void> {
+    dbRun(
+      this.db,
+      'UPDATE orchestrated_projects SET phase = ?, cancel_reason = NULL, verification_reopens = 0, updated_at = ? WHERE id = ?',
+      ['executing', now(), id],
+    );
+  }
+
   private rowToProject(row: Record<string, unknown>): OrchestratedProject {
     return {
       id: str(row.id),
