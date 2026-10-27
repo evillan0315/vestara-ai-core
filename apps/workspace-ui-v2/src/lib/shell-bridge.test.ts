@@ -10,10 +10,11 @@
  */
 
 /** @vitest-environment node */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   appStateForShellPhase,
   nextShellPhase,
+  requestShellFullscreen,
   SHELL_PHASES,
   shellPhaseForAppState,
   shellPhaseForWindowEvent,
@@ -87,5 +88,31 @@ describe('App-state projection (Phase + LoginMode)', () => {
     expect(appStateForShellPhase('switch')).toEqual({ phase: 'login', loginMode: 'switch' });
     expect(appStateForShellPhase('desktop')).toEqual({ phase: 'desktop', loginMode: 'default' });
     expect(shellPhaseForAppState('login', 'locked')).toBe('locked');
+  });
+});
+
+describe('requestShellFullscreen', () => {
+  it('never throws when the Fullscreen API is missing (node/jsdom)', () => {
+    expect(() => requestShellFullscreen()).not.toThrow();
+  });
+
+  it('requests fullscreen on the document element when available', () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('document', { fullscreenElement: null, documentElement: { requestFullscreen: request } });
+    requestShellFullscreen();
+    expect(request).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('skips when already fullscreen and swallows rejections', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('denied'));
+    vi.stubGlobal('document', { fullscreenElement: null, documentElement: { requestFullscreen: request } });
+    expect(() => requestShellFullscreen()).not.toThrow();
+    await Promise.resolve();
+    expect(request).toHaveBeenCalledTimes(1);
+    vi.stubGlobal('document', { fullscreenElement: {}, documentElement: { requestFullscreen: request } });
+    expect(() => requestShellFullscreen()).not.toThrow();
+    expect(request).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 });

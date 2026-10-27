@@ -15,7 +15,7 @@ afterEach(() => {
 describe('DesktopShell phase machine', () => {
   it('boots through login into the desktop', async () => {
     render(<App />);
-    expect(screen.getByText('SHELL OS')).toBeTruthy();
+    expect(screen.getByText('AI OS')).toBeTruthy();
     act(() => {
       vi.advanceTimersByTime(3000);
     });

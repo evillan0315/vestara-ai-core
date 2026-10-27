@@ -77,7 +77,7 @@ export function SystemMenu({ onAction, onClose }: { onAction: (a: string) => voi
         })}
         <div className="mt-2 px-2.5 py-1.5 rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-surface-shell-panel)] border border-[var(--vestara-border-shell)]/60">
           <div className="text-[length:var(--vestara-font-size-micro)] font-mono text-[var(--vestara-text-shell-muted)]">
-            VESTARA SHELL OS • 112 FINAL
+            VESTARA AI OS • 2.0.0
           </div>
           <div className="text-[length:var(--vestara-font-size-micro)] font-mono text-[var(--vestara-text-shell-faint)]">
             192.168.8.1 • 128ms • OpenCode Online

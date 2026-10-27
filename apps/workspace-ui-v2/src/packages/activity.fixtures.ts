@@ -10,12 +10,16 @@ export interface Participant {
 }
 
 export const ACTIVITY_PARTICIPANTS: Participant[] = [
+  { agent: 'Context', detail: '', status: 'Idle' },
+  { agent: 'Analyst', detail: '', status: 'Idle' },
+  { agent: 'Developer', detail: '', status: 'Active' },
+  { agent: 'Planner', detail: '', status: 'Idle' },
+  { agent: 'Architect', detail: '', status: 'Idle' },
+  { agent: 'Reviewer', detail: '', status: 'Idle' },
+  { agent: 'Verifier', detail: '', status: 'Idle' },
   { agent: 'Assistant', detail: 'eddie', status: 'Idle' },
   { agent: 'Browser', detail: '', status: 'Active' },
-  { agent: 'Orchestrator', detail: '', status: 'Working' },
-  { agent: 'Indexer', detail: '', status: 'Idle' },
-  { agent: 'Runtime', detail: '', status: 'Active' },
-  { agent: 'Context', detail: '', status: 'Idle' },
+  { agent: 'System', detail: '', status: 'Idle' },
 ];
 
 export function participantLabel(p: Participant): string {
@@ -29,9 +33,9 @@ export interface ActivityRecord {
 }
 
 export const ACTIVITY_RECORDS: ActivityRecord[] = [
-  { actor: 'Orchestrator', message: 'TaskNode Shell 7 completed', age: 'now' },
+  { actor: 'Developer', message: 'TaskNode Shell 7 completed', age: 'now' },
   { actor: 'Assistant', message: 'VestaraWindow drag shell extracted', age: '2m' },
-  { actor: 'Indexer', message: 'Teal logo bound to wallpaper', age: '5m' },
+  { actor: 'Browser', message: 'Teal logo bound to wallpaper', age: '5m' },
 ];
 
 export const ACTIVITY_BRIDGE_STATUS = {

@@ -27,7 +27,7 @@ export function TopBar({
           </span>
           <span className="w-1 h-1 rounded-full bg-[var(--vestara-status-shell-success)] animate-pulse" />
           <span className="text-[length:var(--vestara-font-size-micro)] px-1.5 py-0.5 rounded-full bg-[var(--vestara-surface-shell-raised)] border border-[var(--vestara-border-shell)] text-[var(--vestara-text-shell-muted)] font-mono">
-            v7.15
+            v2.0
           </span>
         </button>
       </div>

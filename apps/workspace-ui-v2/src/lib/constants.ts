@@ -17,7 +17,7 @@ export const TOKENS = {
 } as const;
 
 export const BOOT_LOGS = [
-  '[ OK ] Mounted vestara-corefs v7.15.112',
+  '[ OK ] Mounted vestara-corefs v2.0.0',
   '[ OK ] Teal surface driver initialized',
   '[ OK ] Wired package registry sync',
   '[ OK ] Agent mesh 7 nodes ready',

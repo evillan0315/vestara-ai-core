@@ -18,3 +18,5 @@ export const OVERVIEW_STATS: OverviewStat[] = [
   { key: 'FOCUS', value: '25%' },
   { key: 'AGENTS', value: '7/7' },
 ];
+
+export const OVERVIEW_OFFLINE_NOTE = 'API unreachable — showing fixture counts. Sign in to go live.';

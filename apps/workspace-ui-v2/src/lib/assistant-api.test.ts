@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   cancelAssistantTurn,
   createAssistantConversation,
+  fetchAssistantIdentity,
   getLatestAssistantText,
   isAssistantTurnActive,
   loginAssistant,
@@ -87,6 +88,17 @@ describe('assistant-api', () => {
       throw new TypeError('fetch failed');
     });
     await expect(validateAssistantToken('x')).rejects.toMatchObject({ status: 0 });
+  });
+
+  it('fetches the session identity for the login shell', async () => {
+    stubFetch(async (url, init) => {
+      expect(url).toBe('/api/auth/me');
+      expect(init?.headers).toMatchObject({ authorization: 'Bearer t' });
+      return ok({ user: { name: 'eddie', role: 'admin' }, currentUser: { username: 'eddie', role: 'admin' } });
+    });
+    await expect(fetchAssistantIdentity('t')).resolves.toEqual({ name: 'eddie', username: 'eddie', role: 'admin' });
+    stubFetch(async () => err(401, { error: 'Authentication is required.' }));
+    await expect(fetchAssistantIdentity('bad')).rejects.toMatchObject({ status: 401 });
   });
 
   const sse = (events: unknown[]) => events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('');

@@ -3,6 +3,7 @@
 
 export const SETTINGS_SECTIONS = [
   'Appearance',
+  'Providers',
   'Shell & TopBar',
   'Sidebar',
   'Workspace',

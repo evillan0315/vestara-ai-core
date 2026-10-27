@@ -110,3 +110,22 @@ export function appStateForShellPhase(phase: ShellPhase): { phase: Phase; loginM
       return { phase: 'shutdown', loginMode: 'default' };
   }
 }
+
+/**
+ * Best-effort browser fullscreen on desktop entry. The Tauri shell launches
+ * fullscreen natively (`tauri.conf.json`); this covers plain-browser runs.
+ * Never throws — browsers reject without a user gesture and jsdom lacks the
+ * API entirely.
+ */
+export function requestShellFullscreen(): void {
+  try {
+    if (typeof document === 'undefined' || document.fullscreenElement) return;
+    const request = (document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> })
+      .requestFullscreen;
+    if (typeof request !== 'function') return;
+    const result = request.call(document.documentElement);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch {
+    // Fullscreen is decorative — the shell works windowed.
+  }
+}

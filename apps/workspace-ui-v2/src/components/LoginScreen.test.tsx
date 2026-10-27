@@ -56,4 +56,28 @@ describe('LoginScreen credential flows', () => {
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/continuing offline/)).toBeTruthy();
   });
+
+  it('skips to the desktop offline without a session', async () => {
+    stubFetch(async () => {
+      throw new TypeError('fetch failed');
+    });
+    const onLogin = vi.fn();
+    render(<LoginScreen mode="default" onLogin={onLogin} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Skip to Desktop' }));
+    });
+    await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/No session — continuing offline/)).toBeTruthy();
+  });
+
+  it('restores live session metadata from a valid persisted token', async () => {
+    localStorage.setItem('vestara-assistant-token', 'tok-live');
+    stubFetch(async (url) => {
+      if (url === '/api/auth/me') return ok({ user: { name: 'eddie', role: 'admin' } });
+      if (url === '/api/agents') return ok({ agents: [{ id: 'a1', name: 'Atlas' }] });
+      throw new Error(`unexpected ${url}`);
+    });
+    render(<LoginScreen mode="default" onLogin={vi.fn()} />);
+    expect(await screen.findByText('eddie • admin • 1 agents ready')).toBeTruthy();
+  });
 });

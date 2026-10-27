@@ -2,11 +2,25 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_WINDOWS } from '../lib/desktop.fixtures';
+import type { WinData } from '../lib/types';
 import { DesktopIcons } from './DesktopIcons';
 import { Dock } from './Dock';
 import { SystemMenu } from './SystemMenu';
 import { VestaraWindow } from './VestaraWindow';
+
+const SAMPLE_WINDOW: WinData = {
+  id: 'win-overview',
+  title: 'Overview',
+  subtitle: 'Good afternoon Director',
+  x: 120,
+  y: 60,
+  w: 560,
+  h: 380,
+  z: 1,
+  minimized: false,
+  maximized: false,
+  type: 'overview',
+};
 
 afterEach(() => {
   cleanup();
@@ -37,14 +51,7 @@ describe('desktop chrome', () => {
   it('nudges a window with arrow keys', () => {
     const onUpdate = vi.fn();
     render(
-      <VestaraWindow
-        data={DEFAULT_WINDOWS[0]}
-        isFocused
-        onFocus={noop}
-        onClose={noop}
-        onMinimize={noop}
-        onUpdate={onUpdate}
-      >
+      <VestaraWindow data={SAMPLE_WINDOW} isFocused onFocus={noop} onClose={noop} onMinimize={noop} onUpdate={onUpdate}>
         body
       </VestaraWindow>,
     );

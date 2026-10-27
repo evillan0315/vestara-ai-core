@@ -129,6 +129,30 @@ export async function validateAssistantToken(token: string): Promise<boolean> {
   }
 }
 
+export interface AssistantIdentity {
+  name: string;
+  role: string;
+  username: string;
+}
+
+/**
+ * GET /api/auth/me — session identity for the login shell (display name,
+ * role). Rejects on 401/offline so callers fall back to fixture metadata.
+ */
+export async function fetchAssistantIdentity(token: string): Promise<AssistantIdentity> {
+  const data = await getJson<{
+    user?: { name?: string; role?: string };
+    currentUser?: { username?: string; role?: string };
+  }>('/api/auth/me', token);
+  const username = data?.currentUser?.username ?? data?.user?.name ?? '';
+  if (!username) throw new AssistantApiError(500, 'Session identity returned no user');
+  return {
+    name: username,
+    username,
+    role: data?.currentUser?.role ?? data?.user?.role ?? 'user',
+  };
+}
+
 /** POST /api/conversations — returns the conversation id. */
 export async function createAssistantConversation(token: string): Promise<string> {
   const data = await postJson<{ conversation?: { id?: string } }>('/api/conversations', {}, token);

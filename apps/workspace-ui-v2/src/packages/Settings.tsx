@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { settingsModuleCount } from '../lib/workspace-settings-model';
 import { AppearanceCard } from './AppearanceCard';
+import { ProviderModelPicker } from './ProviderModelPicker';
 import {
   SETTINGS_ACTIVE_SECTION,
   SETTINGS_EMPTY_SECTION_NOTE,
@@ -92,6 +93,7 @@ export function SettingsPkg() {
       </fieldset>
       <div className="space-y-4">
         {active === 'Appearance' && <AppearanceCard />}
+        {active === 'Providers' && <ProviderModelPicker />}
         {active === 'Workspace' && <WorkspaceUiToggle />}
         {active === 'Shell & TopBar' && (
           <>

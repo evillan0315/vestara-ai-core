@@ -9,6 +9,7 @@ import { TopBar } from './components/TopBar';
 import { VestaraWindow } from './components/VestaraWindow';
 import { getColdStartWinType, subscribeDeepLinks } from './lib/deep-link';
 import { DEFAULT_WINDOWS, WINDOW_TITLES } from './lib/desktop.fixtures';
+import { requestShellFullscreen } from './lib/shell-bridge';
 import type { LoginMode, Phase, WinData, WinType } from './lib/types';
 import { WALLPAPER_SOURCES } from './lib/wallpapers';
 import { applyPersistedShellAppearance } from './lib/workspace-settings-model';
@@ -143,7 +144,12 @@ export default function App() {
     setLoginMode('default');
     setPhase('login');
   }, []);
-  const handleLogin = useCallback(() => setPhase('desktop'), []);
+  const handleLogin = useCallback(() => {
+    setPhase('desktop');
+    // Fullscreen on entry: Tauri launches fullscreen natively; this covers
+    // plain-browser runs (best-effort — rejected without a gesture).
+    requestShellFullscreen();
+  }, []);
 
   // U3 — `teal://vestara-shell` deep links: cold-start opens the launch
   // package, running-app links open on arrival. No-op in the browser

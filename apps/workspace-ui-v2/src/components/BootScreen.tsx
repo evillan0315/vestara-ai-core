@@ -33,7 +33,7 @@ export function BootScreen({ onDone, shutting }: { onDone: () => void; shutting?
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="w-10 h-10 rounded-full border-2 border-[var(--vestara-border-shell)] border-t-[var(--vestara-accent-shell)] animate-spin" />
           <div className="text-[length:var(--vestara-font-size-label)] tracking-[0.22em] text-[var(--vestara-text-shell-muted)] font-mono">
-            SHUTTING DOWN SHELL OS
+            SHUTTING DOWN AI OS
           </div>
         </div>
       ) : (
@@ -46,12 +46,12 @@ export function BootScreen({ onDone, shutting }: { onDone: () => void; shutting?
               VESTARA
             </div>
             <div className="mt-1 text-[length:var(--vestara-font-size-caption)] tracking-[0.22em] text-[var(--vestara-text-shell-muted)] font-mono">
-              SHELL OS
+              AI OS
             </div>
             <div className="mt-3 flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--vestara-surface-shell-raised)] border border-[var(--vestara-border-shell)]">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--vestara-accent-shell)] animate-pulse" />
               <span className="text-[length:var(--vestara-font-size-caption)] font-mono text-[var(--vestara-text-shell-secondary)] tracking-wide">
-                v7.15.112 FINAL
+                v2.0.0 FINAL
               </span>
             </div>
           </div>

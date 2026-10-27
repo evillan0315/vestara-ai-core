@@ -12,7 +12,7 @@ export interface AssistantMessage {
 
 export const ASSISTANT_IDENTITY = {
   name: 'Vestara Assistant',
-  status: 'Online • 7 agents',
+  status: 'Online • 10 agents',
 } as const;
 
 export const ASSISTANT_GREETING: AssistantMessage[] = [
@@ -35,7 +35,7 @@ export const SUGGESTION_ACTIONS: Partial<Record<AssistantSuggestion, WinType>> =
 };
 
 export const ASSISTANT_REPLIES = [
-  'Shell nominal — 4 seed windows, 7 agents meshed, 32px header.',
+  'Shell nominal — clean desktop, live agent mesh, 32px header.',
   'I open packages from the dock, report fleet status, and narrate shell state.',
   'Activity Room holds 50 records; the mesh shows 6 active agents of 7.',
 ] as const;

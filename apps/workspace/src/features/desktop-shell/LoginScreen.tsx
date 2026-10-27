@@ -25,6 +25,11 @@
  * (`onBiometric` / `onSkip`, defaulting to `onLogin`) and are hidden by
  * `showDemoLinks={false}` on the routed login page.
  *
+ * Login metadata mirrors the standalone v2 shell
+ * (`apps/workspace-ui-v2/src/components/LoginScreen.tsx`): AI OS branding,
+ * hero copy, and a live agent-fleet count in the user card + footer via
+ * `useAgentsPackage` (fixture fallback offline) — still version-free (G11).
+ *
  * Architecture Traceability:
  *   VES-UI-001: Workspace UI v2 Desktop Shell (T4 Boot + Login + state machine)
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §5
@@ -37,6 +42,7 @@ import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
 import { VestaraMark } from '../../components/branding/VestaraMark';
 import { useAuth } from '../../lib/auth';
 import { StartupWallpaper } from '../startup/components/StartupWallpaper';
+import { useAgentsPackage } from './packages/useAgentsPackage';
 import {
   desktopShellLoginHighlightsFixture,
   desktopShellPackagesFixture,
@@ -130,6 +136,12 @@ export function LoginScreen({
 }: LoginScreenProps) {
   const { user, actor, setActor } = useAuth();
   const displayName = user?.username || actor || desktopShellUserFixture.displayName;
+  // Live fleet count (v2 parity) — API first, package fixture offline.
+  const { agents, isLive } = useAgentsPackage();
+  const activeAgents = agents.filter((a) => a.status === 'online' || a.status === 'busy').length;
+  const fleetLine = isLive
+    ? `Online • ${activeAgents}/${agents.length} agents`
+    : `Online • ${agents.length} agents`;
   const [password, setPassword] = useState('');
   const [pendingActor, setPendingActor] = useState(displayName);
   const [mfaCode, setMfaCode] = useState('');
@@ -199,7 +211,7 @@ export function LoginScreen({
                   VESTARA
                 </div>
                 <div className="-mt-0.5 text-[length:var(--vestara-font-size-xs)] tracking-[0.22em] text-[var(--ds-text-muted)]">
-                  SHELL OS
+                  AI OS
                 </div>
               </div>
               <div aria-hidden="true" className="ml-auto h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--ds-success)]" />
@@ -208,12 +220,12 @@ export function LoginScreen({
               <div className="text-[length:var(--vestara-font-size-page-title)] leading-[1.1] text-[var(--ds-text)] font-[family-name:var(--ds-font-serif)]">
                 First-class
                 <br />
-                Desktop Shell
+                AI OS
               </div>
               <div className="mt-3 max-w-[220px] text-[length:var(--vestara-font-size-xs)] leading-5 text-[var(--ds-text-secondary)]">
-                Draggable Workspace
+                Agentic Workspace
                 <br />
-                Wired Packages
+                Live Packages
                 <br />
                 Teal V identity system
               </div>
@@ -276,7 +288,7 @@ export function LoginScreen({
                 </div>
                 <div className="flex items-center gap-1 text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-muted)]">
                   <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--ds-success)]" />
-                  Online
+                  {fleetLine}
                 </div>
               </div>
             </div>
@@ -376,6 +388,12 @@ export function LoginScreen({
               </div>
             )}
           </form>
+          <div className="mt-4 flex justify-between border-t border-[var(--ds-border)] pt-4 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-muted)]">
+            <span>
+              {activeAgents}/{agents.length} agents ready{isLive ? '' : ' • snapshot'}
+            </span>
+            <span>{desktopShellWorkspaceFixture}</span>
+          </div>
         </div>
       </div>
     </div>

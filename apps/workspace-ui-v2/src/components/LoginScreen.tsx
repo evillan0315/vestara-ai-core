@@ -1,9 +1,10 @@
 import { Activity, Store, Terminal } from 'lucide-react';
-import { useState } from 'react';
-import { loginAssistant, loginWithPassword, verifyMfaCode } from '../lib/assistant-api';
-import { clearAssistantToken, storeAssistantToken } from '../lib/auth';
+import { useEffect, useState } from 'react';
+import { fetchAgents } from '../lib/agents';
+import { fetchAssistantIdentity, loginAssistant, loginWithPassword, verifyMfaCode } from '../lib/assistant-api';
+import { clearAssistantToken, readAssistantToken, storeAssistantToken } from '../lib/auth';
 import { SHELL_USER } from '../lib/desktop.fixtures';
-import { LOGIN_FOOTER, LOGIN_PREVIEW_CARDS, type LoginPreviewIcon } from '../lib/login.fixtures';
+import { LOGIN_FOOTER, LOGIN_PREVIEW_CARDS, type LoginPreviewIcon, loginSessionFooter } from '../lib/login.fixtures';
 import type { LoginMode } from '../lib/types';
 import { VestaraLogoTeal } from './VestaraLogoTeal';
 
@@ -20,7 +21,46 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
   const [mfaRequired, setMfaRequired] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [authNote, setAuthNote] = useState<string | null>(null);
+  // Live session metadata: restored from the persisted token when it is
+  // still valid, refreshed on every successful sign-in. Null = fixture copy.
+  const [sessionName, setSessionName] = useState<string | null>(null);
+  const [sessionRole, setSessionRole] = useState<string | null>(null);
+  const [agentCount, setAgentCount] = useState<number | null>(null);
   const title = mode === 'locked' ? 'Locked' : mode === 'switch' ? 'Switch User' : 'Welcome back';
+
+  // Best-effort session restore: a still-valid persisted token surfaces the
+  // live identity + agent count in the card and footer. Never blocks entry.
+  useEffect(() => {
+    let cancelled = false;
+    const token = readAssistantToken();
+    if (!token) return;
+    (async () => {
+      try {
+        const [identity, agents] = await Promise.all([fetchAssistantIdentity(token), fetchAgents()]);
+        if (!cancelled) {
+          setSessionName(identity.name);
+          setSessionRole(identity.role);
+          setAgentCount(agents.length);
+        }
+      } catch {
+        // Stale token or offline — fixture metadata stays.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshSession = async (token: string) => {
+    try {
+      const [identity, agents] = await Promise.all([fetchAssistantIdentity(token), fetchAgents()]);
+      setSessionName(identity.name);
+      setSessionRole(identity.role);
+      setAgentCount(agents.length);
+    } catch {
+      // Metadata is decorative — sign-in already succeeded.
+    }
+  };
 
   // Live login attempt — never blocks entry. With a password, the password
   // endpoint runs first and may challenge for MFA; without one the legacy
@@ -33,6 +73,7 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
       if (mfaRequired) {
         const session = await verifyMfaCode(username.trim() || 'eddie', mfaCode.trim());
         storeAssistantToken(session.token);
+        await refreshSession(session.token);
         onLogin();
         return;
       }
@@ -45,11 +86,13 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
         }
         if (!result.session) throw new Error('Login returned no token');
         storeAssistantToken(result.session.token);
+        await refreshSession(result.session.token);
         onLogin();
         return;
       }
       const session = await loginAssistant(username.trim() || 'eddie');
       storeAssistantToken(session.token);
+      await refreshSession(session.token);
       onLogin();
     } catch {
       clearAssistantToken();
@@ -59,6 +102,29 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
       setSigningIn(false);
     }
   };
+
+  // Explicit offline entry — keeps any stored session for later, the
+  // assistant and packages go live on their own when the API answers.
+  const handleSkip = () => {
+    if (!readAssistantToken()) setAuthNote('No session — continuing offline.');
+    onLogin();
+  };
+
+  const displayName = username.trim() || sessionName || SHELL_USER.name;
+  const displayInitial = (sessionName ?? displayName).trim().charAt(0).toUpperCase() || SHELL_USER.initial;
+  const displayStatus =
+    sessionName && sessionRole
+      ? `${sessionRole} • ${agentCount ?? 10} agents`
+      : agentCount !== null
+        ? `Online • ${agentCount} agents • 1 workflow`
+        : SHELL_USER.statusLong;
+  const footerLeft =
+    sessionName && sessionRole && agentCount !== null
+      ? loginSessionFooter(sessionName, sessionRole, agentCount)
+      : agentCount !== null
+        ? `${agentCount} agents ready`
+        : LOGIN_FOOTER.left;
+
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center">
       <img
@@ -78,7 +144,7 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
                   VESTARA
                 </div>
                 <div className="text-[length:var(--vestara-font-size-micro)] tracking-[0.22em] text-[var(--vestara-text-shell-muted)] -mt-0.5">
-                  SHELL OS
+                  AI OS
                 </div>
               </div>
               <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--vestara-status-shell-success)] animate-pulse" />
@@ -87,12 +153,12 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
               <div className="text-[length:var(--vestara-font-size-title-large)] leading-[1.1] text-[var(--vestara-text-shell-bright)] font-[family-name:var(--vestara-font-family-display)]">
                 First-class
                 <br />
-                Desktop Shell
+                AI OS
               </div>
               <div className="mt-3 text-[length:var(--vestara-font-size-label)] leading-5 text-[var(--vestara-text-shell-secondary)] max-w-[220px]">
-                Draggable Workspace
+                Agentic Workspace
                 <br />
-                Wired Packages
+                Live Packages
                 <br />
                 Teal V identity system
               </div>
@@ -122,7 +188,7 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
             </div>
           </div>
           <div className="text-[length:var(--vestara-font-size-caption)] font-mono text-[var(--vestara-text-shell-faint)] mt-6">
-            v7.15.112 FINAL • teal identity • 32px header • drag shell
+            v2.0.0 FINAL • teal identity • 32px header • drag shell
           </div>
         </div>
 
@@ -143,14 +209,14 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-2.5 rounded-[var(--vestara-radius-xl)] bg-[var(--vestara-surface-shell-raised)] border border-[var(--vestara-border-shell)]">
               <div className="w-9 h-9 rounded-full bg-[var(--vestara-accent-shell)] flex items-center justify-center text-[length:var(--vestara-font-size-body-small)] font-bold text-[var(--vestara-surface-shell-canvas)]">
-                {SHELL_USER.initial}
+                {displayInitial}
               </div>
               <div>
                 <div className="text-[length:var(--vestara-font-size-body-small)] text-[var(--vestara-text-shell-primary)] font-medium">
-                  {SHELL_USER.name}
+                  {displayName}
                 </div>
                 <div className="text-[length:var(--vestara-font-size-caption)] text-[var(--vestara-text-shell-muted)]">
-                  {SHELL_USER.statusLong}
+                  {displayStatus}
                 </div>
               </div>
               <div className="ml-auto w-2 h-2 rounded-full bg-[var(--vestara-status-shell-success)] animate-pulse" />
@@ -228,22 +294,17 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
                 {authNote}
               </div>
             )}
-            <div className="flex justify-between text-[length:var(--vestara-font-size-caption)] font-mono">
+            <div className="flex justify-end text-[length:var(--vestara-font-size-caption)] font-mono">
               <button
                 type="button"
-                className="text-[var(--vestara-text-shell-muted)] hover:text-[var(--vestara-text-shell-secondary)]"
-              >
-                Biometric • Touch ID
-              </button>
-              <button
-                type="button"
+                onClick={handleSkip}
                 className="text-[var(--vestara-text-shell-muted)] hover:text-[var(--vestara-text-shell-secondary)]"
               >
                 Skip to Desktop
               </button>
             </div>
             <div className="pt-4 border-t border-[var(--vestara-border-shell)]/50 text-[length:var(--vestara-font-size-caption)] font-mono text-[var(--vestara-text-shell-faint)] flex justify-between">
-              <span>{LOGIN_FOOTER.left}</span>
+              <span>{footerLeft}</span>
               <span>{LOGIN_FOOTER.right}</span>
             </div>
           </div>

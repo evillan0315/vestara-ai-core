@@ -135,6 +135,55 @@ describe('LoginScreen governance', () => {
     expect(container.textContent).not.toMatch(/v?\d+\.\d+\.\d+/);
     expect(container.textContent).not.toMatch(/FINAL/i);
   });
+
+  it('carries the AI OS brand and hero copy', () => {
+    const { container } = renderLogin({ mode: 'default' });
+    const text = container.textContent ?? '';
+    expect(text).toMatch(/AI OS/);
+    expect(text).toMatch(/First-class/);
+    expect(text).toMatch(/Agentic Workspace/);
+    expect(text).toMatch(/Live Packages/);
+    expect(text).not.toMatch(/SHELL OS/);
+    expect(text).not.toMatch(/Desktop Shell/);
+    expect(text).not.toMatch(/Draggable Workspace/);
+    expect(text).not.toMatch(/Wired Packages/);
+  });
+});
+
+describe('LoginScreen fleet metadata', () => {
+  const liveAgents = {
+    agents: [
+      { id: 'a1', name: 'Atlas', role: 'developer', status: 'online' },
+      { id: 'a2', name: 'Beacon', role: 'reviewer', status: 'offline' },
+    ],
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('shows the live fleet count in the user card and footer', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => liveAgents }) as Response),
+    );
+    renderLogin({ mode: 'default' });
+    expect(await screen.findByText('Online • 1/2 agents')).toBeInTheDocument();
+    expect(await screen.findByText('1/2 agents ready')).toBeInTheDocument();
+  });
+
+  it('falls back to the fixture fleet count offline', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('fetch failed');
+      }),
+    );
+    renderLogin({ mode: 'default' });
+    // Fixture roster: 6 agents, 4 online/busy.
+    expect(await screen.findByText('Online • 6 agents')).toBeInTheDocument();
+    expect(await screen.findByText('4/6 agents ready • snapshot')).toBeInTheDocument();
+  });
 });
 
 describe('LoginScreen authentication', () => {

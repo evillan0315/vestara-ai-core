@@ -10,7 +10,7 @@ import {
 import { AGENT_ACTIVE_COUNT, AGENT_NAMES } from './agent.fixtures';
 import { DIAGNOSTIC_BAR_COUNT, DIAGNOSTIC_SEED, DIAGNOSTIC_TITLE } from './diagnostic.fixtures';
 import { FILE_FAVOURITES, FILE_ROWS } from './files.fixtures';
-import { MARKETPLACE_BADGE, MARKETPLACE_CARDS } from './marketplace.fixtures';
+import { MARKETPLACE_BADGE, MARKETPLACE_FIXTURE } from './marketplace.fixtures';
 import { OVERVIEW_GREETING, OVERVIEW_HEALTH, OVERVIEW_STATS, OVERVIEW_SUBTITLE } from './overview.fixtures';
 import {
   APPEARANCE_THEME_OPTIONS,
@@ -39,7 +39,7 @@ describe('package fixtures', () => {
   it('activity rail composes labels and counts', () => {
     expect(participantLabel({ agent: 'Assistant', detail: 'eddie', status: 'Idle' })).toBe('Assistant eddie Idle');
     expect(participantLabel({ agent: 'Browser', detail: '', status: 'Active' })).toBe('Browser Active');
-    expect(ACTIVITY_PARTICIPANTS).toHaveLength(6);
+    expect(ACTIVITY_PARTICIPANTS).toHaveLength(10);
     expect(ACTIVITY_RECORDS).toHaveLength(3);
     expect(ACTIVITY_COUNTS.participants).toBe(25);
     expect(ACTIVITY_COUNTS.records).toBe(50);
@@ -47,13 +47,13 @@ describe('package fixtures', () => {
   });
 
   it('agent roster holds names + headcount', () => {
-    expect(AGENT_NAMES).toHaveLength(6);
-    expect(AGENT_ACTIVE_COUNT).toBe(7);
+    expect(AGENT_NAMES).toHaveLength(10);
+    expect(AGENT_ACTIVE_COUNT).toBe(10);
   });
 
-  it('marketplace holds 6 cards + badge', () => {
-    expect(MARKETPLACE_CARDS).toHaveLength(6);
-    expect(MARKETPLACE_BADGE).toBe('112 FINAL');
+  it('marketplace holds 6 assets + badge', () => {
+    expect(MARKETPLACE_FIXTURE).toHaveLength(6);
+    expect(MARKETPLACE_BADGE).toBe('2.0.0');
   });
 
   it('overview holds greeting + 4 stats', () => {

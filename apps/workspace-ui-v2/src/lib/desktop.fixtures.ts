@@ -27,60 +27,9 @@ export const DOCK_TYPES: WinType[] = [
   'files',
 ];
 
-export const DEFAULT_WINDOWS: WinData[] = [
-  {
-    id: 'win-overview',
-    title: 'Overview',
-    subtitle: 'Good afternoon Director',
-    x: 120,
-    y: 60,
-    w: 560,
-    h: 380,
-    z: 1,
-    minimized: false,
-    maximized: false,
-    type: 'overview',
-  },
-  {
-    id: 'win-terminal',
-    title: 'Terminal',
-    subtitle: 'zsh • vestara-platform',
-    x: 160,
-    y: 120,
-    w: 640,
-    h: 360,
-    z: 2,
-    minimized: false,
-    maximized: false,
-    type: 'terminal',
-  },
-  {
-    id: 'win-activity',
-    title: 'Activity Room',
-    subtitle: 'Live Operations • 50 records',
-    x: 200,
-    y: 80,
-    w: 720,
-    h: 480,
-    z: 3,
-    minimized: false,
-    maximized: false,
-    type: 'activity',
-  },
-  {
-    id: 'win-market',
-    title: 'Marketplace',
-    subtitle: 'Capabilities • 112 FINAL',
-    x: 100,
-    y: 200,
-    w: 520,
-    h: 340,
-    z: 4,
-    minimized: true,
-    maximized: false,
-    type: 'marketplace',
-  },
-];
+// Clean desktop: no windows open by default. Users launch apps via
+// desktop icons, the dock, or the assistant.
+export const DEFAULT_WINDOWS: WinData[] = [];
 
 export const WINDOW_TITLES: Record<WinType, string> = {
   overview: 'Overview',
@@ -97,8 +46,8 @@ export const WINDOW_TITLES: Record<WinType, string> = {
 export const SHELL_USER = {
   initial: 'E',
   name: 'Eddie R Villanueva',
-  statusLong: 'Online • 7 agents • 1 workflow',
-  statusShort: 'Online • 7 agents',
+  statusLong: 'Online • 10 agents • 1 workflow',
+  statusShort: 'Online • 10 agents',
 } as const;
 
 export type SystemMenuIcon = 'lock' | 'users' | 'settings' | 'logout' | 'power';

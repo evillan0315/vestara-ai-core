@@ -1,6 +1,6 @@
 [package]
 name = "vestara-workspace-ui-v2-desktop"
-version = "7.15.112"
+version = "2.0.0"
 description = "Vestara Workspace UI v2 — standalone desktop shell (Tauri host)"
 authors = ["Vestara"]
 edition = "2021"
