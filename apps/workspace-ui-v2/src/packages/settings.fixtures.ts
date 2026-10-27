@@ -55,3 +55,27 @@ export const WORKSPACE_UI_VERSION_ENV_NOTE =
   'Locked by VESTARA_WORKSPACE_UI_VERSION — clear the env var to switch from Settings.';
 export const WORKSPACE_UI_VERSION_OFFLINE_NOTE = 'API unreachable — showing this shell (v2). Sign in to switch.';
 export const WORKSPACE_UI_VERSION_UNAUTHORIZED_NOTE = 'Sign in with an editor account to switch the workspace UI.';
+
+export interface AppearanceThemeOption {
+  value: 'shell' | 'amber' | 'teal' | 'emerald' | 'blue' | 'violet' | 'rose' | 'neutral';
+  label: string;
+}
+
+// Accent options for the Appearance card — mirrors ShellAccentTheme in
+// @vestara/settings-framework. Registered into the model once; the
+// component reads them back from the entry, never hardcodes them.
+export const APPEARANCE_THEME_OPTIONS: AppearanceThemeOption[] = [
+  { value: 'shell', label: 'Shell (teal identity)' },
+  { value: 'amber', label: 'Amber' },
+  { value: 'teal', label: 'Teal' },
+  { value: 'emerald', label: 'Emerald' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'violet', label: 'Violet' },
+  { value: 'rose', label: 'Rose' },
+  { value: 'neutral', label: 'Neutral' },
+];
+
+export const APPEARANCE_HELP =
+  'Accent re-themes shell highlights live; density changes TopBar height. Stored in this browser only.';
+export const SETTINGS_EMPTY_SECTION_NOTE =
+  'No controls registered for this section yet — tracked in the settings registry.';

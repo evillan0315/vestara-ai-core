@@ -16,6 +16,25 @@
   --vestara-border-shell: #1a3a3d;
   --vestara-accent-shell: #2de8c3;
   --vestara-accent-shell-glow: rgba(45, 232, 195, 0.45);
+
+  /* Accent theme ramp (mirrors ShellAccentTheme; applied at runtime by
+     overriding --vestara-accent-shell* above — never consumed directly). */
+  --vestara-accent-theme-shell: #2de8c3;
+  --vestara-accent-theme-shell-glow: rgba(45, 232, 195, 0.45);
+  --vestara-accent-theme-amber: #f5a524;
+  --vestara-accent-theme-amber-glow: rgba(245, 165, 36, 0.45);
+  --vestara-accent-theme-teal: #2dd4bf;
+  --vestara-accent-theme-teal-glow: rgba(45, 212, 191, 0.45);
+  --vestara-accent-theme-emerald: #34d399;
+  --vestara-accent-theme-emerald-glow: rgba(52, 211, 153, 0.45);
+  --vestara-accent-theme-blue: #60a5fa;
+  --vestara-accent-theme-blue-glow: rgba(96, 165, 250, 0.45);
+  --vestara-accent-theme-violet: #a78bfa;
+  --vestara-accent-theme-violet-glow: rgba(167, 139, 250, 0.45);
+  --vestara-accent-theme-rose: #fb7185;
+  --vestara-accent-theme-rose-glow: rgba(251, 113, 133, 0.45);
+  --vestara-accent-theme-neutral: #c8ddd9;
+  --vestara-accent-theme-neutral-glow: rgba(200, 221, 217, 0.45);
   --vestara-text-shell-primary: #c8ddd9;
   --vestara-text-shell-secondary: #8ab3ad;
   --vestara-text-shell-muted: #5a7a78;
@@ -55,10 +74,12 @@
   --vestara-radius-3xl: 1.25rem;
   --vestara-radius-full: 9999px;
 
-  /* Compositor elevation (mirrors ELEVATION shell recipes) */
+  /* Compositor elevation (mirrors ELEVATION shell recipes; accent-derived
+     so focus/glow follow the active accent theme at runtime) */
   --vestara-elevation-shell-float: 0 20px 60px rgba(0, 0, 0, 0.6);
-  --vestara-elevation-shell-focus: 0 0 0 1px rgba(45, 232, 195, 0.2), 0 20px 60px rgba(0, 0, 0, 0.6);
-  --vestara-elevation-shell-glow: 0 0 8px rgba(45, 232, 195, 0.6);
+  --vestara-elevation-shell-focus:
+    0 0 0 1px color-mix(in srgb, var(--vestara-accent-shell) 20%, transparent), 0 20px 60px rgba(0, 0, 0, 0.6);
+  --vestara-elevation-shell-glow: 0 0 8px color-mix(in srgb, var(--vestara-accent-shell) 60%, transparent);
 
   /* Motion (mirrors MOTION) */
   --vestara-motion-fast: 100ms;
@@ -69,6 +90,7 @@
 
   /* TopBar geometry (mirrors SIZING.topbar) */
   --vestara-sizing-topbar-height: 36px;
+  --vestara-sizing-topbar-height-comfortable: 48px;
   --vestara-sizing-topbar-spotlight-width: 200px;
 
   /* Sidebar geometry (mirrors SIZING.sidebar; rail = 2 × topbar height) */
@@ -79,10 +101,10 @@
 @keyframes pulseGlow {
   0%,
   100% {
-    filter: drop-shadow(0 0 8px rgba(45, 232, 195, 0.35));
+    filter: drop-shadow(0 0 8px var(--vestara-accent-shell-glow));
   }
   50% {
-    filter: drop-shadow(0 0 18px rgba(45, 232, 195, 0.6));
+    filter: drop-shadow(0 0 18px var(--vestara-accent-shell-glow));
   }
 }
 

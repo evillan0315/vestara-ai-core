@@ -13,7 +13,9 @@ import { FILE_FAVOURITES, FILE_ROWS } from './files.fixtures';
 import { MARKETPLACE_BADGE, MARKETPLACE_CARDS } from './marketplace.fixtures';
 import { OVERVIEW_GREETING, OVERVIEW_HEALTH, OVERVIEW_STATS, OVERVIEW_SUBTITLE } from './overview.fixtures';
 import {
+  APPEARANCE_THEME_OPTIONS,
   SETTINGS_ACTIVE_SECTION,
+  SETTINGS_EMPTY_SECTION_NOTE,
   SETTINGS_MENU_ROWS,
   SETTINGS_SECTIONS,
   SETTINGS_TOKENS_DOC,
@@ -72,6 +74,20 @@ describe('package fixtures', () => {
     expect(WORKSPACE_UI_VERSION_OPTIONS.map((o) => o.value)).toEqual(['v1', 'v2']);
     expect(WORKSPACE_UI_VERSION_FIXTURE).toBe('v2');
     expect(WORKSPACE_UI_VERSION_HELP).toContain('general.workspaceUiVersion');
+  });
+
+  it('settings holds eight accent themes mirroring ShellAccentTheme', () => {
+    expect(APPEARANCE_THEME_OPTIONS.map((o) => o.value)).toEqual([
+      'shell',
+      'amber',
+      'teal',
+      'emerald',
+      'blue',
+      'violet',
+      'rose',
+      'neutral',
+    ]);
+    expect(SETTINGS_EMPTY_SECTION_NOTE).toContain('settings registry');
   });
 
   it('diagnostic holds strip shape + seed', () => {

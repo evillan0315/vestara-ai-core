@@ -11,6 +11,7 @@ import { getColdStartWinType, subscribeDeepLinks } from './lib/deep-link';
 import { DEFAULT_WINDOWS, WINDOW_TITLES } from './lib/desktop.fixtures';
 import type { LoginMode, Phase, WinData, WinType } from './lib/types';
 import { WALLPAPER_SOURCES } from './lib/wallpapers';
+import { applyPersistedShellAppearance } from './lib/workspace-settings-model';
 import { ActivityRoomPkg } from './packages/ActivityRoom';
 import { AgentPkg } from './packages/AgentWorkforce';
 import { DiagnosticPkg } from './packages/Diagnostic';
@@ -29,6 +30,11 @@ export default function App() {
   const spawnRef = useRef(0);
 
   const [wins, setWins] = useState<WinData[]>(DEFAULT_WINDOWS);
+
+  // Shell boot: apply the persisted, framework-validated appearance once.
+  useEffect(() => {
+    applyPersistedShellAppearance().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 1000);
