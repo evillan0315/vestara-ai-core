@@ -42,7 +42,7 @@ export { AgentService } from './agent-service';
 export { AgentStorage } from './agent-storage';
 export type { WorkflowInstance, WorkflowStepDef, WorkflowStepResult } from './agent-workflow-service';
 export { AgentWorkflowService } from './agent-workflow-service';
-export { CANONICAL_AGENTS } from './agents.registry';
+export { CANONICAL_AGENTS, renderOpencodeAgentFile } from './agents.registry';
 export { AnalyticsService } from './analytics-service';
 export type { AuditEntry } from './audit-store';
 export { AuditStore } from './audit-store';
@@ -242,6 +242,7 @@ export type {
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';
 export { OSSystemService } from './os-service';
+export { hashPassword, verifyPassword } from './password-crypto';
 export type { PathValidation } from './path-security';
 // ─── Workspace Runtime Service (NEW) ──────────────────────────
 export { PathSecurity } from './path-security';
@@ -356,6 +357,14 @@ export { SuggestionService } from './suggestion-service';
 export { SuggestionStorage } from './suggestion-storage';
 export type { SystemState } from './system-state';
 export { collectSystemState, renderSystemState } from './system-state';
+export {
+  base32Decode,
+  base32Encode,
+  generateTotpSecret,
+  totpNow,
+  totpProvisioningUrl,
+  verifyTotp,
+} from './totp';
 export type {
   AgentCapability,
   AgentDefinition,
@@ -428,7 +437,7 @@ export type { IndexEntry, IndexNode, IndexOptions } from './workspace-index';
 export { WorkspaceIndex } from './workspace-index';
 export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './workspace-manifest';
 export { WorkspaceManifest } from './workspace-manifest';
-export { WORKSPACE_DOMAIN_MANIFEST, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
+export { USERS_AUTH_CREDENTIALS_MIGRATIONS, WORKSPACE_DOMAIN_MANIFEST, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';

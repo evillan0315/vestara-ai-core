@@ -79,4 +79,36 @@ describe('/login', () => {
     expect(screen.queryByText('workspace overview')).toBeNull();
     expect(localStorage.getItem('vestara-auth-token')).toBeNull();
   });
+
+  it('challenges for MFA after a password login and verifies into the workspace', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ mfaRequired: true, username: 'grace' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: { id: 'u1', username: 'grace', role: 'editor', token: 'vst_mfa' } }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderLogin();
+    fireEvent.change(screen.getByLabelText('USERNAME'), { target: { value: 'grace' } });
+    fireEvent.change(screen.getByLabelText('PASSWORD'), { target: { value: 's3cret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue → Desktop' }));
+
+    await waitFor(() => expect(screen.getByLabelText('AUTHENTICATOR CODE')).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/password', expect.objectContaining({ method: 'POST' }));
+    expect(screen.queryByText('workspace overview')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('AUTHENTICATOR CODE'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code → Desktop' }));
+
+    await waitFor(() => expect(screen.getByText('workspace overview')).toBeInTheDocument());
+    const init = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/mfa/verify');
+    expect(JSON.parse(String(init.body))).toEqual({ username: 'grace', code: '123456' });
+    expect(localStorage.getItem('vestara-auth-token')).toBe('vst_mfa');
+  });
 });

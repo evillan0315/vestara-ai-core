@@ -80,6 +80,40 @@ export async function loginAssistant(username: string): Promise<AssistantSession
   return { token: data.user.token, username: data.user.username ?? username };
 }
 
+export interface PasswordLoginResult {
+  session?: AssistantSession;
+  /** True when the password verified but TOTP MFA is required to finish. */
+  mfaRequired: boolean;
+  username: string;
+}
+
+/** POST /api/auth/password — password login; may challenge for MFA. */
+export async function loginWithPassword(username: string, password: string): Promise<PasswordLoginResult> {
+  const data = await postJson<{
+    user?: { token?: string; username?: string };
+    mfaRequired?: boolean;
+    username?: string;
+    error?: string;
+  }>('/api/auth/password', { username, password });
+  if (data?.mfaRequired) return { mfaRequired: true, username: data.username ?? username };
+  if (!data?.user?.token) throw new AssistantApiError(500, 'Login returned no token');
+  return {
+    session: { token: data.user.token, username: data.user.username ?? username },
+    mfaRequired: false,
+    username: data.user.username ?? username,
+  };
+}
+
+/** POST /api/auth/mfa/verify — finish an MFA-challenged login. */
+export async function verifyMfaCode(username: string, code: string): Promise<AssistantSession> {
+  const data = await postJson<{ user?: { token?: string; username?: string } }>('/api/auth/mfa/verify', {
+    username,
+    code,
+  });
+  if (!data?.user?.token) throw new AssistantApiError(500, 'MFA verification returned no token');
+  return { token: data.user.token, username: data.user.username ?? username };
+}
+
 /**
  * GET /api/auth/me — true when the token is accepted.
  * Returns false on 401; rethrows transport failures (status 0) so callers

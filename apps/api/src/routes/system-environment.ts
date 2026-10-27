@@ -107,6 +107,36 @@ const REGISTRY: readonly RegistryEntry[] = [
     sensitive: true,
   },
   {
+    name: 'VESTARA_AUTH_OPEN_REGISTRATION',
+    scope: 'api-process',
+    description: "Set to '0' to disable self-registration of unknown usernames on login.",
+    defaultValue: '1',
+  },
+  {
+    name: 'VESTARA_AUTH_REQUIRE_PASSWORD',
+    scope: 'api-process',
+    description: "Set to '1' so unknown usernames cannot self-register; an administrator must create accounts.",
+    defaultValue: '0',
+  },
+  {
+    name: 'VESTARA_AUTH_LOGIN_MAX_ATTEMPTS',
+    scope: 'api-process',
+    description: 'Login attempts allowed per window per client before 429.',
+    defaultValue: '10',
+  },
+  {
+    name: 'VESTARA_AUTH_LOGIN_WINDOW_MS',
+    scope: 'api-process',
+    description: 'Sliding window in milliseconds for login throttling.',
+    defaultValue: '60000',
+  },
+  {
+    name: 'VESTARA_CREDENTIAL_KEY',
+    scope: 'api-process',
+    description: 'Hex machine key for MFA secret encryption (generated 0600 file when unset).',
+    sensitive: true,
+  },
+  {
     name: 'VESTARA_BROWSER_DRIVER',
     scope: 'api-process',
     description: 'Browser automation driver (playwright | agent-browser).',

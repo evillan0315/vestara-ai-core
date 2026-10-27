@@ -24,7 +24,45 @@ function resolveEndpoint(args: readonly string[]): string {
 
 interface LoginResponse {
   user?: { id: string; username: string; role?: string; token?: string };
+  mfaRequired?: boolean;
+  username?: string;
   error?: string;
+}
+
+async function postAuth(endpoint: string, path: string, body: Record<string, string>): Promise<LoginResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${endpoint}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    console.error(`${RED}Cannot reach the Vestara API at ${endpoint}: ${(error as Error).message}${RESET}`);
+    process.exitCode = 1;
+    throw error;
+  }
+  const data = (await response.json().catch(() => ({}))) as LoginResponse & { error?: string };
+  if (!response.ok) {
+    console.error(`${RED}Authentication failed: ${data.error ?? `HTTP ${response.status}`}${RESET}`);
+    process.exitCode = 1;
+    throw new Error(data.error ?? `HTTP ${response.status}`);
+  }
+  return data;
+}
+
+function storeSession(endpoint: string, user: { token: string; username: string; role?: string }): void {
+  const auth: Omit<StoredAuth, 'savedAt'> = {
+    endpoint,
+    token: user.token,
+    username: user.username,
+    role: user.role,
+  };
+  writeAuth(auth);
+
+  console.log(`${GREEN}✓${RESET} Authenticated as ${BOLD}${user.username}${RESET} (${user.role})`);
+  console.log(`${GRAY}  Endpoint:   ${endpoint}${RESET}`);
+  console.log(`${GRAY}  Session:    ${authFilePath()}${RESET}`);
 }
 
 export async function runAuth(args: readonly string[]): Promise<void> {
@@ -45,7 +83,10 @@ export async function runAuth(args: readonly string[]): Promise<void> {
       return;
     default:
       console.log(`${GOLD}Usage: vestara auth <login|status|logout|token>${RESET}`);
-      console.log(`${GRAY}  login  [--username <name>] [--token <token>] [--endpoint <url>]${RESET}`);
+      console.log(
+        `${GRAY}  login  [--username <name>] [--token <token>] [--password <pw>] [--mfa-code <code>] [--endpoint <url>]${RESET}`,
+      );
+      console.log(`${GRAY}         Passwords may also come from VESTARA_AUTH_PASSWORD (avoids shell history).${RESET}`);
       console.log(`${GRAY}  status                     Show the current session${RESET}`);
       console.log(`${GRAY}  logout                     Remove the stored session${RESET}`);
       console.log(`${GRAY}  token                      Print the stored token${RESET}`);
@@ -57,44 +98,48 @@ async function login(args: readonly string[]): Promise<void> {
   const endpoint = resolveEndpoint(args);
   const username = argValue(args, '--username')?.trim();
   const providedToken = argValue(args, '--token')?.trim();
+  const password = argValue(args, '--password') ?? process.env.VESTARA_AUTH_PASSWORD;
+  const mfaCode = argValue(args, '--mfa-code')?.trim();
   if (!username && !providedToken) {
     console.error(`${RED}Provide --username <name> or --token <token>.${RESET}`);
     process.exitCode = 1;
     return;
   }
 
-  const body = providedToken ? { token: providedToken } : { username };
-  let response: Response;
   try {
-    response = await fetch(`${endpoint}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    console.error(`${RED}Cannot reach the Vestara API at ${endpoint}: ${(error as Error).message}${RESET}`);
-    process.exitCode = 1;
-    return;
+    if (providedToken) {
+      const data = await postAuth(endpoint, '/api/auth/login', { token: providedToken });
+      if (!data.user?.token) throw new Error('Login returned no token');
+      storeSession(endpoint, { token: data.user.token, username: data.user.username, role: data.user.role });
+      return;
+    }
+    if (password && username) {
+      const data = await postAuth(endpoint, '/api/auth/password', { username, password });
+      if (data.mfaRequired) {
+        if (!mfaCode) {
+          console.error(`${RED}Password accepted — MFA required. Re-run with --mfa-code <code>.${RESET}`);
+          process.exitCode = 1;
+          return;
+        }
+        const verified = await postAuth(endpoint, '/api/auth/mfa/verify', { username, code: mfaCode });
+        if (!verified.user?.token) throw new Error('MFA verification returned no token');
+        storeSession(endpoint, {
+          token: verified.user.token,
+          username: verified.user.username,
+          role: verified.user.role,
+        });
+        return;
+      }
+      if (!data.user?.token) throw new Error('Login returned no token');
+      storeSession(endpoint, { token: data.user.token, username: data.user.username, role: data.user.role });
+      return;
+    }
+    const data = await postAuth(endpoint, '/api/auth/login', { username: username ?? '' });
+    if (!data.user?.token) throw new Error('Login returned no token');
+    storeSession(endpoint, { token: data.user.token, username: data.user.username, role: data.user.role });
+  } catch {
+    if (process.exitCode === 0) process.exitCode = 1;
   }
-
-  const data = (await response.json().catch(() => ({}))) as LoginResponse;
-  if (!response.ok || !data.user?.token) {
-    console.error(`${RED}Authentication failed: ${data.error ?? `HTTP ${response.status}`}${RESET}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  const auth: Omit<StoredAuth, 'savedAt'> = {
-    endpoint,
-    token: data.user.token,
-    username: data.user.username,
-    role: data.user.role,
-  };
-  writeAuth(auth);
-
-  console.log(`${GREEN}✓${RESET} Authenticated as ${BOLD}${data.user.username}${RESET} (${data.user.role})`);
-  console.log(`${GRAY}  Endpoint:   ${endpoint}${RESET}`);
-  console.log(`${GRAY}  Session:    ${authFilePath()}${RESET}`);
 }
 
 async function status(args: readonly string[]): Promise<void> {

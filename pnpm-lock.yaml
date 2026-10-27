@@ -738,6 +738,9 @@ importers:
       '@tauri-apps/plugin-deep-link':
         specifier: ^2.6.2
         version: 2.6.2
+      '@vestara/settings-framework':
+        specifier: workspace:*
+        version: link:../../packages/settings-framework
       lucide-react:
         specifier: ^0.400.0
         version: 0.400.0(react@19.2.8)

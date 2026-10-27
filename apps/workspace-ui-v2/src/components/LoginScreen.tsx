@@ -1,6 +1,6 @@
 import { Activity, Store, Terminal } from 'lucide-react';
 import { useState } from 'react';
-import { loginAssistant } from '../lib/assistant-api';
+import { loginAssistant, loginWithPassword, verifyMfaCode } from '../lib/assistant-api';
 import { clearAssistantToken, storeAssistantToken } from '../lib/auth';
 import { SHELL_USER } from '../lib/desktop.fixtures';
 import { LOGIN_FOOTER, LOGIN_PREVIEW_CARDS, type LoginPreviewIcon } from '../lib/login.fixtures';
@@ -16,24 +16,47 @@ const PREVIEW_ICONS: Record<LoginPreviewIcon, typeof Terminal> = {
 export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: LoginMode }) {
   const [pwd, setPwd] = useState('');
   const [username, setUsername] = useState('eddie');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [authNote, setAuthNote] = useState<string | null>(null);
   const title = mode === 'locked' ? 'Locked' : mode === 'switch' ? 'Switch User' : 'Welcome back';
 
-  // Live login attempt — never blocks entry. The API auto-registers unknown
-  // usernames; on any failure the shell continues offline (fixture mode).
+  // Live login attempt — never blocks entry. With a password, the password
+  // endpoint runs first and may challenge for MFA; without one the legacy
+  // username login runs (the API auto-registers unknown usernames). On any
+  // failure the shell continues offline (fixture mode).
   const handleContinue = async () => {
     setSigningIn(true);
     setAuthNote(null);
     try {
+      if (mfaRequired) {
+        const session = await verifyMfaCode(username.trim() || 'eddie', mfaCode.trim());
+        storeAssistantToken(session.token);
+        onLogin();
+        return;
+      }
+      if (pwd) {
+        const result = await loginWithPassword(username.trim() || 'eddie', pwd);
+        if (result.mfaRequired) {
+          setMfaRequired(true);
+          setAuthNote('Password accepted — enter your authenticator code.');
+          return;
+        }
+        if (!result.session) throw new Error('Login returned no token');
+        storeAssistantToken(result.session.token);
+        onLogin();
+        return;
+      }
       const session = await loginAssistant(username.trim() || 'eddie');
       storeAssistantToken(session.token);
+      onLogin();
     } catch {
       clearAssistantToken();
-      setAuthNote('API unreachable — continuing offline.');
+      setAuthNote(mfaRequired ? 'Invalid code — try again.' : 'API unreachable — continuing offline.');
+      if (!mfaRequired) onLogin();
     } finally {
       setSigningIn(false);
-      onLogin();
     }
   };
   return (
@@ -168,13 +191,34 @@ export function LoginScreen({ onLogin, mode }: { onLogin: () => void; mode: Logi
                 onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
               />
             </div>
+            {mfaRequired && (
+              <div>
+                <label
+                  htmlFor="vestara-shell-mfa"
+                  className="text-[length:var(--vestara-font-size-caption)] tracking-[0.12em] text-[var(--vestara-text-shell-muted)] font-mono"
+                >
+                  AUTHENTICATOR CODE
+                </label>
+                <input
+                  id="vestara-shell-mfa"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  className="mt-1.5 w-full h-10 rounded-[var(--vestara-radius-md-plus)] bg-[var(--vestara-surface-shell-canvas)] border border-[var(--vestara-border-shell)] px-3 text-[length:var(--vestara-font-size-body-small)] text-[var(--vestara-text-shell-primary)] placeholder:text-[var(--vestara-text-shell-faint)] outline-none focus:border-[var(--vestara-accent-shell)]/40"
+                  onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
+                />
+              </div>
+            )}
             <button
               type="button"
               onClick={handleContinue}
               disabled={signingIn}
               className="w-full h-11 rounded-[var(--vestara-radius-md-plus)] bg-[var(--vestara-accent-shell)] text-[var(--vestara-surface-shell-canvas)] text-[length:var(--vestara-font-size-body-small)] font-bold tracking-wide hover:brightness-105 transition disabled:opacity-60"
             >
-              {signingIn ? 'Signing in…' : 'Continue → Desktop'}
+              {signingIn ? 'Signing in…' : mfaRequired ? 'Verify code → Desktop' : 'Continue → Desktop'}
             </button>
             {authNote && (
               <div

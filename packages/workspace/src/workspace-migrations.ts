@@ -412,9 +412,47 @@ export const WORKSPACE_DOMAIN_MIGRATIONS: readonly MigrationStep[] = [
   },
 ];
 
+/**
+ * Password + TOTP credential columns on users. Kept OUT of
+ * WORKSPACE_DOMAIN_MIGRATIONS: the composed production manifest
+ * (PLANS_MANIFEST in agent-migrations.ts) versions steps positionally, and
+ * inserting here would shift already-recorded versions
+ * (SCHEMA_METADATA_INCONSISTENT). This trailing group is appended at the
+ * end of every manifest that needs it instead.
+ *
+ * scrypt hashes and encrypted secrets are written by UserStore, never read
+ * by the migration itself. Uses addColumnIfMissing so legacy databases
+ * adopt safely.
+ */
+export const USERS_AUTH_CREDENTIALS_MIGRATIONS: readonly MigrationStep[] = [
+  {
+    name: 'users.auth-credentials',
+    produces: [
+      fingerprint('users', [
+        'id',
+        'username',
+        'role',
+        'token',
+        'created_at',
+        'password_hash',
+        'totp_secret',
+        'backup_codes',
+        'mfa_enrolled_at',
+      ]),
+    ],
+    up: (db: Database, ctx) => {
+      ctx.addColumnIfMissing(db, 'users', 'password_hash', 'TEXT');
+      ctx.addColumnIfMissing(db, 'users', 'totp_secret', 'TEXT');
+      ctx.addColumnIfMissing(db, 'users', 'backup_codes', 'TEXT');
+      ctx.addColumnIfMissing(db, 'users', 'mfa_enrolled_at', 'TEXT');
+    },
+  },
+];
+
 /** Standalone workspace-domain manifest (for direct-construction tests). */
 export const WORKSPACE_DOMAIN_MANIFEST: MigrationManifest = buildManifest('plans-workspace', [
   WORKSPACE_DOMAIN_MIGRATIONS,
+  USERS_AUTH_CREDENTIALS_MIGRATIONS,
 ]);
 
 const PREFERENCES_BASELINE_DDL = `

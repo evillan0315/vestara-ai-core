@@ -5,9 +5,11 @@ import {
   getLatestAssistantText,
   isAssistantTurnActive,
   loginAssistant,
+  loginWithPassword,
   sendAssistantMessage,
   streamAssistantMessage,
   validateAssistantToken,
+  verifyMfaCode,
 } from './assistant-api';
 
 const ok = (data: unknown, status = 200) =>
@@ -181,5 +183,31 @@ describe('assistant-api', () => {
     });
     await expect(isAssistantTurnActive('t', 'c')).resolves.toBe(true);
     await expect(getLatestAssistantText('t', 'c')).resolves.toBe('Second answer');
+  });
+
+  it('logs in with a password or surfaces the MFA challenge', async () => {
+    stubFetch(async (url, init) => {
+      expect(url).toBe('/api/auth/password');
+      expect(init?.method).toBe('POST');
+      expect(init?.body).toBe(JSON.stringify({ username: 'eddie', password: 's3cret' }));
+      return ok({ user: { token: 'tok-2', username: 'eddie' } });
+    });
+    await expect(loginWithPassword('eddie', 's3cret')).resolves.toMatchObject({
+      mfaRequired: false,
+      session: { token: 'tok-2' },
+    });
+    stubFetch(async () => ok({ mfaRequired: true, username: 'eddie' }));
+    await expect(loginWithPassword('eddie', 's3cret')).resolves.toMatchObject({ mfaRequired: true });
+  });
+
+  it('verifies MFA codes into a session', async () => {
+    stubFetch(async (url, init) => {
+      expect(url).toBe('/api/auth/mfa/verify');
+      expect(init?.body).toBe(JSON.stringify({ username: 'eddie', code: '123456' }));
+      return ok({ user: { token: 'tok-3', username: 'eddie' } });
+    });
+    await expect(verifyMfaCode('eddie', '123456')).resolves.toEqual({ token: 'tok-3', username: 'eddie' });
+    stubFetch(async () => ok({ user: {} }));
+    await expect(verifyMfaCode('eddie', '123456')).rejects.toMatchObject({ status: 500 });
   });
 });

@@ -51,6 +51,16 @@ export interface LoginCredentials {
   readonly password: string;
 }
 
+export interface LoginMfaChallenge {
+  readonly username: string;
+  readonly code: string;
+}
+
+/** Result of the credential step: success, or an MFA challenge to satisfy. */
+export interface LoginResult {
+  readonly mfaRequired: boolean;
+}
+
 export interface LoginScreenProps {
   readonly mode: LoginMode;
   readonly onLogin: () => void;
@@ -61,9 +71,12 @@ export interface LoginScreenProps {
   /**
    * Real credential submission. When provided, the panel renders a username
    * field in `default` mode and awaits this before `onLogin`. A rejection
-   * keeps the user on the form; the caller surfaces `authError`.
+   * keeps the user on the form; the caller surfaces `authError`. Resolving
+   * `{ mfaRequired: true }` switches the panel to the MFA code step instead.
    */
-  readonly onAuthenticate?: (credentials: LoginCredentials) => Promise<void>;
+  readonly onAuthenticate?: (credentials: LoginCredentials) => Promise<LoginResult | void>;
+  /** MFA code submission for a challenged login. Same error contract. */
+  readonly onAuthenticateMfa?: (challenge: LoginMfaChallenge) => Promise<void>;
   /** In-flight authentication attempt — disables the submit control. */
   readonly authenticating?: boolean;
   /** Human-readable failure from the last authentication attempt. */
@@ -110,6 +123,7 @@ export function LoginScreen({
   onBiometric,
   onSkip,
   onAuthenticate,
+  onAuthenticateMfa,
   authenticating = false,
   authError = null,
   showDemoLinks = true,
@@ -118,6 +132,8 @@ export function LoginScreen({
   const displayName = user?.username || actor || desktopShellUserFixture.displayName;
   const [password, setPassword] = useState('');
   const [pendingActor, setPendingActor] = useState(displayName);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const busy = authenticating || submitting;
   const showUsernameField = mode === 'switch' || Boolean(onAuthenticate);
@@ -129,10 +145,28 @@ export function LoginScreen({
     if (mode === 'switch' && username) {
       setActor(username);
     }
+    if (mfaRequired) {
+      if (!onAuthenticateMfa) return;
+      setSubmitting(true);
+      try {
+        await onAuthenticateMfa({ username, code: mfaCode.trim() });
+      } catch {
+        // The caller owns the error copy (`authError`); stay on the form.
+        return;
+      } finally {
+        setSubmitting(false);
+      }
+      onLogin();
+      return;
+    }
     if (onAuthenticate) {
       setSubmitting(true);
       try {
-        await onAuthenticate({ username, password });
+        const result = await onAuthenticate({ username, password });
+        if (result?.mfaRequired) {
+          setMfaRequired(true);
+          return;
+        }
       } catch {
         // The caller owns the error copy (`authError`); stay on the form.
         return;
@@ -284,12 +318,32 @@ export function LoginScreen({
                 />
               </div>
             )}
+            {mfaRequired && (
+              <div>
+                <label
+                  htmlFor="desktop-shell-mfa"
+                  className="font-mono text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]"
+                >
+                  AUTHENTICATOR CODE
+                </label>
+                <input
+                  id="desktop-shell-mfa"
+                  value={mfaCode}
+                  onChange={(event) => setMfaCode(event.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  className="mt-1.5 h-10 w-full rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-canvas-bg)] px-3 text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text)] outline-none placeholder:text-[var(--ds-text-muted)] focus:border-[var(--ds-focus-ring)]"
+                />
+              </div>
+            )}
             <button
               type="submit"
               disabled={busy}
               className="h-11 w-full rounded-[var(--vestara-radius-md)] bg-[var(--ds-accent)] text-[length:var(--vestara-font-size-xs)] font-bold tracking-wide text-[var(--vestara-on-accent)] transition hover:brightness-105 disabled:opacity-60"
             >
-              {busy ? 'Signing in…' : 'Continue → Desktop'}
+              {busy ? 'Signing in…' : mfaRequired ? 'Verify code → Desktop' : 'Continue → Desktop'}
             </button>
             {authError && (
               <div

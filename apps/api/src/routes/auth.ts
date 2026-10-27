@@ -1,19 +1,46 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { type HumanPrincipalStatus, isHumanPrincipalStatus } from '@vestara/workspace';
+import {
+  generateTotpSecret,
+  type HumanPrincipalStatus,
+  isHumanPrincipalStatus,
+  totpProvisioningUrl,
+  verifyTotp,
+} from '@vestara/workspace';
 import { AuditAction, logAudit } from '../audit-log';
-import { type AuthUser, requireRole } from '../auth';
+import { type AuthUser, requireAuth, requireRole } from '../auth';
+import { backupCodeDigest, credentialKey, decryptSecret, encryptSecret } from '../credential-key';
 import { ApiError } from '../http/api-error';
 import { readJsonBody } from '../http/body';
 import { json } from '../http/response';
+import { requireLoginThrottle } from '../login-throttle';
 import type { WorkspaceContext } from '../workspace-context';
 import { getActor } from './types';
 
 function isLoopback(req: http.IncomingMessage): boolean {
   const address = req.socket?.remoteAddress ?? '';
   return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+}
+
+/**
+ * Open registration: unknown usernames self-register as editor on login.
+ * `VESTARA_AUTH_OPEN_REGISTRATION=0` disables it (unknown usernames get
+ * 401); anything else (including unset) preserves current behavior.
+ */
+export function isOpenRegistration(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return (env.VESTARA_AUTH_OPEN_REGISTRATION ?? '1').trim() !== '0';
+}
+
+/**
+ * Password-gated registration: unknown usernames cannot self-register even
+ * when open registration is on — an administrator must create the account
+ * (and may issue a password via PATCH /api/admin/users/:id).
+ */
+export function isPasswordRequired(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return (env.VESTARA_AUTH_REQUIRE_PASSWORD ?? '0').trim() === '1';
 }
 
 /**
@@ -79,6 +106,8 @@ export async function handleAuthRoute(
     const token = tokenMatch?.[1];
     const fullUser = token ? ctx.users.findByToken(token) : undefined;
     const authUser = getActor(req, ctx);
+    // Least privilege: the caller already holds this token, so it is never
+    // echoed back, and the user directory lives at GET /api/admin/users.
     json(res, 200, {
       user: { id: authUser.id, name: authUser.name, role: authUser.role, type: authUser.type },
       currentUser: fullUser
@@ -86,18 +115,15 @@ export async function handleAuthRoute(
             id: fullUser.id,
             username: fullUser.username,
             role: fullUser.role,
-            token: fullUser.token,
             createdAt: fullUser.createdAt,
           }
         : undefined,
-      allUsers: ctx.users
-        .listAll()
-        .map((u) => ({ id: u.id, username: u.username, role: u.role, createdAt: u.createdAt })),
     });
     return true;
   }
 
   if (method === 'POST' && p === '/api/auth/login') {
+    if (!requireLoginThrottle(req, res)) return true;
     const body = await readJsonBody<{ username?: string; token?: string }>(req);
     const username = body.username?.trim();
     const token = body.token?.trim();
@@ -107,7 +133,10 @@ export async function handleAuthRoute(
         logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Token login');
         json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
         if (isLoopback(req)) persistSessionFile(port, user);
-      } else throw ApiError.unauthorized('Invalid token.');
+      } else {
+        logAudit(ctx.audit, req, 'unknown', 'unknown', AuditAction.LOGIN_FAILED, 'user', undefined, 'Invalid token');
+        throw ApiError.unauthorized('Invalid token.');
+      }
     } else if (username) {
       const existing = ctx.users.listAll().find((u) => u.username === username);
       if (existing) {
@@ -126,23 +155,206 @@ export async function handleAuthRoute(
         });
         if (isLoopback(req)) persistSessionFile(port, existing);
       } else {
-        const newUser = ctx.users.createUser(username, 'editor');
-        logAudit(
-          ctx.audit,
-          req,
-          newUser.id,
-          newUser.username,
-          AuditAction.LOGIN,
-          'user',
-          newUser.id,
-          'New user registration',
-        );
-        json(res, 201, {
-          user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
-        });
-        if (isLoopback(req)) persistSessionFile(port, newUser);
+        if (isOpenRegistration()) {
+          if (isPasswordRequired()) {
+            logAudit(
+              ctx.audit,
+              req,
+              'unknown',
+              username,
+              AuditAction.LOGIN_FAILED,
+              'user',
+              undefined,
+              'Registration requires administrator',
+            );
+            throw ApiError.forbidden('Contact an administrator to create your account.');
+          }
+          const newUser = ctx.users.createUser(username, 'editor');
+          logAudit(
+            ctx.audit,
+            req,
+            newUser.id,
+            newUser.username,
+            AuditAction.LOGIN,
+            'user',
+            newUser.id,
+            'New user registration',
+          );
+          json(res, 201, {
+            user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
+          });
+          if (isLoopback(req)) persistSessionFile(port, newUser);
+        } else {
+          logAudit(
+            ctx.audit,
+            req,
+            'unknown',
+            username,
+            AuditAction.LOGIN_FAILED,
+            'user',
+            undefined,
+            'Registration disabled',
+          );
+          throw ApiError.unauthorized('User registration is disabled.');
+        }
       }
     } else throw ApiError.badRequest('Provide username or token.');
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/auth/password') {
+    if (!requireLoginThrottle(req, res)) return true;
+    const body = await readJsonBody<{ username?: string; password?: string }>(req);
+    const username = body.username?.trim();
+    const password = body.password ?? '';
+    const user = username ? ctx.users.findByUsername(username) : undefined;
+    if (!user || !password) {
+      logAudit(
+        ctx.audit,
+        req,
+        'unknown',
+        username || 'unknown',
+        AuditAction.LOGIN_FAILED,
+        'user',
+        undefined,
+        'Password login',
+      );
+      throw ApiError.unauthorized('Invalid username or password.');
+    }
+    if (!(await ctx.users.verifyPassword(user.id, password))) {
+      logAudit(
+        ctx.audit,
+        req,
+        'unknown',
+        username || 'unknown',
+        AuditAction.LOGIN_FAILED,
+        'user',
+        undefined,
+        'Password login',
+      );
+      throw ApiError.unauthorized('Invalid username or password.');
+    }
+    if (user.mfaEnrolled) {
+      logAudit(
+        ctx.audit,
+        req,
+        user.id,
+        user.username,
+        AuditAction.LOGIN,
+        'user',
+        user.id,
+        'Password verified, MFA required',
+      );
+      json(res, 200, { mfaRequired: true, username: user.username });
+      return true;
+    }
+    logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Password login');
+    json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+    if (isLoopback(req)) persistSessionFile(port, user);
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/auth/mfa/verify') {
+    if (!requireLoginThrottle(req, res)) return true;
+    const body = await readJsonBody<{ username?: string; code?: string }>(req);
+    const username = body.username?.trim();
+    const code = (body.code ?? '').replace(/[-\s]/g, '');
+    const user = username ? ctx.users.findByUsername(username) : undefined;
+    if (!user?.mfaEnrolled || !code) {
+      logAudit(
+        ctx.audit,
+        req,
+        'unknown',
+        username || 'unknown',
+        AuditAction.LOGIN_FAILED,
+        'user',
+        undefined,
+        'MFA verify',
+      );
+      throw ApiError.unauthorized('Invalid username or code.');
+    }
+    const key = credentialKey(ctx.repoPath);
+    const encrypted = ctx.users.getTotpSecret(user.id);
+    let secret: string | null = null;
+    try {
+      secret = encrypted ? decryptSecret(key, encrypted) : null;
+    } catch {
+      secret = null;
+    }
+    if (secret && verifyTotp(secret, code)) {
+      logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'MFA login');
+      json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+      if (isLoopback(req)) persistSessionFile(port, user);
+      return true;
+    }
+    if (/^[0-9a-fA-F]{6,64}$/.test(code) && ctx.users.consumeBackupCode(user.id, backupCodeDigest(key, code))) {
+      logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Backup code login');
+      json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+      if (isLoopback(req)) persistSessionFile(port, user);
+      return true;
+    }
+    logAudit(
+      ctx.audit,
+      req,
+      'unknown',
+      username || 'unknown',
+      AuditAction.LOGIN_FAILED,
+      'user',
+      undefined,
+      'MFA verify',
+    );
+    throw ApiError.unauthorized('Invalid username or code.');
+  }
+
+  if (method === 'POST' && p === '/api/auth/mfa/enroll') {
+    const me = requireAuth(req, ctx, res);
+    if (!me) return true;
+    const key = credentialKey(ctx.repoPath);
+    const secret = generateTotpSecret();
+    ctx.users.setTotpSecret(me.id, encryptSecret(key, secret));
+    logAudit(ctx.audit, req, me.id, me.name, AuditAction.USER_MFA_ENROLL, 'user', me.id, 'MFA enroll started');
+    json(res, 200, { secret, otpauthUrl: totpProvisioningUrl(secret, me.name) });
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/auth/mfa/confirm') {
+    const me = requireAuth(req, ctx, res);
+    if (!me) return true;
+    const body = await readJsonBody<{ code?: string }>(req);
+    const code = (body.code ?? '').trim();
+    const key = credentialKey(ctx.repoPath);
+    const encrypted = ctx.users.getTotpSecret(me.id);
+    let secret: string | null = null;
+    try {
+      secret = encrypted ? decryptSecret(key, encrypted) : null;
+    } catch {
+      secret = null;
+    }
+    if (!secret || !verifyTotp(secret, code)) throw ApiError.badRequest('Invalid code.');
+    ctx.users.confirmTotp(me.id);
+    const codes = Array.from({ length: 10 }, () => crypto.randomBytes(6).toString('hex'));
+    ctx.users.setBackupCodes(
+      me.id,
+      codes.map((entry) => backupCodeDigest(key, entry)),
+    );
+    logAudit(ctx.audit, req, me.id, me.name, AuditAction.USER_MFA_ENROLL, 'user', me.id, 'MFA enrolled');
+    json(res, 200, { enrolled: true, backupCodes: codes });
+    return true;
+  }
+
+  if (method === 'DELETE' && p === '/api/auth/mfa') {
+    const me = requireAuth(req, ctx, res);
+    if (!me) return true;
+    const self = ctx.users.findById(me.id);
+    if (!self) throw ApiError.unauthorized('Authentication is required.');
+    if (self.hasPassword) {
+      const body = await readJsonBody<{ password?: string }>(req);
+      if (!(body.password && (await ctx.users.verifyPassword(me.id, body.password))))
+        throw ApiError.unauthorized('Password confirmation failed.');
+    }
+    ctx.users.resetMfa(me.id);
+    logAudit(ctx.audit, req, me.id, me.name, AuditAction.USER_MFA_DISABLE, 'user', me.id, 'MFA disabled');
+    json(res, 200, { disabled: true });
     return true;
   }
 
@@ -291,6 +503,80 @@ export async function handleAuthRoute(
       logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_ROTATE_TOKEN, 'user', userId);
       json(res, 200, { token: newToken });
     } else throw ApiError.notFound('User not found.');
+    return true;
+  }
+
+  const userMatch = p.match(/^\/api\/admin\/users\/([^/]+)$/);
+  if (userMatch && (method === 'PATCH' || method === 'DELETE')) {
+    if (!requireRole(req, ctx, 'admin', res)) return true;
+    const actor = getActor(req, ctx);
+    const userId = decodeURIComponent(userMatch[1]);
+    const target = ctx.users.findById(userId);
+    if (!target) throw ApiError.notFound('User not found.');
+    const otherAdmins = ctx.users.listAll().filter((u) => u.role === 'admin' && u.id !== userId);
+
+    if (method === 'PATCH') {
+      const body = await readJsonBody<{
+        role?: string;
+        passwordSet?: boolean;
+        passwordClear?: boolean;
+        mfaReset?: boolean;
+      }>(req);
+      const response: Record<string, unknown> = {};
+      if (body.role !== undefined) {
+        const role = body.role;
+        if (role !== 'admin' && role !== 'editor' && role !== 'viewer')
+          throw ApiError.badRequest('role must be admin, editor, or viewer.');
+        if (target.role === 'admin' && role !== 'admin' && otherAdmins.length === 0)
+          throw ApiError.conflict('Cannot demote the last admin.');
+        const updated = ctx.users.updateRole(userId, role);
+        if (!updated) throw ApiError.notFound('User not found.');
+        logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_UPDATE_ROLE, 'user', userId, role);
+        response.user = {
+          id: updated.id,
+          username: updated.username,
+          role: updated.role,
+          createdAt: updated.createdAt,
+        };
+      }
+      if (body.passwordSet === true) {
+        const generated = crypto.randomBytes(12).toString('base64url');
+        await ctx.users.setPassword(userId, generated);
+        logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_SET_PASSWORD, 'user', userId, target.username);
+        response.generatedPassword = generated;
+      }
+      if (body.passwordClear === true) {
+        ctx.users.clearPassword(userId);
+        logAudit(
+          ctx.audit,
+          req,
+          actor.id,
+          actor.name,
+          AuditAction.USER_CLEAR_PASSWORD,
+          'user',
+          userId,
+          target.username,
+        );
+        response.passwordCleared = true;
+      }
+      if (body.mfaReset === true) {
+        ctx.users.resetMfa(userId);
+        logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_MFA_RESET, 'user', userId, target.username);
+        response.mfaReset = true;
+      }
+      if (Object.keys(response).length === 0)
+        throw ApiError.badRequest('Provide role, passwordSet, passwordClear, or mfaReset.');
+      json(res, 200, response);
+      return true;
+    }
+
+    // Self-deletion is refused outright: with no other path to zero admins
+    // (every other deletion preserves at least one), this single rule keeps
+    // at least one admin reachable at all times.
+    if (actor.id === userId) throw ApiError.badRequest('You cannot delete your own account.');
+    ctx.users.deleteUser(userId);
+    logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_DELETE, 'user', userId, target.username);
+    json(res, 200, { deleted: true, id: userId });
     return true;
   }
 

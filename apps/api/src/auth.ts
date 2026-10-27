@@ -22,12 +22,16 @@ export interface AuthUser {
 /**
  * Paths that remain reachable without a Bearer token.
  * - POST /api/auth/login issues tokens, so it must stay public.
+ * - POST /api/auth/password and POST /api/auth/mfa/verify are the
+ *   credential-issuance equivalents (throttled + audited in-handler).
  * - POST /api/telegram/webhook is validated inside its handler via the
  *   Telegram Bot API secret_token header, not via Bearer.
  * Everything else under /api/* requires authentication.
  */
 export function isPublicApiRequest(method: string, pathname: string): boolean {
   if (method === 'POST' && pathname === '/api/auth/login') return true;
+  if (method === 'POST' && pathname === '/api/auth/password') return true;
+  if (method === 'POST' && pathname === '/api/auth/mfa/verify') return true;
   if (method === 'POST' && pathname === '/api/telegram/webhook') return true;
   return false;
 }

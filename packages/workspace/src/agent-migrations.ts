@@ -15,7 +15,7 @@ import type { Database } from 'sql.js';
 import { HUMAN_IDENTITY_REPRESENTATION_MIGRATIONS } from './human-identity-representation-migrations';
 import { HUMAN_KNOWLEDGE_MIGRATIONS } from './human-knowledge-migrations';
 import { HUMAN_PRINCIPAL_MIGRATIONS } from './human-principal-migrations';
-import { WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
+import { USERS_AUTH_CREDENTIALS_MIGRATIONS, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 
 /**
  * Versioned evolution of the AgentStorage domain tables (incident #0001).
@@ -270,6 +270,7 @@ export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   HUMAN_KNOWLEDGE_MIGRATIONS,
   ORCHESTRATION_DECISION_WAIT_MIGRATIONS,
   HUMAN_IDENTITY_REPRESENTATION_MIGRATIONS,
+  USERS_AUTH_CREDENTIALS_MIGRATIONS,
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';

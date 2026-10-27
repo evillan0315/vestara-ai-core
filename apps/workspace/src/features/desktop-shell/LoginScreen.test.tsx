@@ -169,6 +169,22 @@ describe('LoginScreen authentication', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid token.');
   });
 
+  it('switches to the MFA code step when authentication challenges', async () => {
+    const onAuthenticate = vi.fn().mockResolvedValue({ mfaRequired: true });
+    const onAuthenticateMfa = vi.fn().mockResolvedValue(undefined);
+    const { onLogin } = renderAuth({ onAuthenticate, onAuthenticateMfa });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue → Desktop' }));
+    await waitFor(() => expect(onAuthenticate).toHaveBeenCalledTimes(1));
+    expect(onLogin).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('AUTHENTICATOR CODE'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code → Desktop' }));
+    await waitFor(() => expect(onAuthenticateMfa).toHaveBeenCalledTimes(1));
+    expect(onAuthenticateMfa).toHaveBeenCalledWith(expect.objectContaining({ code: '123456' }));
+    await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+  });
+
   it('hides the demo entry paths for the routed login page', () => {
     renderAuth({ showDemoLinks: false });
     expect(screen.queryByTestId('login-biometric')).toBeNull();
