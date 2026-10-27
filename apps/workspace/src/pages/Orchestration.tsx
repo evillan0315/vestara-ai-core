@@ -1848,7 +1848,7 @@ export default function OrchestrationPage() {
                 />
               )}
               {dashboard.phases.length > 0 && (
-                <PanelFooter ariaLabel="Projects by phase">
+                <PanelFooter ariaLabel="Projects by phase" className="mt-auto">
                   <span className="ar-panel__label">By phase</span>
                   <div className="grid w-full grid-cols-2 gap-[var(--vestara-spacing-2)]">
                     {dashboard.phases.map(([phase, count]) => (
