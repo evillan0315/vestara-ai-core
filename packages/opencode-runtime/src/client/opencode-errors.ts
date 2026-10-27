@@ -7,6 +7,7 @@ export type OpenCodeIntegrationErrorCode =
   | 'OPENCODE_TIMEOUT'
   | 'OPENCODE_AUTHENTICATION_FAILED'
   | 'OPENCODE_SESSION_NOT_FOUND'
+  | 'OPENCODE_QUESTION_NOT_FOUND'
   | 'OPENCODE_PERMISSION_DENIED'
   | 'OPENCODE_INVALID_RESPONSE'
   | 'OPENCODE_POLICY_BLOCKED'
@@ -67,6 +68,16 @@ export function sessionNotFoundError(sessionId: string): OpenCodeIntegrationErro
   );
 }
 
+export function questionNotFoundError(requestId: string, sessionId?: string): OpenCodeIntegrationError {
+  const scope = sessionId ? ` (session ${sessionId})` : '';
+  return new OpenCodeIntegrationError(
+    'OPENCODE_QUESTION_NOT_FOUND',
+    `OpenCode question not found: ${requestId}${scope}. The question expired, was already answered, or OpenCode restarted.`,
+    404,
+    false,
+  );
+}
+
 export function permissionDeniedError(message = 'Permission denied.'): OpenCodeIntegrationError {
   return new OpenCodeIntegrationError('OPENCODE_PERMISSION_DENIED', message, 403, false);
 }
@@ -94,16 +105,35 @@ export function upstreamError(
 /**
  * Map a non-OK upstream HTTP status to a typed integration error.
  * OpenCode returns 401 for bad credentials and 404 for missing resources.
+ * Pass the question requestId (and path) for question routes so a 404
+ * surfaces as OPENCODE_QUESTION_NOT_FOUND with the exact que_* identity
+ * instead of a misleading "session not found: unknown".
  */
-export function mapUpstreamStatus(status: number, sessionId?: string): OpenCodeIntegrationError {
+export function mapUpstreamStatus(
+  status: number,
+  sessionId?: string,
+  detail?: { requestId?: string; path?: string },
+): OpenCodeIntegrationError {
   switch (status) {
     case 401:
     case 403:
       return authenticationFailedError();
-    case 404:
+    case 404: {
+      const requestId = detail?.requestId;
+      const path = detail?.path ?? '';
+      const isQuestionRoute = path.includes('/question');
+      if (requestId || isQuestionRoute) {
+        return questionNotFoundError(requestId ?? path ?? 'unknown-question', sessionId);
+      }
       return sessionId
         ? sessionNotFoundError(sessionId)
-        : new OpenCodeIntegrationError('OPENCODE_SESSION_NOT_FOUND', 'Not found.', 404, false);
+        : new OpenCodeIntegrationError(
+            'OPENCODE_SESSION_NOT_FOUND',
+            `Not found: ${path || 'unknown resource'}.`,
+            404,
+            false,
+          );
+    }
     case 408:
     case 429:
     case 500:

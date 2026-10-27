@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "activity-room-premium-redesign",
+  "name": "Activity Room Premium Redesign",
+  "description": "Redesign the Activity Room toward the premium operations-room contract while preserving protected behaviors.",
+  "goal": "Redesign the Activity Room toward the premium operations-room contract while preserving all protected behaviors.",
+  "tasks": [
+    {
+      "summary": "Produce the visual design spec and protected-behavior inventory",
+      "files": ["apps/workspace/src/pages/activity/"],
+      "requiredCapabilities": ["architecture-analysis"]
+    },
+    {
+      "summary": "Implement the layout and component changes",
+      "files": ["apps/workspace/src/pages/activity/"],
+      "requiredCapabilities": ["code-generation"]
+    },
+    {
+      "summary": "Verify protected behaviors with build, lint, and tests",
+      "files": [],
+      "requiredCapabilities": ["testing"]
+    },
+    {
+      "summary": "Review the redesign against the visual contract",
+      "files": [],
+      "requiredCapabilities": ["design-review"]
+    }
+  ]
+}

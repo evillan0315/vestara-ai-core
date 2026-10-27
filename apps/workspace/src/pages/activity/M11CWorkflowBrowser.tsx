@@ -15,11 +15,13 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import type { WorkflowSummary } from '@vestara/activity-room';
 import { EmptyState, StatusIndicator, type StatusVariant } from '@vestara/ui';
 import { SIZING } from '@vestara/ui-tokens';
+import { orchestrationProjectUrl } from '../../lib/activity-orchestration-links';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -302,6 +304,14 @@ export default function M11CWorkflowBrowser({
                         ))}
                       </div>
                     )}
+                    <Link
+                      to={orchestrationProjectUrl(unit.workflowId)}
+                      className="mt-[var(--vestara-spacing-2)] inline-flex items-center gap-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] hover:text-[var(--vestara-text-primary)]"
+                      title={`Open workflow ${unit.workflowId} in Orchestration (execution authority)`}
+                      aria-label={`Open workflow ${unit.workflowId} in Orchestration`}
+                    >
+                      Open in Orchestration ›
+                    </Link>
                   </div>
                 )}
               </div>

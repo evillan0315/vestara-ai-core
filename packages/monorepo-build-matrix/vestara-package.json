@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "vestara.monorepo-build-matrix",
+  "name": "Monorepo Build Matrix",
+  "version": "0.1.0",
+  "description": "Builds every app and package in apps/ and packages/ (5 apps + 118 packages, providers, and tools) in dependency order, then verifies boundaries, artifacts, and lint.",
+  "type": "plugin",
+  "publisher": {
+    "id": "vestara",
+    "name": "Vestara"
+  },
+  "compatibility": {
+    "vestara": ">=0.3.0",
+    "node": ">=22.0.0",
+    "operatingSystems": ["linux", "macos", "win32"],
+    "architectures": ["x64", "arm64"]
+  },
+  "entrypoints": {
+    "cli": "monorepo-build-matrix.sh",
+    "workspace": "README.md"
+  },
+  "capabilities": ["workflow:build-matrix", "monorepo:build"],
+  "permissions": [
+    {
+      "capability": "shell:execute",
+      "scope": "workspace",
+      "approval": "explicit",
+      "reason": "Runs pnpm install, topological builds, and lint across the monorepo checkout"
+    }
+  ],
+  "dependencies": [],
+  "contributions": {
+    "workflows": [
+      {
+        "id": "monorepo-build-matrix",
+        "entrypoint": "monorepo-build-matrix.workflow.json"
+      }
+    ],
+    "commands": [
+      {
+        "id": "monorepo-build",
+        "entrypoint": "monorepo-build-matrix.sh"
+      }
+    ]
+  },
+  "isolation": "process",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "7bf5016e8744cf2528babe797c6dfbafd0d431f0823ab60b61ee9d89ead6ae62"
+  }
+}

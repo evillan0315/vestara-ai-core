@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
 import { Badge, Button, EmptyState, Input, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
+import { WorkflowBlockerActions } from '../components/workflow/WorkflowBlockerActions';
 import { WorkflowGraph, type WorkflowGraphLayoutName } from '../components/workflow/WorkflowGraph';
 import { WorkflowSupportingPanels } from '../components/workflow/WorkflowSupportingPanels';
 import { WorkflowTaskList, type WorkflowTaskItem } from '../components/workflow/WorkflowTaskList';
@@ -32,6 +33,7 @@ import {
   ATTENTION_TASK_STATUSES,
   COMPLETED_TASK_STATUSES,
 } from '../lib/task-status';
+import { activityWorkflowUrl } from '../lib/activity-orchestration-links';
 import '../styles/workflow-page.css';
 import '../styles/activity-room.css';
 
@@ -1086,6 +1088,28 @@ export default function OrchestrationPage() {
     }
   };
 
+  const retryTask = async (projectId: string, taskId: string) => {
+    setBusy(`retry-${taskId}`);
+    setActionError(null);
+    try {
+      const result = await postAction(`${API}/projects/${projectId}/tasks/${taskId}/retry`, {
+        reason: 'manual retry from Orchestration UI',
+      });
+      if (!result.ok) throw new Error(result.error ?? 'Retry failed — the server returned an error.');
+      await refresh();
+      if (detail[projectId] || expandedId === projectId) await loadDetail(projectId);
+      if (expandedId && expandedId !== projectId) await loadDetail(expandedId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Retry failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const cancelBlockerFeedback = () => {
+    setActionError(null);
+  };
+
   // Shared router for any per-project recommended action (rail cards, overview
   // queue, inspector queue, banner). Banner owns the single primary CTA; the
   // others are secondary entry points that deep-link to the same target.
@@ -1764,6 +1788,16 @@ export default function OrchestrationPage() {
                               This node is part of the running workflow. Selection, status, and technical identity render
                               from the unified inspector — every view stays in sync with the graph.
                             </p>
+                            {selectedProject && selectedTask && (
+                              <Link
+                                to={activityWorkflowUrl(selectedProject.id)}
+                                className="mt-[var(--vestara-spacing-2)] inline-flex items-center gap-[var(--vestara-spacing-1)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] hover:text-[var(--vestara-text-primary)]"
+                                title={`Open task ${selectedTask.id} in Activity Room (projection; filtered by workflow ${selectedProject.id})`}
+                                aria-label={`Open task ${selectedTask.id} in Activity Room`}
+                              >
+                                Open in Activity Room ›
+                              </Link>
+                            )}
                           </div>
                         </>
                       )}
@@ -1817,20 +1851,38 @@ export default function OrchestrationPage() {
                               </Badge>
                             }
                           >
-                            <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]">
-                              {expandedId && selectedDetail.snapshot.phase === 'executing' && (
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => void resumeProject(expandedId)}
-                                  disabled={busy === `resume-${expandedId}`}
-                                >
-                                  Resume
+                            <div className="flex flex-col gap-[var(--vestara-spacing-2)]">
+                              <WorkflowBlockerActions
+                                projectId={selectedProject.id}
+                                taskId={task.id}
+                                taskStatus={task.status}
+                                busy={busy === `retry-${task.id}`}
+                                onRetry={(projectId, taskId) => void retryTask(projectId, taskId)}
+                                onCancel={cancelBlockerFeedback}
+                              />
+                              <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-2)]">
+                                {expandedId && selectedDetail.snapshot.phase === 'executing' && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void resumeProject(expandedId)}
+                                    disabled={busy === `resume-${expandedId}`}
+                                  >
+                                    Resume
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('tasks')}>
+                                  Inspect tasks
                                 </Button>
-                              )}
-                              <Button variant="ghost" size="sm" onClick={() => setActiveTab('tasks')}>
-                                Inspect tasks
-                              </Button>
+                                <Link
+                                  to={activityWorkflowUrl(selectedProject.id)}
+                                  className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] hover:text-[var(--vestara-text-primary)]"
+                                  title={`Open project ${selectedProject.id} in Activity Room (projection surface; task ${task.id} filtered by workflow)`}
+                                  aria-label={`Open task ${task.id} in Activity Room`}
+                                >
+                                  Open in Activity Room ›
+                                </Link>
+                              </div>
                             </div>
                           </OperationalPanel>
                         ),

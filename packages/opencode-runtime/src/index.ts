@@ -12,6 +12,7 @@ export {
   OpenCodeIntegrationError,
   permissionDeniedError,
   policyBlockedError,
+  questionNotFoundError,
   sessionNotFoundError,
   timeoutError,
   unavailableError,

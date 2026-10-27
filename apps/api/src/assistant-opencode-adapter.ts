@@ -1283,7 +1283,9 @@ export async function* runAssistantOpenCodeTurn(
                 } catch (error) {
                   claim.markDelivered('delivery-unknown');
                   const cause = error instanceof Error ? error.message : String(error);
-                  throw new Error(`OpenCode answer delivery could not be confirmed: ${cause}`);
+                  throw new Error(
+                    `OpenCode answer delivery could not be confirmed for question ${detail.questionRequestId} (session ${resolvedSessionId}): ${cause}`,
+                  );
                 }
                 yield chunk('status', sequence++, {
                   content: 'Answered',
@@ -1297,7 +1299,9 @@ export async function* runAssistantOpenCodeTurn(
                 } catch (error) {
                   claim.markDelivered('delivery-unknown');
                   const cause = error instanceof Error ? error.message : String(error);
-                  throw new Error(`OpenCode rejection delivery could not be confirmed: ${cause}`);
+                  throw new Error(
+                    `OpenCode rejection delivery could not be confirmed for question ${detail.questionRequestId} (session ${resolvedSessionId}): ${cause}`,
+                  );
                 }
                 yield chunk('status', sequence++, {
                   content: 'Question dismissed',

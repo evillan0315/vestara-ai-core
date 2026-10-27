@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useToasts } from '../components/Toast';
 import { useEventStream } from '../lib/useEventStream';
 import { type MultiAgentWorkflowTemplateId, workflowApi } from '../lib/workflow';
 import { workspaceSocket } from '../lib/ws';
+import { AgentCatalogTabs, type AgentCatalogTab } from './Agents/AgentCatalogTabs';
 import { AgentCategoryList } from './Agents/AgentCategoryList';
 import AgentControlHeader from './Agents/AgentControlHeader';
 import AgentDetailPanel from './Agents/AgentDetailPanel';
@@ -16,19 +17,10 @@ import LiveActivityPanel from './Agents/LiveActivityPanel';
 import RuntimeStatusBar from './Agents/RuntimeStatusBar';
 import TeamCreatorModal from './Agents/TeamCreatorModal';
 import TeamsPanel from './Agents/TeamsPanel';
-import type { Agent, AgentStats, Execution, ExecutionSummary, Team } from './Agents/types';
+import type { Agent, Execution, Team } from './Agents/types';
+import { useAgentCatalog } from './Agents/useAgentCatalog';
 import WorkflowPanel from './Agents/WorkflowPanel';
 import '../styles/marketplace.css';
-
-type AgentCatalogTab = 'all' | 'mine' | 'system' | 'custom' | 'skills';
-
-const AGENT_CATALOG_TABS: Array<{ id: AgentCatalogTab; label: string }> = [
-  { id: 'all', label: 'All Agents' },
-  { id: 'mine', label: 'My Agents' },
-  { id: 'system', label: 'System Agents' },
-  { id: 'custom', label: 'Custom Agents' },
-  { id: 'skills', label: 'Skill Library' },
-];
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -67,112 +59,10 @@ export default function AgentsPage() {
     return off;
   }, [load]);
 
-  // Agents sourced dynamically from GET /api/agents — no hardcoded slots
-  const allCapabilities = useMemo(() => {
-    const caps = new Set<string>();
-    for (const a of agents) {
-      for (const c of a.capabilities || []) caps.add(c);
-    }
-    return Array.from(caps);
-  }, [agents]);
-
-  const agentStats = useMemo(() => {
-    const stats: Record<string, AgentStats> = {};
-    for (const a of agents) {
-      const exs = executions.filter(
-        (e) =>
-          e.agentId === a.id ||
-          a.name.toLowerCase().includes(e.agentId.split('-').pop()?.toLowerCase() || '') ||
-          e.agentId.includes(a.role),
-      );
-      const completed = exs.filter((e) => e.status === 'completed');
-      const durations = completed
-        .filter((e) => e.completedAt)
-        .map((e) => (new Date(e.completedAt!).getTime() - new Date(e.startedAt).getTime()) / 1000);
-      stats[a.id] = {
-        total: exs.length,
-        completed: completed.length,
-        failed: exs.filter((e) => e.status === 'failed').length,
-        running: exs.filter((e) => e.status === 'running' || e.status === 'queued').length,
-        avgDuration: durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0,
-      };
-    }
-    return stats;
-  }, [agents, executions]);
-
-  const catalogAgents = useMemo(() => {
-    if (catalogTab === 'mine') return agents.filter((agent) => agent.origin === 'user');
-    if (catalogTab === 'system') return agents.filter((agent) => agent.origin === 'system');
-    if (catalogTab === 'custom') return agents.filter((agent) => agent.agentType === 'registry' || agent.origin === 'user');
-    if (catalogTab === 'skills') return agents.filter((agent) => agent.capabilities.length > 0);
-    return agents;
-  }, [agents, catalogTab]);
-
-  const filteredAgents = useMemo(() => {
-    const filtered = catalogAgents.filter((a) => {
-      if (filters.status === 'active' && a.status !== 'active') return false;
-      if (filters.status === 'disabled' && a.status !== 'disabled') return false;
-      if (filters.team !== 'all' && a.teamId !== filters.team) return false;
-      if (filters.capabilities.length > 0) {
-        const agentCaps = a.capabilities || [];
-        if (!filters.capabilities.some((c) => agentCaps.includes(c))) return false;
-      }
-      if (filters.search.trim()) {
-        const q = filters.search.toLowerCase();
-        if (
-          !a.name.toLowerCase().includes(q) &&
-          !a.role.toLowerCase().includes(q) &&
-          !(a.description || '').toLowerCase().includes(q) &&
-          !(a.capabilities || []).some((c: string) => c.toLowerCase().includes(q))
-        )
-          return false;
-      }
-      return true;
-    });
-
-    const sorted = [...filtered];
-    switch (filters.sort) {
-      case 'name-asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'name-desc':
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case 'last-execution':
-        sorted.sort((a, b) => {
-          const aLast = executions.find((e) => e.agentId === a.id)?.startedAt ?? '';
-          const bLast = executions.find((e) => e.agentId === b.id)?.startedAt ?? '';
-          return bLast.localeCompare(aLast);
-        });
-        break;
-      case 'success-rate':
-        sorted.sort((a, b) => {
-          const aStats = agentStats[a.id];
-          const bStats = agentStats[b.id];
-          const aRate = aStats?.total ? aStats.completed / aStats.total : 0;
-          const bRate = bStats?.total ? bStats.completed / bStats.total : 0;
-          return bRate - aRate;
-        });
-        break;
-      case 'status':
-        sorted.sort((a, b) => {
-          const order: Record<string, number> = { active: 0, disabled: 2 };
-          return (order[a.status] ?? 3) - (order[b.status] ?? 3);
-        });
-        break;
-    }
-    return sorted;
-  }, [catalogAgents, filters, executions, agentStats]);
-
-  const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.id === selectedAgentId) ?? filteredAgents[0] ?? null,
-    [agents, filteredAgents, selectedAgentId],
-  );
-
-  const selectedExecutions = useMemo(
-    () => (selectedAgent ? executions.filter((execution) => execution.agentId === selectedAgent.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : []),
-    [executions, selectedAgent],
-  );
+  // Derived catalog state lives in useAgentCatalog — the page keeps
+  // fetching, mutations, and modal/tab selection state.
+  const { allCapabilities, agentStats, catalogAgents, filteredAgents, selectedAgent, selectedExecutions, execSummary } =
+    useAgentCatalog({ agents, executions, catalogTab, filters, selectedAgentId });
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
@@ -273,14 +163,6 @@ export default function AgentsPage() {
     window.dispatchEvent(new CustomEvent('open-assistant', { detail: { agentId: selectedAgent.id } }));
   };
 
-  const execSummary = useMemo<ExecutionSummary>(() => {
-    const total = executions.filter((e) => e.status !== 'running' && e.status !== 'queued').length || 1;
-    const completed = executions.filter((e) => e.status === 'completed').length;
-    const failed = executions.filter((e) => e.status === 'failed').length;
-    const running = executions.filter((e) => e.status === 'running' || e.status === 'queued').length;
-    return { total, completed, failed, running, successRate: Math.round((completed / total) * 100) };
-  }, [executions]);
-
   return (
     <div className="w-full">
       <AgentControlHeader
@@ -301,20 +183,7 @@ export default function AgentsPage() {
         syncing={syncing}
       />
 
-      <div className="mb-4 flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--vestara-border-subtle)]" role="tablist" aria-label="Agent catalog views">
-        {AGENT_CATALOG_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={catalogTab === tab.id}
-            onClick={() => setCatalogTab(tab.id)}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-[var(--vestara-font-size-sm)] transition-colors ${catalogTab === tab.id ? 'border-[var(--vestara-accent)] text-[var(--vestara-text-primary)]' : 'border-transparent text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text-primary)]'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <AgentCatalogTabs activeTab={catalogTab} onChange={setCatalogTab} />
 
       <WorkflowPanel open={showWorkflowPanel} onStart={startWorkflow} />
 

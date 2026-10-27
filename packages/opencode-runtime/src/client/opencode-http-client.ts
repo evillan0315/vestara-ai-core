@@ -10,6 +10,8 @@ import type { OpenCodeClient } from './opencode-client';
 import {
   authenticationFailedError,
   invalidResponseError,
+  isOpenCodeIntegrationError,
+  questionNotFoundError,
   sessionNotFoundError,
   timeoutError,
   unavailableError,
@@ -69,6 +71,7 @@ interface RequestOptions {
   readonly timeoutMs: number;
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
+  readonly requestId?: string;
 }
 
 export class OpenCodeHttpClient implements OpenCodeClient {
@@ -652,32 +655,73 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   }
 
   async replyToQuestion(
-    _sessionId: string,
+    sessionId: string,
     requestId: string,
     reply: OpenCodeQuestionReply,
     signal?: AbortSignal,
   ): Promise<boolean> {
+    // OpenCode serves two question families: the session-scoped v2 route
+    // (`question.v2.asked`) and the global v1 registry (`question.asked`).
+    // Both emit `que_*` request ids, so the family cannot be inferred from
+    // the id alone. Try the session-scoped v2 route first (it carries the
+    // exact session+request identity from the live event); on 404 fall back
+    // to the global v1 registry. Only 404 falls back — auth, validation,
+    // and upstream failures throw immediately.
+    if (sessionId.length > 0) {
+      try {
+        await this.requestJson({
+          path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reply`,
+          method: 'POST',
+          body: { answers: reply.answers },
+          timeoutMs: this.config.requestTimeoutMs,
+          signal,
+          sessionId,
+          requestId,
+        });
+        return true;
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error;
+        // Fall through to the global v1 registry below.
+      }
+    }
     await this.requestJson({
-      // `question.asked` is served by OpenCode's global question registry.
-      // The session-scoped route is the v2 question family and cannot resolve
-      // the v1 request emitted by the live runtime. Keep sessionId in the
-      // client contract for Vestara provenance, but do not put it on the wire.
       path: `/question/${encodeURIComponent(requestId)}/reply`,
       method: 'POST',
       body: { answers: reply.answers },
       timeoutMs: this.config.requestTimeoutMs,
       signal,
+      sessionId: sessionId.length > 0 ? sessionId : undefined,
+      requestId,
     });
     return true;
   }
 
-  async rejectQuestion(_sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean> {
+  async rejectQuestion(sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean> {
+    // Same v2-first + v1-fallback contract as replyToQuestion (reject
+    // carries no body on either route).
+    if (sessionId.length > 0) {
+      try {
+        await this.requestJson({
+          path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reject`,
+          method: 'POST',
+          timeoutMs: this.config.requestTimeoutMs,
+          signal,
+          sessionId,
+          requestId,
+        });
+        return true;
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error;
+        // Fall through to the global v1 registry below.
+      }
+    }
     await this.requestJson({
-      // The global reject endpoint resolves the same registry as question.asked.
       path: `/question/${encodeURIComponent(requestId)}/reject`,
       method: 'POST',
       timeoutMs: this.config.requestTimeoutMs,
       signal,
+      sessionId: sessionId.length > 0 ? sessionId : undefined,
+      requestId,
     });
     return true;
   }
@@ -765,7 +809,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
       if (!response.ok || !response.body) {
         // An unread error body keeps the upstream socket open — release it.
         await response.body?.cancel().catch(() => undefined);
-        throw mapHttpStatus(response.status, undefined);
+        throw mapHttpStatus(response.status, undefined, { path: '/event' });
       }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -874,7 +918,22 @@ export class OpenCodeHttpClient implements OpenCodeClient {
         if (controller.signal.aborted && !options.signal?.aborted) throw timeoutError();
         throw unavailableError();
       }
-      if (!response.ok) throw mapHttpStatus(response.status, options.sessionId);
+      if (!response.ok) {
+        // Read a bounded body snippet so a 404 can be attributed to the
+        // exact question/session identity instead of "unknown".
+        let bodySnippet: string | undefined;
+        try {
+          const text = await response.text();
+          if (text) bodySnippet = text.slice(0, 500);
+        } catch {
+          bodySnippet = undefined;
+        }
+        throw mapHttpStatus(response.status, options.sessionId, {
+          requestId: options.requestId,
+          path: options.path,
+          bodySnippet,
+        });
+      }
       if (response.status === 204) return undefined;
       try {
         return await response.json();
@@ -949,13 +1008,35 @@ function normalizeQuestions(raw: unknown): OpenCodeQuestionRequest[] {
     .filter((q) => q.id.length > 0 && q.sessionID.length > 0);
 }
 
-function mapHttpStatus(status: number, sessionId: string | undefined): Error {
+function isNotFoundError(error: unknown): boolean {
+  return (
+    isOpenCodeIntegrationError(error) &&
+    (error.httpStatus === 404 ||
+      error.code === 'OPENCODE_QUESTION_NOT_FOUND' ||
+      error.code === 'OPENCODE_SESSION_NOT_FOUND')
+  );
+}
+
+function mapHttpStatus(
+  status: number,
+  sessionId: string | undefined,
+  detail?: { requestId?: string; path?: string; bodySnippet?: string },
+): Error {
   switch (status) {
     case 401:
     case 403:
       return authenticationFailedError();
-    case 404:
-      return sessionId ? sessionNotFoundError(sessionId) : sessionNotFoundError('unknown');
+    case 404: {
+      const path = detail?.path ?? '';
+      const requestId = detail?.requestId;
+      const body = detail?.bodySnippet ?? '';
+      const looksLikeQuestion =
+        path.includes('/question') || requestId?.startsWith('que_') === true || body.includes('QuestionNotFound');
+      if (looksLikeQuestion) {
+        return questionNotFoundError(requestId ?? path ?? 'unknown-question', sessionId);
+      }
+      return sessionId ? sessionNotFoundError(sessionId) : sessionNotFoundError(path || 'unknown-resource');
+    }
     case 408:
     case 429:
     case 500:

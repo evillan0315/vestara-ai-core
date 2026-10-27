@@ -1,0 +1,651 @@
+{
+  "schemaVersion": 1,
+  "id": "monorepo-build-matrix",
+  "name": "Marketplace Monorepo Build Matrix",
+  "description": "Builds every app and package in apps/ and packages/ (including providers and tools) in dependency order, then verifies with lint and type-aware build references.",
+  "goal": "Build all 5 apps and 118 packages/tools in dependency order with verification",
+  "stages": [
+    {
+      "id": "install",
+      "name": "Install dependencies",
+      "runs": "pnpm install --frozen-lockfile"
+    },
+    {
+      "id": "references",
+      "name": "Regenerate build references",
+      "runs": "pnpm build:references"
+    },
+    {
+      "id": "build",
+      "name": "Build all workspaces in topological order",
+      "runs": "bash workflows/monorepo-build-matrix.sh --build"
+    },
+    {
+      "id": "verify",
+      "name": "Verify boundaries and source artifacts",
+      "runs": "pnpm dependencies:check && pnpm check:source-artifacts"
+    },
+    {
+      "id": "lint",
+      "name": "Lint check",
+      "runs": "pnpm lint:check"
+    }
+  ],
+  "targets": [
+    {
+      "dir": "apps/api",
+      "name": "@vestara/api",
+      "kind": "app"
+    },
+    {
+      "dir": "apps/cli",
+      "name": "@vestara/cli",
+      "kind": "app"
+    },
+    {
+      "dir": "apps/onboarding-lab",
+      "name": "@vestara/onboarding-lab",
+      "kind": "app"
+    },
+    {
+      "dir": "apps/workspace",
+      "name": "@vestara/workspace-ui",
+      "kind": "app"
+    },
+    {
+      "dir": "apps/workspace-ui-v2",
+      "name": "workspace-ui-v2",
+      "kind": "app"
+    },
+    {
+      "dir": "packages/action",
+      "name": "@vestara/action",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/activity-room",
+      "name": "@vestara/activity-room",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/agent-harness",
+      "name": "@vestara/agent-harness",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/agent-types",
+      "name": "@vestara/agent-types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/architecture-runtime",
+      "name": "@vestara/architecture-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/audio",
+      "name": "@vestara/audio",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/boot-runtime",
+      "name": "@vestara/boot-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/browser-runtime",
+      "name": "@vestara/browser-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/capabilities",
+      "name": "@vestara/capabilities",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/channel-runtime",
+      "name": "@vestara/channel-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/channel-types",
+      "name": "@vestara/channel-types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ci-contracts",
+      "name": "@vestara/ci-contracts",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ci-observer",
+      "name": "@vestara/ci-observer",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ci-reviewer",
+      "name": "@vestara/ci-reviewer",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/codex-runtime",
+      "name": "@vestara/codex-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/cognitive",
+      "name": "@vestara/cognitive",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/configuration",
+      "name": "@vestara/configuration",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/context",
+      "name": "@vestara/context",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/context-intelligence",
+      "name": "@vestara/context-intelligence",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/conversation",
+      "name": "@vestara/conversation",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/conversation-runtime",
+      "name": "@vestara/conversation-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/decision-pipeline",
+      "name": "@vestara/decision-pipeline",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/design-system",
+      "name": "@vestara/design-system",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/diff-engine",
+      "name": "@vestara/diff-engine",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/documentation",
+      "name": "@vestara/documentation",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/engineering-event-store",
+      "name": "@vestara/engineering-event-store",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/engineering-graph",
+      "name": "@vestara/engineering-graph",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/evaluation",
+      "name": "@vestara/evaluation",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/event-bus",
+      "name": "@vestara/event-bus",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/events",
+      "name": "@vestara/events",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/events-server",
+      "name": "@vestara/events-server",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/evidence",
+      "name": "@vestara/evidence",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/execution-center",
+      "name": "@vestara/execution-center",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/execution-types",
+      "name": "@vestara/execution-types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/extension-contracts",
+      "name": "@vestara/extension-contracts",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/extension-runtime",
+      "name": "@vestara/extension-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/external-runtime",
+      "name": "@vestara/external-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/filesystem-runtime",
+      "name": "@vestara/filesystem-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/github-ci-adapter",
+      "name": "@vestara/github-ci-adapter",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/health",
+      "name": "@vestara/health",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/history",
+      "name": "@vestara/history",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/host-runtime",
+      "name": "@vestara/host-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/intent",
+      "name": "@vestara/intent",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/interaction-app",
+      "name": "@vestara/interaction-app",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/interaction-persistence",
+      "name": "@vestara/interaction-persistence",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/job",
+      "name": "@vestara/job",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/kernel",
+      "name": "@vestara/kernel",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/knowledge",
+      "name": "@vestara/knowledge",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/knowledge-assertions",
+      "name": "@vestara/knowledge-assertions",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/logger",
+      "name": "@vestara/logger",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/marketplace",
+      "name": "@vestara/marketplace",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/marketplace-ui",
+      "name": "@vestara/marketplace-ui",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/media-conference",
+      "name": "@vestara/media-conference",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/media-runtime",
+      "name": "@vestara/media-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/memory",
+      "name": "@vestara/memory",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/metrics",
+      "name": "@vestara/metrics",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/native-installer",
+      "name": "@vestara/native-installer",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/observer",
+      "name": "@vestara/observer",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/opencode-runtime",
+      "name": "@vestara/opencode-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/opportunity-registry",
+      "name": "@vestara/opportunity-registry",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/os-controller",
+      "name": "@vestara/os-controller",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ownership",
+      "name": "@vestara/ownership",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/permission",
+      "name": "@vestara/permission",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/permission-contracts",
+      "name": "@vestara/permission-contracts",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/permissions",
+      "name": "@vestara/permissions",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/policy-engine",
+      "name": "@vestara/policy-engine",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/policy-types",
+      "name": "@vestara/policy-types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/provider-runtime",
+      "name": "@vestara/provider-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/reasoning",
+      "name": "@vestara/reasoning",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/registry",
+      "name": "@vestara/registry",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/repository-contracts",
+      "name": "@vestara/repository-contracts",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/routing-types",
+      "name": "@vestara/routing-types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/runtime",
+      "name": "@vestara/runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/scheduler",
+      "name": "@vestara/scheduler",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/screen-capture",
+      "name": "@vestara/screen-capture",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/service-registry",
+      "name": "@vestara/service-registry",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/settings-framework",
+      "name": "@vestara/settings-framework",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/shared",
+      "name": "@vestara/shared",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/sqlite-migrations",
+      "name": "@vestara/sqlite-migrations",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/state-machine",
+      "name": "@vestara/state-machine",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/state-runtime",
+      "name": "@vestara/state-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/stream",
+      "name": "@vestara/stream",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/stt",
+      "name": "@vestara/stt",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/telegram-integration",
+      "name": "@vestara/telegram-integration",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/telemetry",
+      "name": "@vestara/telemetry",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/terminal-runtime",
+      "name": "@vestara/terminal-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/thread-runtime",
+      "name": "@vestara/thread-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tool-runtime",
+      "name": "@vestara/tool-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/trust",
+      "name": "@vestara/trust",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tts",
+      "name": "@vestara/tts",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tui",
+      "name": "@vestara/tui",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tui-projections",
+      "name": "@vestara/tui-projections",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tui-protocol",
+      "name": "@vestara/tui-protocol",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/tui-renderer",
+      "name": "@vestara/tui-renderer",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/types",
+      "name": "@vestara/types",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ui",
+      "name": "@vestara/ui",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ui-components",
+      "name": "@vestara/ui-components",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ui-theme",
+      "name": "@vestara/ui-theme",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/ui-tokens",
+      "name": "@vestara/ui-tokens",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/understanding",
+      "name": "@vestara/understanding",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/verification",
+      "name": "@vestara/verification",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/verification-evidence",
+      "name": "@vestara/verification-evidence",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/voice-browser",
+      "name": "@vestara/voice-browser",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/widget-runtime",
+      "name": "@vestara/widget-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/worker",
+      "name": "@vestara/worker",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/workflow-orchestrator",
+      "name": "@vestara/workflow-orchestrator",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/workflow-projections",
+      "name": "@vestara/workflow-projections",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/workspace",
+      "name": "@vestara/workspace",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/worktree-runtime",
+      "name": "@vestara/worktree-runtime",
+      "kind": "package"
+    },
+    {
+      "dir": "packages/providers/opencode",
+      "name": "@vestara/provider-opencode",
+      "kind": "provider"
+    },
+    {
+      "dir": "packages/tools/browser",
+      "name": "@vestara/tools-browser",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/filesystem",
+      "name": "@vestara/tools-filesystem",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/git",
+      "name": "@vestara/tools-git",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/knowledge",
+      "name": "@vestara/tools-knowledge",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/mcp-server",
+      "name": "@vestara/mcp-server",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/memory",
+      "name": "@vestara/tools-memory",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/project",
+      "name": "@vestara/tools-project",
+      "kind": "tool"
+    },
+    {
+      "dir": "packages/tools/shell",
+      "name": "@vestara/tools-shell",
+      "kind": "tool"
+    }
+  ]
+}

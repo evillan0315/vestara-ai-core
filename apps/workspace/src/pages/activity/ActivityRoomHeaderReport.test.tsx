@@ -32,15 +32,17 @@ function renderHeader(props: Partial<React.ComponentProps<typeof ActivityRoomHea
 }
 
 describe('ActivityRoomHeader report trigger', () => {
-  it('opens the report when the report icon is clicked', () => {
+  it('opens the report when the report menu item is clicked', () => {
     const onOpenReport = vi.fn();
     renderHeader({ onOpenReport });
-    fireEvent.click(screen.getByRole('button', { name: 'Activity report' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Activity actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Report' }));
     expect(onOpenReport).toHaveBeenCalledTimes(1);
   });
 
-  it('renders no report icon without a handler', () => {
+  it('renders no report item without a handler', () => {
     renderHeader();
-    expect(screen.queryByRole('button', { name: 'Activity report' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Activity actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Report' })).toBeNull();
   });
 });

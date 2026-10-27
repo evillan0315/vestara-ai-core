@@ -28,6 +28,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   snapshotCompletionMessage,
   useM11CActivityRoom,
@@ -38,6 +39,7 @@ import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
 import { projectActivityStreamWorkflowGraph, workflowGraphNodeId } from '../../lib/activity-workflow-graph';
+import { parseWorkflowParam } from '../../lib/activity-orchestration-links';
 import type { AttentionEntry } from '@vestara/activity-room';
 import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage, DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
@@ -235,6 +237,14 @@ export default function M11CActivityRoomPage() {
   }, []);
   const clearAttachedRefs = useCallback(() => setAttachedRefs([]), []);
   const [workflowFilter, setWorkflowFilter] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  // Orchestration → Activity Room deep link (`/activity?workflow=<projectId>`).
+  // Exact-id filter only; unknown or absent ids stay unfiltered (fail-closed).
+  useEffect(() => {
+    const next = parseWorkflowParam(searchParams.get('workflow'));
+    if (next !== null) setWorkflowFilter(next);
+  }, [searchParams]);
   // Small-screen sheets: rail is display:none <640px, so launchers open it
   // (and the browser) as bottom sheets instead.
   const [mobilePanel, setMobilePanel] = useState<'participants' | 'workflows' | null>(null);

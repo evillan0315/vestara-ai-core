@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "feature-delivery",
+  "name": "Feature Delivery",
+  "description": "Plan, build, verify, and review a scoped feature.",
+  "goal": "Deliver a scoped feature end to end, with verification and review before completion.",
+  "tasks": [
+    {
+      "summary": "Analyze the codebase and produce an implementation plan",
+      "files": [],
+      "requiredCapabilities": ["planning", "architecture-analysis"]
+    },
+    {
+      "summary": "Implement the planned changes",
+      "files": [],
+      "requiredCapabilities": ["code-generation"]
+    },
+    {
+      "summary": "Verify the changes with build, lint, and tests",
+      "files": [],
+      "requiredCapabilities": ["testing"]
+    },
+    {
+      "summary": "Review the diff against the acceptance boundary",
+      "files": [],
+      "requiredCapabilities": ["design-review"]
+    }
+  ]
+}

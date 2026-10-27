@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "agent-control-restructure",
+  "name": "Restructure Agent Control",
+  "description": "Decompose the Agent Control page into focused, testable sub-components without changing behavior.",
+  "goal": "Refactor the Agent Control Center page into focused, testable sub-components without changing behavior.",
+  "tasks": [
+    {
+      "summary": "Analyze the Agent Control page and propose a component decomposition",
+      "files": ["apps/workspace/src/pages/Agents.tsx"],
+      "requiredCapabilities": ["architecture-analysis", "planning"]
+    },
+    {
+      "summary": "Extract the identified sub-components and move co-located state",
+      "files": ["apps/workspace/src/pages/Agents.tsx"],
+      "requiredCapabilities": ["refactoring"]
+    },
+    {
+      "summary": "Add focused tests for previously untested extracted components",
+      "files": [],
+      "requiredCapabilities": ["testing"]
+    },
+    {
+      "summary": "Verify behavior is unchanged and the acceptance boundary holds",
+      "files": [],
+      "requiredCapabilities": ["testing", "quality-analysis"]
+    },
+    {
+      "summary": "Review the restructure diff for scope creep",
+      "files": [],
+      "requiredCapabilities": ["design-review"]
+    }
+  ]
+}

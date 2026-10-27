@@ -124,9 +124,12 @@ type StatusFilter = 'all' | ParticipantGroupKey;
 
 function matchesType(p: ParticipantProjection, filter: TypeFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'human') return p.type === 'human';
-  if (filter === 'agent') return p.type === 'agent';
-  return p.type === 'service' || p.type === 'system' || p.type === 'external';
+  // String() keeps the comparison total: the wire can carry forward-compat
+  // actor types ('service', 'external') outside the ActivityActorType union.
+  const type = String(p.type);
+  if (filter === 'human') return type === 'human';
+  if (filter === 'agent') return type === 'agent';
+  return type === 'service' || type === 'system' || type === 'external';
 }
 
 /**

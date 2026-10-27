@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "vestara.orchestration-templates",
+  "name": "Orchestration Templates",
+  "version": "0.1.0",
+  "description": "Installable orchestration project-creation presets: 4 templates, 20 tasks (generated from ORCHESTRATION_TEMPLATES).",
+  "type": "plugin",
+  "publisher": {
+    "id": "vestara",
+    "name": "Vestara"
+  },
+  "compatibility": {
+    "vestara": ">=0.3.0",
+    "node": ">=22.0.0",
+    "operatingSystems": ["linux", "macos", "win32"],
+    "architectures": ["x64", "arm64"]
+  },
+  "entrypoints": {
+    "workspace": "README.md"
+  },
+  "capabilities": ["workflow:templates", "orchestration:templates"],
+  "permissions": [],
+  "dependencies": [],
+  "contributions": {
+    "workflows": [
+      {
+        "id": "feature-delivery",
+        "entrypoint": "workflows/feature-delivery.workflow.json",
+        "metadata": {
+          "tasks": 4
+        }
+      },
+      {
+        "id": "agent-control-restructure",
+        "entrypoint": "workflows/agent-control-restructure.workflow.json",
+        "metadata": {
+          "tasks": 5
+        }
+      },
+      {
+        "id": "activity-room-premium-redesign",
+        "entrypoint": "workflows/activity-room-premium-redesign.workflow.json",
+        "metadata": {
+          "tasks": 4
+        }
+      },
+      {
+        "id": "monorepo-build-matrix",
+        "entrypoint": "workflows/monorepo-build-matrix.workflow.json",
+        "metadata": {
+          "tasks": 7
+        }
+      }
+    ]
+  },
+  "isolation": "in-process",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "d3ad3e62490046100ed9eb11243bbc15f14a23990ab9dba1981b5ca236a185e3"
+  }
+}
