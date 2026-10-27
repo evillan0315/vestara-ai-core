@@ -54,6 +54,8 @@ export interface WorkflowGraphProps {
   height?: number | string;
   className?: string;
   emptyMessage?: string;
+  /** Authoritative blocker detail by graph node id — surfaced at glance on error-tone cards. */
+  nodeReasons?: Record<string, string>;
   /**
    * Render rich HTML node cards over task nodes (title, status badge, meta).
    * Defaults to true for `canvas` chrome, false otherwise.
@@ -471,13 +473,23 @@ function NodeCardGlyph({ status }: { status: string }) {
       </span>
     );
   }
-  if (status === 'blocked' || status === 'failed') {
+  if (status === 'blocked') {
     return (
       <span
         aria-hidden="true"
         className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${CARD_ICON[tone]}`}
       >
-        !
+        ⊘
+      </span>
+    );
+  }
+  if (status === 'failed' || status === 'cancelled') {
+    return (
+      <span
+        aria-hidden="true"
+        className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${CARD_ICON[tone]}`}
+      >
+        ✗
       </span>
     );
   }
@@ -491,6 +503,7 @@ function NodeCardGlyph({ status }: { status: string }) {
 function NodeCard({
   node,
   meta,
+  reason,
   selected,
   dimmed,
   position,
@@ -502,6 +515,7 @@ function NodeCard({
 }: {
   node: WorkflowGraphNode;
   meta: string;
+  reason?: string;
   selected: boolean;
   dimmed: boolean;
   position: { x: number; y: number };
@@ -512,6 +526,7 @@ function NodeCard({
   onPointerCancel?: (event: ReactPointerEvent<HTMLButtonElement>, node: WorkflowGraphNode) => void;
 }) {
   const tone = cardTone(node.status);
+  const isBlocked = node.status === 'blocked';
   return (
     <button
       type="button"
@@ -520,9 +535,9 @@ function NodeCard({
       onPointerMove={(event) => onPointerMove?.(event, node)}
       onPointerUp={(event) => onPointerUp?.(event, node)}
       onPointerCancel={(event) => onPointerCancel?.(event, node)}
-      aria-label={`${node.kind} ${node.label}, status ${prettyStatus(node.status)}. Drag to reposition.`}
+      aria-label={`${node.kind} ${node.label}, status ${prettyStatus(node.status)}${reason ? `, blocked: ${reason}` : ''}. Drag to reposition.`}
       aria-pressed={selected}
-      className={`pointer-events-auto w-52 cursor-grab touch-none select-none rounded-xl border bg-[var(--vestara-surface-panel)] p-3 text-left transition-opacity active:cursor-grabbing ${CARD_BORDER[tone]} ${CARD_GLOW[tone]} ${selected ? 'ring-2 ring-[var(--vestara-accent-primary)]' : ''} ${dimmed ? 'opacity-40' : ''}`}
+      className={`pointer-events-auto w-52 cursor-grab touch-none select-none rounded-xl border bg-[var(--vestara-surface-panel)] p-3 text-left transition-opacity active:cursor-grabbing ${CARD_BORDER[tone]} ${CARD_GLOW[tone]} ${isBlocked ? 'border-dashed' : ''} ${selected ? 'ring-2 ring-[var(--vestara-accent-primary)]' : ''} ${dimmed ? 'opacity-40' : ''}`}
       style={{ position: 'absolute', left: position.x, top: position.y, transform: 'translate(-50%, -50%)' }}
     >
       <span className="flex items-start justify-between gap-2">
@@ -536,7 +551,16 @@ function NodeCard({
       >
         {prettyStatus(node.status)}
       </span>
-      <span className="mt-1.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">{meta}</span>
+      {reason ? (
+        <span
+          className="mt-1.5 block truncate font-mono text-[10px] text-[var(--vestara-status-error)]"
+          title={reason}
+        >
+          ⊘ {reason}
+        </span>
+      ) : (
+        <span className="mt-1.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">{meta}</span>
+      )}
     </button>
   );
 }
@@ -620,7 +644,8 @@ function GraphLegend() {
       <span><i className="workflow-legend-swatch workflow-legend-running" />Running</span>
       <span><i className="workflow-legend-swatch workflow-legend-pending" />Pending</span>
       <span><i className="workflow-legend-swatch workflow-legend-awaiting" />Needs approval</span>
-      <span><i className="workflow-legend-swatch workflow-legend-blocked" />Blocker</span>
+      <span><i className="workflow-legend-swatch workflow-legend-blocked" />⊘ Blocker</span>
+      <span><i className="workflow-legend-swatch workflow-legend-blocked" />✗ Failed</span>
     </div>
   );
 }
@@ -641,6 +666,7 @@ export function WorkflowGraph({
   className = '',
   emptyMessage = DEFAULT_EMPTY,
   nodeCards,
+  nodeReasons,
 }: WorkflowGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
@@ -955,6 +981,7 @@ export function WorkflowGraph({
               key={node.id}
               node={node}
               meta={`${node.kind} · ${dependsCount(node.id)} dep`}
+              reason={nodeReasons?.[node.id]?.trim() || undefined}
               selected={selectedNodeId === node.id}
               dimmed={Boolean(selectedNodeId) && selectedNodeId !== node.id}
               position={rendered}

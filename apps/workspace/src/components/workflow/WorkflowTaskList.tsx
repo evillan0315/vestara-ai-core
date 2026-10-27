@@ -10,11 +10,11 @@ import { useMemo, useState } from 'react';
 import { Button, Input } from '@vestara/ui';
 import { ProgressBar } from '@vestara/ui-components';
 import {
+  statusGlyph,
   taskMatchesFilter,
   taskStatusPriority,
   taskStatusTone,
   type TaskStatusFilter,
-  type TaskTone,
 } from '../../lib/task-status';
 
 export interface WorkflowTaskItem {
@@ -27,6 +27,8 @@ export interface WorkflowTaskItem {
   revisionCount: number;
   attemptCount: number;
   artifactCount: number;
+  /** Authoritative blocker detail (lastError ?? approvalReason) — shown at glance for stuck tasks. */
+  blockingReason?: string;
 }
 
 export interface WorkflowTaskListProps {
@@ -36,19 +38,12 @@ export interface WorkflowTaskListProps {
 
 const FILTERS: ReadonlyArray<{ id: TaskStatusFilter; label: string }> = [
   { id: 'all', label: 'All' },
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'approvals', label: 'Approvals' },
   { id: 'active', label: 'Active' },
-  { id: 'attention', label: 'Needs attention' },
   { id: 'queued', label: 'Queued' },
   { id: 'completed', label: 'Completed' },
 ];
-
-const GLYPH: Record<TaskTone, string> = {
-  success: '✓',
-  info: '●',
-  warning: '!',
-  error: '!',
-  muted: '○',
-};
 
 function pretty(status: string): string {
   return status.replaceAll('-', ' ');
@@ -67,16 +62,18 @@ function fileSummary(files: readonly string[]): string | null {
 function TaskRow({ task, onSelect }: { task: WorkflowTaskItem; onSelect: () => void }) {
   const tone = taskStatusTone(task.status);
   const files = fileSummary(task.files);
+  const reason = task.blockingReason?.trim();
+  const isStuck = tone === 'error' && reason;
   return (
     <button
       type="button"
       className="workflow-task-row"
       data-tone={tone}
       onClick={onSelect}
-      aria-label={`${task.summary}, status ${pretty(task.status)}`}
+      aria-label={`${task.summary}, status ${pretty(task.status)}${isStuck ? `, blocked: ${reason}` : ''}`}
     >
       <span className="workflow-task-row-glyph" data-tone={tone} aria-hidden="true">
-        {GLYPH[tone]}
+        {statusGlyph(task.status)}
       </span>
       <span className="workflow-task-row-main">
         <span className="workflow-task-row-title">
@@ -86,6 +83,14 @@ function TaskRow({ task, onSelect }: { task: WorkflowTaskItem; onSelect: () => v
           </span>
         </span>
         {task.description && <small>{task.description}</small>}
+        {isStuck && (
+          <small
+            className="truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-error)]"
+            title={reason}
+          >
+            ⊘ {reason}
+          </small>
+        )}
         <span className="workflow-task-row-meta">
           <span>{plural(task.dependencies.length, 'prerequisite')}</span>
           <span>{plural(task.artifactCount, 'artifact')}</span>
@@ -95,7 +100,7 @@ function TaskRow({ task, onSelect }: { task: WorkflowTaskItem; onSelect: () => v
         </span>
       </span>
       <span className="workflow-task-row-cta" aria-hidden="true">
-        Open graph ›
+        {tone === 'error' ? 'Resolve ›' : 'Open graph ›'}
       </span>
     </button>
   );
@@ -110,11 +115,13 @@ export function WorkflowTaskList({ tasks, onSelectTask }: WorkflowTaskListProps)
       all: tasks.length,
       active: 0,
       attention: 0,
+      blocked: 0,
+      approvals: 0,
       completed: 0,
       queued: 0,
     };
     for (const task of tasks) {
-      for (const id of ['active', 'attention', 'completed', 'queued'] as const) {
+      for (const id of ['active', 'attention', 'blocked', 'approvals', 'completed', 'queued'] as const) {
         if (taskMatchesFilter(task.status, id)) result[id] += 1;
       }
     }
@@ -128,7 +135,7 @@ export function WorkflowTaskList({ tasks, onSelectTask }: WorkflowTaskListProps)
       .filter((task) => taskMatchesFilter(task.status, filter))
       .filter((task) => {
         if (!needle) return true;
-        return `${task.summary} ${task.description} ${task.status} ${task.files.join(' ')}`
+        return `${task.summary} ${task.description} ${task.status} ${task.files.join(' ')} ${task.blockingReason ?? ''}`
           .toLowerCase()
           .includes(needle);
       })
@@ -154,9 +161,13 @@ export function WorkflowTaskList({ tasks, onSelectTask }: WorkflowTaskListProps)
             <span className="workflow-task-summary__value">{counts.active}</span>
             <span className="workflow-task-summary__label">Active</span>
           </div>
+          <div className="workflow-task-summary__metric" data-tone="error">
+            <span className="workflow-task-summary__value">{counts.blocked}</span>
+            <span className="workflow-task-summary__label">Blocked</span>
+          </div>
           <div className="workflow-task-summary__metric" data-tone="warning">
-            <span className="workflow-task-summary__value">{counts.attention}</span>
-            <span className="workflow-task-summary__label">Needs attention</span>
+            <span className="workflow-task-summary__value">{counts.approvals}</span>
+            <span className="workflow-task-summary__label">Approvals</span>
           </div>
           <div className="workflow-task-summary__metric" data-tone="success">
             <span className="workflow-task-summary__value">{counts.completed}</span>

@@ -454,6 +454,11 @@
   background: var(--vestara-status-success-bg);
 }
 
+.workflow-task-summary__metric[data-tone='error'] {
+  border-color: var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
+}
+
 .workflow-task-summary__value {
   color: var(--vestara-text-primary);
   font-size: var(--vestara-font-size-lg);
@@ -733,7 +738,7 @@
 
 @media (min-width: 640px) {
   .workflow-task-summary__metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

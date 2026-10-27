@@ -38,7 +38,12 @@ describe('HumanIdentityRepresentationStorage', () => {
     expect(() => migrate(db, PLANS_MANIFEST)).not.toThrow();
     expect(db.exec('SELECT id FROM human_principals')).toEqual([{ columns: ['id'], values: [['hp-pre-004']] }]);
     const applied = db.exec('SELECT name FROM _vestara_migrations ORDER BY version')[0]?.values ?? [];
-    expect(applied.at(-1)).toEqual(['human_identity_representation.baseline']);
+    // The pre-upgrade history (all but the final step) is never shifted by
+    // the upgrade, even as later steps are appended to the manifest
+    // (append-only rule: the baseline need not remain last).
+    const preUpgrade = pre004.steps.map((step) => step.name);
+    expect(applied.slice(0, preUpgrade.length).map((row) => row[0])).toEqual(preUpgrade);
+    expect(applied.map((row) => row[0])).toContain('human_identity_representation.baseline');
     db.close();
   });
 

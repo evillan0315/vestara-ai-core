@@ -16,6 +16,7 @@ const TASKS: WorkflowTaskItem[] = [
     revisionCount: 2,
     attemptCount: 3,
     artifactCount: 1,
+    blockingReason: 'Rollback guard trips on retry',
   },
   {
     id: 't-running',
@@ -49,7 +50,8 @@ describe('WorkflowTaskList', () => {
   it('summarizes counts and completion from snapshot data only', () => {
     renderList();
     const summary = screen.getByRole('group', { name: 'Task summary' });
-    expect(within(summary).getByText('Needs attention')).toBeInTheDocument();
+    expect(within(summary).getByText('Blocked')).toBeInTheDocument();
+    expect(within(summary).getByText('Approvals')).toBeInTheDocument();
     expect(screen.getByText('1 / 3 · 33%')).toBeInTheDocument();
   });
 
@@ -57,10 +59,27 @@ describe('WorkflowTaskList', () => {
     renderList();
     const rows = screen.getAllByRole('button', { name: /, status / });
     expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
-      'Fix the failing migration, status blocked',
+      'Fix the failing migration, status blocked, blocked: Rollback guard trips on retry',
       'Ship the graph toolbar, status in progress',
       'Draft the plan, status completed',
     ]);
+  });
+
+  it('surfaces the blocking reason at glance with a resolve CTA', () => {
+    renderList();
+    expect(screen.getByText('⊘ Rollback guard trips on retry')).toBeInTheDocument();
+    expect(screen.getByText('Resolve ›')).toBeInTheDocument();
+  });
+
+  it('splits blocked from approvals in the filter lane', () => {
+    renderList();
+    fireEvent.click(screen.getByRole('button', { name: /Blocked/ }));
+    expect(screen.getByRole('button', { name: /Fix the failing migration/ })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Ship the graph toolbar, status in progress' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Approvals/ }));
+    expect(screen.getByText('No tasks match the current filters.')).toBeInTheDocument();
   });
 
   it('surfaces file, revision, and artifact evidence on each row', () => {

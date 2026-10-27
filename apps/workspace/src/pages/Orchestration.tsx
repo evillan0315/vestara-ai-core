@@ -1,13 +1,22 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
-import { ActionIcon, Badge, Button, EmptyState, Input, List, ListItemText, PanelFooter, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
+import { Badge, Button, EmptyState, Input, PanelFooter, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { icons, Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
+import { WorkflowApprovalActions } from '../components/workflow/WorkflowApprovalActions';
 import { WorkflowBlockerActions } from '../components/workflow/WorkflowBlockerActions';
 import { WorkflowGraph, type WorkflowGraphLayoutName } from '../components/workflow/WorkflowGraph';
+import { WorkflowNextActionsPanel } from '../components/workflow/WorkflowNextActions';
+import { WorkflowNextLane } from '../components/workflow/WorkflowNextLane';
+import { RERUNNABLE_PHASES, WorkflowProjectList } from '../components/workflow/WorkflowProjectList';
+import { WorkflowQuickActions, type WorkflowQuickAction } from '../components/workflow/WorkflowQuickActions';
+import type {
+  OrchestrationApprovalTask as ApprovalTask,
+  OrchestrationProjectMetrics as ProjectMetrics,
+  OrchestrationProjectSummary as ProjectSummary,
+} from '../components/workflow/orchestration-project-types';
 import { WorkflowSupportingPanels } from '../components/workflow/WorkflowSupportingPanels';
 import { WorkflowTaskList, type WorkflowTaskItem } from '../components/workflow/WorkflowTaskList';
 import { navIcon } from '../layouts/workspace-navigation';
@@ -15,12 +24,10 @@ import OperationalWorkspaceLayout from '../layouts/OperationalWorkspaceLayout';
 import { type ApprovalGate, resolveApprovalGate } from '../lib/orchestration-approval';
 import {
   filterDismissedNextActions,
-  getActionBadgeLabel,
   getNextActions,
   getProjectAction,
   getScopedNextAction,
   sortProjectsByActionPriority,
-  type NextActionKind,
   shouldClearStaleQueueDismissal,
 } from '../lib/orchestration-next-action';
 import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
@@ -53,36 +60,6 @@ import '../styles/activity-room.css';
 
 const API = '/api/orchestration';
 
-interface ProjectSummary {
-  id: string;
-  name: string;
-  goal: string;
-  phase: string;
-  status: string;
-  createdAt: string;
-}
-
-interface ProjectMetrics {
-  projectId: string;
-  status: string;
-  tasks: { total: number; completed: number; failed: number; blocked: number; awaitingApproval: number; running: number };
-  retries: number;
-  revisions: number;
-  artifacts: number;
-  elapsedMs: number;
-}
-
-interface ApprovalTask {
-  id: string;
-  summary: string;
-  approvalReason?: string;
-  files: string[];
-  /** Pending-since timestamp (full WorkflowTask payload carries it; used for why-now age). */
-  updatedAt?: string;
-  createdAt?: string;
-  requestedAt?: string;
-}
-
 interface Snapshot {
   project: ProjectSummary;
   plan?: OrchestrationGraphSnapshot['plan'];
@@ -92,6 +69,8 @@ interface Snapshot {
       files: string[];
       revisionCount: number;
       attemptCount: number;
+      lastError?: string;
+      approvalReason?: string;
     }
   >;
   artifacts?: Array<{
@@ -134,704 +113,12 @@ const RAIL_FILTERS: Array<{ id: RailStatusFilter; label: string }> = [
   { id: 'attention', label: 'Needs approval' },
 ];
 
-/** Project phases that carry runnable tasks and can be re-run from scratch. */
-const RERUNNABLE_PHASES: ReadonlySet<string> = new Set(['executing', 'verifying', 'completed', 'cancelled']);
-
 const GRAPH_LAYOUTS: ReadonlyArray<{ id: WorkflowGraphLayoutName; label: string; hint: string }> = [
   { id: 'breadthfirst', label: 'Dependency', hint: 'Top-down dependency waves' },
   { id: 'concentric', label: 'Concentric', hint: 'Tasks grouped by dependency depth' },
   { id: 'grid', label: 'Grid', hint: 'Compact grid of every node' },
   { id: 'circle', label: 'Circle', hint: 'Ring layout for wide plans' },
 ];
-
-interface WorkflowQuickAction {
-  id: string;
-  label: string;
-  sub: string;
-  tile: string;
-  glyph: string;
-  disabled?: boolean;
-  onSelect: () => void;
-}
-
-function WorkflowQuickActions({ actions }: { actions: WorkflowQuickAction[] }) {
-  return (
-    <ul className="grid list-none grid-cols-2 gap-[var(--vestara-spacing-3)] p-0 md:grid-cols-4" aria-label="Workflow quick actions">
-      {actions.map((action, i) => (
-        <li key={action.id} className="mpg-enter" style={{ animationDelay: `${i * 40}ms` }}>
-          <button
-            type="button"
-            onClick={action.onSelect}
-            disabled={action.disabled}
-            className="mpg-card group flex w-full items-center gap-[var(--vestara-spacing-3)] p-3.5 text-left disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <span
-              aria-hidden="true"
-              className="mpg-icon-box text-[var(--ov-solid-on-tile)]"
-              style={{
-                color: 'var(--ov-solid-on-tile)',
-                background: `color-mix(in srgb, ${action.tile} 88%, transparent)`,
-                borderColor: `color-mix(in srgb, ${action.tile} 55%, transparent)`,
-                boxShadow: `0 0 14px color-mix(in srgb, ${action.tile} 40%, transparent)`,
-              }}
-            >
-              {action.glyph}
-            </span>
-            <span className="relative z-[2] min-w-0 flex-1">
-              <span className="block truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-                {action.label}
-              </span>
-              <span className="block truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{action.sub}</span>
-            </span>
-            <span aria-hidden="true" className="relative z-[2] text-[var(--vestara-marketplace-primary)] transition-transform group-hover:translate-x-0.5">
-              ›
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function ApprovalActions({ projectId, approvals, busy, onResolve }: {
-  projectId: string;
-  approvals: ApprovalTask[];
-  busy: string | null;
-  onResolve: (projectId: string, taskId: string, approved: boolean) => void;
-}) {
-  if (approvals.length === 0) return null;
-  return (
-    <div className="mt-[var(--vestara-spacing-3)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] p-[var(--vestara-spacing-3)]">
-      <div className="text-xs font-medium text-[var(--vestara-status-warning)] mb-[var(--vestara-spacing-2)]">Approval required</div>
-      <div className="space-y-[var(--vestara-spacing-2)]">
-        {approvals.map((task) => (
-          <div key={task.id} className="flex items-center gap-[var(--vestara-spacing-3)] flex-wrap">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-[var(--vestara-text-primary)]">{task.summary}</p>
-              <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{task.approvalReason ?? 'high-risk change'}</p>
-            </div>
-            <div className="flex items-center gap-[var(--vestara-spacing-1)]">
-              <ActionIcon
-                size="sm"
-                tone="success"
-                label={`Approve ${task.summary}`}
-                icon={<icons.Check size={14} />}
-                onClick={() => void onResolve(projectId, task.id, true)}
-                disabled={busy === task.id}
-              />
-              <ActionIcon
-                size="sm"
-                tone="destructive"
-                label={`Deny ${task.summary}`}
-                icon={<icons.X size={14} />}
-                onClick={() => void onResolve(projectId, task.id, false)}
-                disabled={busy === task.id}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NextActionButton({ kind, projectId, actionable, onSelect }: {
-  kind: string;
-  projectId: string;
-  actionable: boolean;
-  onSelect: (projectId: string, kind: string) => void;
-}) {
-  const label = kind === 'task-approval'
-    ? 'Review approvals'
-    : kind === 'task-failure'
-      ? 'Open tasks'
-      : kind === 'architecture-review'
-        ? 'Review gate'
-        : kind === 'plan-approval'
-          ? 'Review approval'
-          : kind === 'resume'
-            ? 'Resume'
-            : kind === 'progress'
-              ? 'Open graph'
-              : 'View project';
-  return (
-    <Button
-      variant={actionable ? 'primary' : 'secondary'}
-      size="sm"
-      onClick={() => onSelect(projectId, kind)}
-    >
-      {label}
-    </Button>
-  );
-}
-
-function NextActionsPanel({ actions, onSelect }: {
-  actions: ReturnType<typeof getNextActions>;
-  onSelect: (projectId: string, kind: string) => void;
-}) {
-  if (actions.length === 0) {
-    return (
-      <div className="space-y-[var(--vestara-spacing-section)]">
-        <p className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          No recommended actions across workflows.
-        </p>
-      </div>
-    );
-  }
-  const actionable = actions.filter((a) => a.actionable);
-  const observational = actions.filter((a) => !a.actionable);
-  // W7 — rank is the position in the priority-sorted queue (actions order),
-  // not within the Action needed / Suggested subgroup, so #1 outranks #2.
-  const rankByKey = new Map(actions.map((action, index) => [`${action.projectId}-${action.kind}`, index + 1]));
-  const whyLabel = (action: (typeof actions)[number]): string => {
-    const rank = rankByKey.get(`${action.projectId}-${action.kind}`) ?? 1;
-    return `#${rank} of ${actions.length} · ${NEXT_ACTION_PRECEDENCE[action.kind]}`;
-  };
-  return (
-    <div className="space-y-[var(--vestara-spacing-section)]">
-      {actionable.length > 0 && (
-        <div className="space-y-[var(--vestara-spacing-2)]">
-          <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-widest text-[var(--vestara-status-warning)]">
-            Action needed · {actionable.length}
-          </div>
-          {actionable.map((action) => (
-            <div
-              key={`${action.projectId}-${action.kind}`}
-              className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] p-[var(--vestara-spacing-3)]"
-            >
-              <div className="flex items-start justify-between gap-[var(--vestara-spacing-2)]">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]">
-                    {action.title}
-                  </p>
-                  <p className="mt-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                    {action.detail}
-                  </p>
-                  <p
-                    className="mt-0.5 font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
-                    title={`Queue order: ${whyLabel(action)}`}
-                  >
-                    {whyLabel(action)}
-                  </p>
-                </div>
-                <NextActionButton
-                  kind={action.kind}
-                  projectId={action.projectId}
-                  actionable={action.actionable}
-                  onSelect={onSelect}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {observational.length > 0 && (
-        <div className="space-y-[var(--vestara-spacing-2)]">
-          <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-widest text-[var(--vestara-text-muted)]">
-            Suggested · {observational.length}
-          </div>
-          {observational.map((action) => (
-            <div
-              key={`${action.projectId}-${action.kind}`}
-              className="flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-2)]"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
-                  {action.title}
-                </p>
-                <p
-                  className="truncate font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
-                  title={`Queue order: ${whyLabel(action)} — ${action.detail}`}
-                >
-                  {whyLabel(action)}
-                </p>
-              </div>
-              <NextActionButton
-                kind={action.kind}
-                projectId={action.projectId}
-                actionable={action.actionable}
-                onSelect={onSelect}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const NEXT_ACTION_GLYPHS: Record<NextActionKind, string> = {
-  'task-approval': '!',
-  'task-failure': '⚡',
-  'architecture-review': '◇',
-  'plan-approval': '✓',
-  resume: '▶',
-  progress: '◉',
-  start: '✚',
-};
-
-// W7 — short precedence explanation per kind so the queue order is legible
-// rather than implicit in KIND_PRIORITY. Rendered as "#n of N · reason".
-const NEXT_ACTION_PRECEDENCE: Record<NextActionKind, string> = {
-  'task-approval': 'Approvals block downstream tasks, so they outrank everything else.',
-  'task-failure': 'Failed or blocked tasks stall execution, so they come before reviews.',
-  'architecture-review': 'Architecture gate must pass before director approval.',
-  'plan-approval': 'Plan approval unlocks execution, so it comes before resume.',
-  resume: 'Paused work resumes before routine progress checks.',
-  progress: 'Active work to monitor — no blocker, so it follows actionable items.',
-  start: 'Untouched work with no urgency, so it ranks last.',
-};
-
-function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
-  actions: ReturnType<typeof getNextActions>;
-  projectsById: Record<string, ProjectSummary>;
-  busyProjectId: string | null;
-  onSelect: (projectId: string, kind: string) => void;
-}) {
-  const [laneIndex, setLaneIndex] = useState(0);
-  const clampedIndex = actions.length === 0 ? 0 : Math.min(laneIndex, actions.length - 1);
-  // Keep the pager in bounds when the queue shrinks (filter change, resolution).
-  useEffect(() => {
-    if (laneIndex >= actions.length && actions.length > 0) setLaneIndex(0);
-  }, [actions.length, laneIndex]);
-  if (actions.length === 0) return null;
-  const current = actions[clampedIndex];
-  const projectPhase = current.projectId ? (projectsById[current.projectId]?.phase ?? '') : '';
-  const goPrev = () => setLaneIndex((i) => (i - 1 + actions.length) % actions.length);
-  const goNext = () => setLaneIndex((i) => (i + 1) % actions.length);
-  const busy = busyProjectId === `resume-${current.projectId}` && current.kind === 'resume';
-  // W3 persistent lane: role=status + aria-live=polite (never role=alert —
-  // a persistent element must not re-announce on every refresh). No auto-focus:
-  // pager changes leave focus where the user put it; the CTA keeps focus.
-  return (
-    <div
-      className={`mpg-enter flex flex-wrap items-center gap-[var(--vestara-spacing-3)] rounded-[var(--vestara-radius-lg)] border p-[var(--vestara-spacing-3)] ${
-        current.actionable
-          ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)]'
-          : 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)]'
-      }`}
-      role="status"
-      aria-live="polite"
-      aria-label={`Next recommended action ${clampedIndex + 1} of ${actions.length}: ${current.title}`}
-    >
-      <span
-        aria-hidden="true"
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] font-mono text-[length:var(--vestara-font-size-sm)] font-bold text-[var(--vestara-text-primary)]"
-      >
-        {NEXT_ACTION_GLYPHS[current.kind]}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-element)]">
-          <span className="truncate text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-secondary)]">
-            {current.projectName || 'Workflows'}
-          </span>
-          {projectPhase && (
-            <span className="workflow-status-chip" data-status={projectPhase}>
-              {projectPhase.replaceAll('-', ' ')}
-            </span>
-          )}
-        </div>
-        <p className="truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-          {current.title}
-        </p>
-        <p className="truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]" title={current.detail}>
-          {current.detail}
-        </p>
-        <p
-          className="truncate font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
-          title={`Queue order: #${clampedIndex + 1} of ${actions.length} · ${NEXT_ACTION_PRECEDENCE[current.kind]}`}
-        >
-          #{clampedIndex + 1} of {actions.length} · {NEXT_ACTION_PRECEDENCE[current.kind]}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
-        <Button
-          variant={current.actionable ? 'primary' : 'secondary'}
-          size="sm"
-          onClick={() => onSelect(current.projectId, current.kind)}
-          disabled={busy}
-        >
-          {current.ctaLabel}
-        </Button>
-        {actions.length > 1 && (
-          <div className="flex items-center gap-[var(--vestara-spacing-1)]" role="group" aria-label="Recommended action queue">
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous recommended action"
-              className="grid h-7 w-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-            >
-              ‹
-            </button>
-            <span
-              className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
-              title={`${clampedIndex + 1} of ${actions.length} recommended actions`}
-            >
-              {clampedIndex + 1} of {actions.length}
-            </span>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next recommended action"
-              className="grid h-7 w-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-            >
-              ›
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Summary half of the rail hover tooltip — phase chips, goal, counts, and
- * task progress. Ends at task progress: actions live in the tooltip header
- * (top-right, beside the project name) and approvals stay in the inspector.
- */
-function ProjectCardBody({ project, metrics }: {
-  project: ProjectSummary;
-  metrics?: ProjectMetrics;
-}) {
-  const done = metrics?.tasks.completed ?? 0;
-  const total = metrics?.tasks.total ?? 0;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-element)]">
-        <span className="workflow-status-chip" data-status={project.phase}>
-          {project.phase.replaceAll('-', ' ')}
-        </span>
-        <span className="workflow-status-chip" data-status={project.status}>
-          {project.status.replaceAll('-', ' ')}
-        </span>
-      </div>
-      <p className="mt-[var(--vestara-spacing-2)] line-clamp-3 text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-        {project.goal}
-      </p>
-      {metrics && (
-        <p className="mt-[var(--vestara-spacing-2)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
-          {done}/{total} tasks · {metrics.retries} retries · {metrics.artifacts} artifacts
-        </p>
-      )}
-      {metrics && (
-        <div className="mt-[var(--vestara-spacing-2)]">
-          <ProgressBar pct={pct} size="sm" />
-        </div>
-      )}
-      <div className="mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)]">
-        <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          Task progress {done}/{total} {pct}%
-        </span>
-      </div>
-    </>
-  );
-}
-
-/** Row lamp for the projects list: blockers outrank approvals outrank phase. */
-function rowStatusVariant(
-  project: { status: string; phase: string },
-  metrics?: { tasks: { failed: number; blocked: number } },
-  approvalsCount = 0,
-): 'live' | 'warn' | 'error' | 'idle' {
-  if ((metrics?.tasks.failed ?? 0) + (metrics?.tasks.blocked ?? 0) > 0) return 'error';
-  if (approvalsCount > 0) return 'warn';
-  switch (project.status) {
-    case 'running':
-      return 'live';
-    case 'awaiting-approval':
-      return 'warn';
-    case 'cancelled':
-      return 'error';
-    case 'completed':
-      return 'idle';
-    default:
-      return 'idle';
-  }
-}
-
-/**
- * Projects rail — compact list view aligned with @vestara/ui List primitives.
- * Each row is a one-line summary (status lamp, name, phase + progress, badges,
- * chevron); hovering or keyboard-focusing a row reveals the full card view
- * inline, and selecting a row pins it open + loads the inspector.
- */
-function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, onToggle, onOpenGraph, onRerun, onArchive, onDelete }: {
-  projects: ProjectSummary[];
-  metricsByProject: Record<string, ProjectMetrics>;
-  approvalsByProject: Record<string, ApprovalTask[]>;
-  projectActions: Record<string, ReturnType<typeof getProjectAction>>;
-  /** W4 — id of the recommended project (head of the priority-ordered queue). The matching row renders the "Next" marker. */
-  nextProjectId: string | null;
-  expandedId: string | null;
-  busy: string | null;
-  onToggle: (projectId: string) => void;
-  onOpenGraph: (projectId: string) => void;
-  onRerun: (projectId: string) => void;
-  onArchive: (projectId: string) => void;
-  onDelete: (projectId: string) => void;
-}) {
-  // Hover/focus tooltip anchor — a floating card preview positioned beside
-  // the hovered row (portal to document.body so rail scroll never clips it).
-  const [preview, setPreview] = useState<{ id: string; top: number; left: number } | null>(null);
-  // Two-click delete confirm: the first click arms, the second executes. The
-  // arm expires after a few seconds so a stray click never deletes later.
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const closeTimer = useRef<number | null>(null);
-  const armTimer = useRef<number | null>(null);
-  const tooltipId = useId();
-
-  const cancelClose = useCallback(() => {
-    if (closeTimer.current !== null) {
-      window.clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
-      if (armTimer.current !== null) window.clearTimeout(armTimer.current);
-    },
-    [],
-  );
-
-  const handleDelete = useCallback(
-    (project: { id: string; name: string }) => {
-      if (confirmDeleteId === project.id) {
-        if (armTimer.current !== null) {
-          window.clearTimeout(armTimer.current);
-          armTimer.current = null;
-        }
-        setConfirmDeleteId(null);
-        setPreview(null);
-        onDelete(project.id);
-      } else {
-        setConfirmDeleteId(project.id);
-        if (armTimer.current !== null) window.clearTimeout(armTimer.current);
-        armTimer.current = window.setTimeout(() => setConfirmDeleteId(null), 3000);
-      }
-    },
-    [confirmDeleteId, onDelete],
-  );
-
-  const previewOpen = preview !== null;
-  useEffect(() => {
-    if (!previewOpen) return;
-    const dismiss = () => setPreview(null);
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') dismiss();
-    };
-    window.addEventListener('scroll', dismiss, true);
-    window.addEventListener('resize', dismiss);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('scroll', dismiss, true);
-      window.removeEventListener('resize', dismiss);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [previewOpen]);
-
-  const openPreview = useCallback(
-    (projectId: string, anchor: HTMLElement) => {
-      cancelClose();
-      const rect = anchor.getBoundingClientRect();
-      const gap = 8;
-      const width = 320;
-      let left = rect.right + gap;
-      if (left + width > window.innerWidth - gap) left = Math.max(gap, rect.left - width - gap);
-      const top = Math.min(Math.max(gap, rect.top - 4), Math.max(gap, window.innerHeight - 240));
-      setPreview((current) => (current?.id === projectId ? current : { id: projectId, top, left }));
-    },
-    [cancelClose],
-  );
-
-  const scheduleClose = useCallback(() => {
-    cancelClose();
-    closeTimer.current = window.setTimeout(() => setPreview(null), 150);
-  }, [cancelClose]);
-
-  const previewProject = preview ? (projects.find((project) => project.id === preview.id) ?? null) : null;
-  const previewData = previewProject
-    ? {
-        project: previewProject,
-        metrics: metricsByProject[previewProject.id],
-      }
-    : null;
-
-  return (
-    <>
-    <List dividers>
-      {projects.map((project, i) => {
-        const metrics = metricsByProject[project.id];
-        const approvals = approvalsByProject[project.id] ?? [];
-        const action = projectActions[project.id];
-        const expanded = expandedId === project.id;
-        const done = metrics?.tasks.completed ?? 0;
-        const total = metrics?.tasks.total ?? 0;
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-        // W4 — badge text derives from the same resolver inputs (approvals
-        // length, metrics failed+blocked) via getActionBadgeLabel, so counts
-        // match the resolver output by construction.
-        const badgeLabel = action ? getActionBadgeLabel(action, approvals, metrics) : null;
-        const badgeGlyph = action ? NEXT_ACTION_GLYPHS[action.kind] : null;
-        const isNext = nextProjectId !== null && project.id === nextProjectId;
-        const lamp = rowStatusVariant(project, metrics, approvals.length);
-        return (
-          <li
-            key={project.id}
-            className="mpg-enter min-w-0"
-            style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
-            onMouseEnter={(event) => openPreview(project.id, event.currentTarget)}
-            onMouseLeave={scheduleClose}
-          >
-            {/* List row — one-line summary mirroring ListItem tokens (selected /
-                hover / keyboard). Click selects; hover or focus opens the
-                floating card tooltip. */}
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: row owns selection like ListItem (Enter/Space handled, focus-visible ring); tooltip buttons stay native. */}
-            <div
-              role="button"
-              tabIndex={0}
-              aria-expanded={expanded}
-              aria-describedby={preview?.id === project.id ? tooltipId : undefined}
-              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${project.name} — ${project.phase}, ${done} of ${total} tasks`}
-              onClick={() => onToggle(project.id)}
-              onFocus={(event) => openPreview(project.id, event.currentTarget)}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleClose();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onToggle(project.id);
-                }
-              }}
-              className={`flex cursor-pointer items-center gap-[var(--vestara-spacing-3)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-2)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--vestara-accent)] ${
-                expanded
-                  ? 'bg-[var(--vestara-surface-panel-raised)]'
-                  : 'hover:bg-[var(--vestara-surface-interactive)]'
-              }`}
-            >
-              <span className="shrink-0">
-                <StatusIndicator variant={lamp} size="xs" pulse={project.phase === 'executing'} ariaLabel={project.status} />
-              </span>
-              <ListItemText
-                className="min-w-0 flex-1"
-                primary={
-                  <span className="flex min-w-0 items-center gap-[var(--vestara-spacing-element)]">
-                    <span className="truncate">{project.name}</span>
-                    {isNext && (
-                      <span
-                        className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]"
-                        aria-label={`Next recommended workflow: ${project.name}`}
-                      >
-                        Next
-                      </span>
-                    )}
-                  </span>
-                }
-                secondary={`${project.phase.replaceAll('-', ' ')} · ${done}/${total} tasks · ${pct}%`}
-              />
-              {action && badgeLabel && (
-                <span
-                  className={`inline-flex shrink-0 items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold ${
-                    action.actionable
-                      ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]'
-                      : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-secondary)]'
-                  }`}
-                  title={`${action.title} — ${action.detail}`}
-                  aria-label={`${badgeLabel} in ${project.name}`}
-                >
-                  {badgeGlyph} {badgeLabel}
-                </span>
-              )}
-              <span
-                aria-hidden="true"
-                className={`shrink-0 font-mono text-[var(--vestara-text-muted)] transition-transform duration-200 ${
-                  expanded ? 'rotate-90' : ''
-                }`}
-              >
-                ›
-              </span>
-            </div>
-          </li>
-        );
-      })}
-    </List>
-    {previewData &&
-      createPortal(
-        <div
-          id={tooltipId}
-          role="tooltip"
-          onMouseEnter={cancelClose}
-          onMouseLeave={scheduleClose}
-          onFocus={cancelClose}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleClose();
-          }}
-          className="fixed z-[var(--vestara-z-index-tooltip)] w-80 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-[var(--vestara-spacing-4)] shadow-[var(--vestara-elevation-lg)]"
-          style={{ top: preview?.top, left: preview?.left, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}
-        >
-          <div className="mb-[var(--vestara-spacing-2)] flex items-center gap-[var(--vestara-spacing-2)]">
-            <div className="min-w-0 flex-1 truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-              {previewData.project.name}
-            </div>
-            <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-1)]">
-              {RERUNNABLE_PHASES.has(previewData.project.phase) && (
-                <ActionIcon
-                  size="sm"
-                  label={
-                    busy === `rerun-${previewData.project.id}`
-                      ? `Re-running ${previewData.project.name}…`
-                      : `Re-run ${previewData.project.name} — reset every task and run again from the executing phase`
-                  }
-                  icon={
-                    <span aria-hidden="true" className="text-[length:var(--vestara-font-size-sm)]">
-                      ↻
-                    </span>
-                  }
-                  onClick={() => onRerun(previewData.project.id)}
-                  disabled={busy === `rerun-${previewData.project.id}`}
-                />
-              )}
-              <ActionIcon
-                size="sm"
-                label={
-                  busy === `archive-${previewData.project.id}`
-                    ? `Archiving ${previewData.project.name}…`
-                    : `Archive ${previewData.project.name}`
-                }
-                icon={<icons.Box size={14} />}
-                onClick={() => onArchive(previewData.project.id)}
-                disabled={busy === `archive-${previewData.project.id}`}
-              />
-              <ActionIcon
-                size="sm"
-                label={`Open graph for ${previewData.project.name}`}
-                icon={<icons.GitBranch size={14} />}
-                onClick={() => onOpenGraph(previewData.project.id)}
-              />
-              <ActionIcon
-                size="sm"
-                tone="destructive"
-                label={
-                  confirmDeleteId === previewData.project.id
-                    ? `Click again to confirm deleting ${previewData.project.name} — this cannot be undone`
-                    : `Delete ${previewData.project.name}`
-                }
-                icon={<icons.Trash2 size={14} />}
-                onClick={() => handleDelete(previewData.project)}
-                disabled={busy === `delete-${previewData.project.id}`}
-              />
-            </div>
-          </div>
-          <ProjectCardBody project={previewData.project} metrics={previewData.metrics} />
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
 
 function formatFreshness(timestamp: number | null): string | null {
   if (timestamp === null) return null;
@@ -1534,7 +821,20 @@ export default function OrchestrationPage() {
       revisionCount: task.revisionCount,
       attemptCount: task.attemptCount,
       artifactCount: artifacts.filter((artifact) => artifact.taskId === task.id).length,
+      blockingReason: task.lastError ?? task.approvalReason ?? undefined,
     }));
+  }, [selectedDetail]);
+
+  const selectedNodeReasons = useMemo<Record<string, string>>(() => {
+    if (!selectedDetail) return {};
+    const reasons: Record<string, string> = {};
+    for (const task of selectedDetail.snapshot.tasks) {
+      const reason = (task.lastError ?? task.approvalReason ?? '').trim();
+      if ((task.status === 'blocked' || task.status === 'failed' || task.status === 'cancelled') && reason) {
+        reasons[`workflow-task:${task.id}`] = reason;
+      }
+    }
+    return reasons;
   }, [selectedDetail]);
 
   const focusProjectTab = (tab: 'workflow-graph' | 'evidence', projectId?: string) => {
@@ -1896,7 +1196,7 @@ export default function OrchestrationPage() {
                   }
                 />
               ) : (
-                <ProjectList
+                <WorkflowProjectList
                   projects={orderedVisibleProjects}
                   metricsByProject={metricsByProject}
                   approvalsByProject={approvalsByProject}
@@ -2153,7 +1453,7 @@ export default function OrchestrationPage() {
                   )}
                   {inspectorTab === 'blocker' && (
                     <div className="space-y-[var(--vestara-spacing-section)]">
-                      <ApprovalActions
+                      <WorkflowApprovalActions
                         projectId={selectedProject.id}
                         approvals={approvalsByProject[selectedProject.id] ?? []}
                         busy={busy}
@@ -2235,7 +1535,7 @@ export default function OrchestrationPage() {
                       <div className="font-mono text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-widest text-[var(--vestara-text-muted)]">
                         Recommended next actions
                       </div>
-                      <NextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
+                      <WorkflowNextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
                     </div>
                   )}
                 </div>
@@ -2273,7 +1573,7 @@ export default function OrchestrationPage() {
         </div>
         <div className="workflow-main-body space-y-[var(--vestara-spacing-section)]">
           {!loading && visibleNextActions.length > 0 && (
-            <NextLane
+            <WorkflowNextLane
               actions={visibleNextActions}
               projectsById={projectsById}
               busyProjectId={busy}
@@ -2317,6 +1617,7 @@ export default function OrchestrationPage() {
                     chrome="canvas"
                     layout={graphLayout}
                     graph={selectedGraph}
+                    nodeReasons={selectedNodeReasons}
                     error={selectedGraph ? undefined : 'No dependency map yet — approve the plan to render the graph.'}
                     selectedNodeId={selectedGraphNodeId}
                     onNodeSelect={(node) => {
@@ -2482,7 +1783,7 @@ export default function OrchestrationPage() {
                       ) : undefined
                     }
                   >
-                    <NextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
+                    <WorkflowNextActionsPanel actions={visibleNextActions} onSelect={handleProjectAction} />
                   </OperationalPanel>
                 )}
                 {/* W7 — empty workspace renders no Overview create panel: the rail

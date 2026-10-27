@@ -437,7 +437,11 @@ export type { IndexEntry, IndexNode, IndexOptions } from './workspace-index';
 export { WorkspaceIndex } from './workspace-index';
 export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './workspace-manifest';
 export { WorkspaceManifest } from './workspace-manifest';
-export { USERS_AUTH_CREDENTIALS_MIGRATIONS, WORKSPACE_DOMAIN_MANIFEST, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
+export {
+  USERS_AUTH_CREDENTIALS_MIGRATIONS,
+  WORKSPACE_DOMAIN_MANIFEST,
+  WORKSPACE_DOMAIN_MIGRATIONS,
+} from './workspace-migrations';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';

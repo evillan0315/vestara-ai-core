@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { taskMatchesFilter, taskStatusPriority, taskStatusTone } from './task-status';
+import { statusGlyph, taskMatchesFilter, taskStatusPriority, taskStatusTone } from './task-status';
 
 describe('taskStatusTone', () => {
   it('tones terminal success states as success', () => {
@@ -41,6 +41,12 @@ describe('taskMatchesFilter', () => {
     expect(taskMatchesFilter('blocked', 'attention')).toBe(true);
     expect(taskMatchesFilter('awaiting-approval', 'attention')).toBe(true);
     expect(taskMatchesFilter('in-progress', 'attention')).toBe(false);
+    expect(taskMatchesFilter('blocked', 'blocked')).toBe(true);
+    expect(taskMatchesFilter('failed', 'blocked')).toBe(true);
+    expect(taskMatchesFilter('awaiting-approval', 'blocked')).toBe(false);
+    expect(taskMatchesFilter('awaiting-approval', 'approvals')).toBe(true);
+    expect(taskMatchesFilter('needs-review', 'approvals')).toBe(true);
+    expect(taskMatchesFilter('blocked', 'approvals')).toBe(false);
     expect(taskMatchesFilter('approved', 'completed')).toBe(true);
     expect(taskMatchesFilter('pending', 'queued')).toBe(true);
     expect(taskMatchesFilter('ready', 'queued')).toBe(true);
@@ -49,10 +55,21 @@ describe('taskMatchesFilter', () => {
 });
 
 describe('taskStatusPriority', () => {
-  it('orders attention before active before queued before completed', () => {
-    const order = ['completed', 'pending', 'in-progress', 'blocked'].sort(
+  it('orders blocked before approvals before active before queued before completed', () => {
+    const order = ['completed', 'pending', 'in-progress', 'awaiting-approval', 'blocked'].sort(
       (left, right) => taskStatusPriority(left) - taskStatusPriority(right),
     );
-    expect(order).toEqual(['blocked', 'in-progress', 'pending', 'completed']);
+    expect(order).toEqual(['blocked', 'awaiting-approval', 'in-progress', 'pending', 'completed']);
+  });
+});
+
+describe('statusGlyph', () => {
+  it('gives blocked and approvals distinct marks', () => {
+    expect(statusGlyph('blocked')).toBe('⊘');
+    expect(statusGlyph('failed')).toBe('✗');
+    expect(statusGlyph('awaiting-approval')).toBe('!');
+    expect(statusGlyph('in-progress')).toBe('●');
+    expect(statusGlyph('completed')).toBe('✓');
+    expect(statusGlyph('awaiting-approval')).not.toBe(statusGlyph('blocked'));
   });
 });
