@@ -15,6 +15,12 @@
  *   • Approval blocking pauses the chain at the owning stage; resolving the
  *     approval (via the API) then `resume()` continues from the first
  *     non-terminal sibling.
+ *   • Auto-verification: every completed developer stage is immediately
+ *     followed by an automatic verifier stage, and every completed
+ *     verifier stage by an automatic reviewer stage — unless the plan
+ *     already schedules that stage next (so the standard pipelines never
+ *     verify or review twice). Inserted stages are durable sibling threads
+ *     like any other and observe the same approval/terminal rules.
  */
 
 import type { AgentHarnessRuntime, HarnessRunResult } from '@vestara/agent-harness';
@@ -64,6 +70,54 @@ export interface MultiAgentWorkflowOptions {
   readonly runtimeSessionRegistry?: RuntimeSessionRegistry;
   changeProjector?: ChangeProjectorLike;
 }
+
+/**
+ * Instruction for the automatic verification pass inserted after every
+ * completed developer stage (unless the plan already schedules a verifier
+ * next). The just-completed developer output is threaded in as context by
+ * `instructionForStage`, exactly like any other stage.
+ */
+const AUTO_VERIFY_INSTRUCTION =
+  'Automatic verification pass for the just-completed developer stage. ' +
+  'Verify the implementation: run the verification profile (build, lint, focused tests), ' +
+  'check the changed files, and for each acceptance obligation state ESTABLISHED or ' +
+  'NOT ESTABLISHED with evidence. Distinguish implementation-quality verification from ' +
+  'behavioral acceptance. Report facts only — no design commentary, no new scope.';
+
+/**
+ * Instruction for the automatic review pass inserted after every completed
+ * verifier stage (unless the plan already schedules a reviewer next).
+ */
+const AUTO_REVIEW_INSTRUCTION =
+  'Automatic review pass for the just-completed verification stage. ' +
+  'Review the implementation and verification evidence against the acceptance boundary: ' +
+  'acceptance alignment, correctness, conventions, completeness, and risk. ' +
+  'Approve or request revisions with specific actionable findings. ' +
+  'Never modify files. Flag any interpretation that weakens or replaces the acceptance object.';
+
+interface AutoFollowUp {
+  readonly role: 'verifier' | 'reviewer';
+  readonly defaultAgentId: string;
+  readonly instruction: string;
+}
+
+/**
+ * Automatic follow-up stage per completed role: developer → verifier →
+ * reviewer. A follow-up is skipped when the plan already schedules that
+ * role next, so curated pipelines never duplicate stages.
+ */
+const AUTO_FOLLOW_UP: Record<'developer' | 'verifier', AutoFollowUp> = {
+  developer: {
+    role: 'verifier',
+    defaultAgentId: 'vestara-verifier',
+    instruction: AUTO_VERIFY_INSTRUCTION,
+  },
+  verifier: {
+    role: 'reviewer',
+    defaultAgentId: 'vestara-reviewer',
+    instruction: AUTO_REVIEW_INSTRUCTION,
+  },
+};
 
 const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   {
@@ -445,25 +499,7 @@ export class MultiAgentWorkflowOrchestrator {
     this.acceptanceBoundaries.set(workflowId, seedAcceptanceBoundary(workflowId, input.goal));
 
     for (const [index, spec] of input.stages.entries()) {
-      const thread = this.session.harness.createThread({
-        taskId: `${taskId}-${index}`,
-        title: `${spec.agentId}: ${spec.instruction.slice(0, 120)}`,
-        environment: this.environment,
-        metadata: {
-          agentId: spec.agentId,
-          role: spec.role ?? stageRole(spec.agentId),
-          workflowId,
-          runSource: 'multi-agent',
-          stageIndex: index,
-        },
-      });
-      await this.session
-        .createForRun({ threadId: thread.id, goal: input.goal, agentId: spec.agentId })
-        .catch(() => null);
-      void this.changeProjector
-        ?.captureBaseline({ threadId: thread.id as TaskThreadId, taskId: `${taskId}-${index}`, agentId: spec.agentId })
-        .catch(() => {});
-      stages.push({ role: spec.role ?? stageRole(spec.agentId), agentId: spec.agentId, threadId: thread.id });
+      stages.push(await this.createStageThread(workflowId, `${taskId}-${index}`, input.goal, spec, index));
     }
 
     // M7: Acquire a runtime session binding for this workflow run.
@@ -525,19 +561,34 @@ export class MultiAgentWorkflowOrchestrator {
     threadIds: readonly string[],
     runtimeSessionBinding?: RuntimeSessionBinding,
   ): Promise<void> {
+    const queue = specs.map((spec, index) => ({
+      spec,
+      threadId: threadIds[index] as TaskThreadId,
+      stageIndex: index,
+    }));
     let previousOutput: string | undefined;
-    for (let index = 0; index < specs.length; index++) {
-      const spec = specs[index];
-      const threadId = threadIds[index] as TaskThreadId;
-      const result = await this.runStage(spec, threadId, previousOutput, runtimeSessionBinding);
-      await this.syncStage(threadId);
+    let position = 0;
+    while (position < queue.length) {
+      const item = queue[position];
+      const result = await this.runStage(item.spec, item.threadId, previousOutput, runtimeSessionBinding);
+      await this.syncStage(item.threadId);
       if (result.approvalId) return; // paused at approval; resume() continues
       const state = result.turn.state;
       if (state !== 'completed') return; // chain stops on non-terminal outcome
       previousOutput = result.turn.outcome?.summary ?? previousOutput;
       // The interpreting stage may refine the acceptance boundary from its own
       // declared output. The boundary is never derived from a stage summary.
-      this.refineFromStageOutput(workflowId, threadId, spec.role);
+      this.refineFromStageOutput(workflowId, item.threadId, item.spec.role);
+      // Auto-follow-up: every completed developer stage is verified, and
+      // every completed verifier stage is reviewed — unless the plan
+      // already schedules that role next (the standard and full pipelines
+      // do — no duplicated stages).
+      const followUp = AUTO_FOLLOW_UP[item.spec.role as keyof typeof AUTO_FOLLOW_UP];
+      const next = queue[position + 1];
+      if (followUp && (!next || next.spec.role !== followUp.role)) {
+        queue.splice(position + 1, 0, await this.insertAutoFollowUp(workflowId, specs, item, followUp));
+      }
+      position += 1;
     }
     const boundary = this.acceptanceBoundaries.get(workflowId);
     this.session.harness.eventBus?.emit({
@@ -558,6 +609,77 @@ export class MultiAgentWorkflowOrchestrator {
         acceptance: boundary,
       },
     });
+  }
+
+  /**
+   * Create one durable stage thread (sibling of the workflow's other stages)
+   * with baseline capture, returning its stage record. Shared by `start()`
+   * and auto-verification inserts so every stage is created identically.
+   */
+  private async createStageThread(
+    workflowId: string,
+    taskId: string,
+    goal: string,
+    spec: MultiAgentStageSpec,
+    stageIndex: number,
+  ): Promise<MultiAgentStageRecord> {
+    const thread = this.session.harness.createThread({
+      taskId,
+      title: `${spec.agentId}: ${spec.instruction.slice(0, 120)}`,
+      environment: this.environment,
+      metadata: {
+        agentId: spec.agentId,
+        role: spec.role ?? stageRole(spec.agentId),
+        workflowId,
+        runSource: 'multi-agent',
+        stageIndex,
+      },
+    });
+    await this.session.createForRun({ threadId: thread.id, goal, agentId: spec.agentId }).catch(() => null);
+    void this.changeProjector
+      ?.captureBaseline({ threadId: thread.id as TaskThreadId, taskId, agentId: spec.agentId })
+      .catch(() => {});
+    return { role: spec.role ?? stageRole(spec.agentId), agentId: spec.agentId, threadId: thread.id };
+  }
+
+  /**
+   * Insert an automatic follow-up stage (verifier after developer, reviewer
+   * after verifier). Reuses the workflow's own agent for that role when the
+   * plan names one (so `agentIds` overrides are honored), otherwise falls
+   * back to the canonical vestara agent. The inserted stage runs through
+   * the same run/sync/approval/terminal path as planned stages when the
+   * chain reaches it.
+   */
+  private async insertAutoFollowUp(
+    workflowId: string,
+    specs: readonly MultiAgentStageSpec[],
+    completed: { spec: MultiAgentStageSpec; threadId: TaskThreadId; stageIndex: number },
+    followUp: AutoFollowUp,
+  ): Promise<{ spec: MultiAgentStageSpec; threadId: TaskThreadId; stageIndex: number }> {
+    const agentId = specs.find((spec) => spec.role === followUp.role)?.agentId ?? followUp.defaultAgentId;
+    const spec: MultiAgentStageSpec = {
+      role: followUp.role,
+      agentId,
+      instruction: followUp.instruction,
+    };
+    const goal = this.acceptanceBoundaries.get(workflowId)?.objective ?? 'Continue the workflow';
+    const baseTaskId =
+      this.session.harness.listThreads().find((thread) => thread.id === completed.threadId)?.taskId ??
+      completed.threadId;
+    const stageIndex = completed.stageIndex + 0.5;
+    const record = await this.createStageThread(workflowId, `${baseTaskId}-autofollowup`, goal, spec, stageIndex);
+    this.session.harness.eventBus?.emit({
+      type: 'multi-agent-workflow.stage.inserted',
+      source: 'multi-agent-workflow',
+      payload: {
+        workflowId,
+        afterRole: completed.spec.role,
+        role: followUp.role,
+        agentId,
+        threadId: record.threadId,
+      },
+    });
+    return { spec, threadId: record.threadId as TaskThreadId, stageIndex };
   }
 
   private async runStage(

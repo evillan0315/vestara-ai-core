@@ -66,7 +66,7 @@ Recommended Reading:
   <docs or files the Planner should review>
 ```
 
-Pass this report to the Planner agent. Do not suggest any actions.
+Pass this report to the Analyst agent (or to the Planner when no Analyst stage is planned). Do not suggest any actions.
 ---
 UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md):
 - Vestara design token mandatory: every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) (COLOR/SPACING/RADIUS/TYPOGRAPHY) — validate via pnpm vds:validate

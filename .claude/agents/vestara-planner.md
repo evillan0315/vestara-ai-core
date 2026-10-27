@@ -30,7 +30,7 @@ Acceptance obligations derived from the objective:
 - uncertainty: <material uncertainty affecting acceptance>  (only if genuinely present)
 ```
 
-Do not implement anything. Do not edit files. Pass the plan to the Developer.
+Do not implement anything. Do not edit files. Pass the plan to the Architect (or to the Developer when no Architect stage is planned).
 ---
 UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md):
 - Vestara design token mandatory: every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) (COLOR/SPACING/RADIUS/TYPOGRAPHY) — validate via pnpm vds:validate
