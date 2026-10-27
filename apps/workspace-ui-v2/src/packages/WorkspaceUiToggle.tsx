@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { isValidUiVersion, uiVersionDefault, uiVersionOptions } from '../lib/workspace-settings-model';
 import {
   fetchUiVersionState,
   saveUiVersion,
@@ -11,7 +12,6 @@ import {
   WORKSPACE_UI_VERSION_FIXTURE,
   WORKSPACE_UI_VERSION_HELP,
   WORKSPACE_UI_VERSION_OFFLINE_NOTE,
-  WORKSPACE_UI_VERSION_OPTIONS,
   WORKSPACE_UI_VERSION_UNAUTHORIZED_NOTE,
 } from './settings.fixtures';
 
@@ -43,9 +43,14 @@ export function WorkspaceUiToggle() {
   useEffect(() => {
     let cancelled = false;
     fetchUiVersionState()
-      .then((next) => {
+      .then(async (next) => {
         if (cancelled) return;
-        setState(next);
+        if (await isValidUiVersion(next.version)) {
+          setState(next);
+        } else {
+          setState({ ...next, version: uiVersionDefault() });
+          setNotice('Unexpected value from settings — showing the model default.');
+        }
         setStatus('ready');
       })
       .catch((error) => {
@@ -67,6 +72,10 @@ export function WorkspaceUiToggle() {
   const select = useCallback(
     async (target: WorkspaceUiVersion) => {
       if (status !== 'ready' || state.envLocked || target === state.version) return;
+      if (!(await isValidUiVersion(target))) {
+        setNotice('That value is not valid for this setting.');
+        return;
+      }
       setStatus('saving');
       setNotice(null);
       try {
@@ -113,7 +122,7 @@ export function WorkspaceUiToggle() {
           <fieldset>
             <legend className="sr-only">Workspace UI version</legend>
             <div className="inline-flex flex-wrap gap-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-shell)] bg-[var(--vestara-surface-shell-panel)] p-1">
-              {WORKSPACE_UI_VERSION_OPTIONS.map((option) => (
+              {uiVersionOptions().map((option) => (
                 <button
                   key={option.value}
                   type="button"
