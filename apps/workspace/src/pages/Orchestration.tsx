@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
-import { Badge, Button, EmptyState, Input, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
+import { Badge, Button, EmptyState, Input, List, ListItemText, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
 import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
@@ -481,7 +481,35 @@ function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
   );
 }
 
-function ProjectCards({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
+/** Row lamp for the projects list: blockers outrank approvals outrank phase. */
+function rowStatusVariant(
+  project: { status: string; phase: string },
+  metrics?: { tasks: { failed: number; blocked: number } },
+  approvalsCount = 0,
+): 'live' | 'warn' | 'error' | 'idle' {
+  if ((metrics?.tasks.failed ?? 0) + (metrics?.tasks.blocked ?? 0) > 0) return 'error';
+  if (approvalsCount > 0) return 'warn';
+  switch (project.status) {
+    case 'running':
+      return 'live';
+    case 'awaiting-approval':
+      return 'warn';
+    case 'cancelled':
+      return 'error';
+    case 'completed':
+      return 'idle';
+    default:
+      return 'idle';
+  }
+}
+
+/**
+ * Projects rail — compact list view aligned with @vestara/ui List primitives.
+ * Each row is a one-line summary (status lamp, name, phase + progress, badges,
+ * chevron); hovering or keyboard-focusing a row reveals the full card view
+ * inline, and selecting a row pins it open + loads the inspector.
+ */
+function ProjectList({ projects, metricsByProject, approvalsByProject, projectActions, nextProjectId, expandedId, busy, detail, onToggle, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
   projects: ProjectSummary[];
   metricsByProject: Record<string, ProjectMetrics>;
   approvalsByProject: Record<string, ApprovalTask[]>;
@@ -498,7 +526,7 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
   onRerun: (projectId: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-[var(--vestara-spacing-3)]">
+    <List dividers>
       {projects.map((project, i) => {
         const metrics = metricsByProject[project.id];
         const approvals = approvalsByProject[project.id] ?? [];
@@ -514,50 +542,86 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
         const badgeLabel = action ? getActionBadgeLabel(action, approvals, metrics) : null;
         const badgeGlyph = action ? NEXT_ACTION_GLYPHS[action.kind] : null;
         const isNext = nextProjectId !== null && project.id === nextProjectId;
+        const lamp = rowStatusVariant(project, metrics, approvals.length);
         return (
-          <div
+          <li
             key={project.id}
-            className="mpg-card mpg-enter min-w-0 p-[var(--vestara-spacing-4)]"
+            className="group mpg-enter min-w-0"
             style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
           >
-            <div className="flex items-start justify-between gap-[var(--vestara-spacing-2)]">
-              <h2 className="min-w-0 flex-1 truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
-                {project.name}
-              </h2>
-              <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
-                {isNext && (
-                  <span
-                    className="inline-flex items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]"
-                    aria-label={`Next recommended workflow: ${project.name}`}
-                  >
-                    Next
+            {/* List row — one-line summary mirroring ListItem tokens (selected /
+                hover / keyboard). Click selects; hover or focus reveals the
+                card view below. */}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: row owns selection like ListItem (Enter/Space handled, focus-visible ring); inner card buttons stay native. */}
+            <div
+              role="button"
+              tabIndex={0}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${project.name} — ${project.phase}, ${done} of ${total} tasks`}
+              onClick={() => onToggle(project.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onToggle(project.id);
+                }
+              }}
+              className={`flex cursor-pointer items-center gap-[var(--vestara-spacing-3)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-2)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--vestara-accent)] ${
+                expanded ? 'bg-[var(--vestara-accent-primary)]/10' : 'hover:bg-[var(--vestara-surface-interactive)]'
+              }`}
+            >
+              <span className="shrink-0">
+                <StatusIndicator variant={lamp} size="xs" pulse={project.phase === 'executing'} ariaLabel={project.status} />
+              </span>
+              <ListItemText
+                className="min-w-0 flex-1"
+                primary={
+                  <span className="flex min-w-0 items-center gap-[var(--vestara-spacing-element)]">
+                    <span className="truncate">{project.name}</span>
+                    {isNext && (
+                      <span
+                        className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]"
+                        aria-label={`Next recommended workflow: ${project.name}`}
+                      >
+                        Next
+                      </span>
+                    )}
                   </span>
-                )}
-                {action && badgeLabel && (
-                  <span
-                    className={`inline-flex items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold ${
-                      action.actionable
-                        ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]'
-                        : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-secondary)]'
-                    }`}
-                    title={`${action.title} — ${action.detail}`}
-                    aria-label={`${badgeLabel} in ${project.name}`}
-                  >
-                    {badgeGlyph} {badgeLabel}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onToggle(project.id)}
-                  className="shrink-0 cursor-pointer rounded-[var(--vestara-radius)] px-[var(--vestara-spacing-1)] font-mono text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-                  aria-expanded={expanded}
-                  aria-label={`${expanded ? 'Collapse' : 'Expand'} ${project.name}`}
+                }
+                secondary={`${project.phase.replaceAll('-', ' ')} · ${done}/${total} tasks · ${pct}%`}
+              />
+              {action && badgeLabel && (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-[var(--vestara-spacing-1)] rounded-[var(--vestara-radius-full)] border px-[var(--vestara-spacing-element)] py-0.5 font-mono text-[length:var(--vestara-font-size-xs)] font-semibold ${
+                    action.actionable
+                      ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]'
+                      : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] text-[var(--vestara-text-secondary)]'
+                  }`}
+                  title={`${action.title} — ${action.detail}`}
+                  aria-label={`${badgeLabel} in ${project.name}`}
                 >
-                  ⋯
-                </button>
-              </div>
+                  {badgeGlyph} {badgeLabel}
+                </span>
+              )}
+              <span
+                aria-hidden="true"
+                className={`shrink-0 font-mono text-[var(--vestara-text-muted)] transition-transform duration-200 ${
+                  expanded ? 'rotate-90' : ''
+                }`}
+              >
+                ›
+              </span>
             </div>
-            <div className="mt-[var(--vestara-spacing-2)] flex flex-wrap items-center gap-[var(--vestara-spacing-element)]">
+            {/* Card view — revealed on row hover/focus, pinned open while selected. */}
+            <div
+              className={`grid transition-[grid-template-rows,opacity] duration-200 ${
+                expanded
+                  ? 'grid-rows-[1fr] opacity-100'
+                  : 'grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 group-focus-within:grid-rows-[1fr] group-focus-within:opacity-100'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-4)]">
+            <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-element)]">
               <span className="workflow-status-chip" data-status={project.phase}>
                 {project.phase.replaceAll('-', ' ')}
               </span>
@@ -646,10 +710,13 @@ function ProjectCards({ projects, metricsByProject, approvalsByProject, projectA
                   )}
                 </div>
             )}
-          </div>
+                </div>
+              </div>
+            </div>
+          </li>
         );
       })}
-    </div>
+    </List>
   );
 }
 
@@ -1628,7 +1695,7 @@ export default function OrchestrationPage() {
                   }
                 />
               ) : (
-                <ProjectCards
+                <ProjectList
                   projects={orderedVisibleProjects}
                   metricsByProject={metricsByProject}
                   approvalsByProject={approvalsByProject}
