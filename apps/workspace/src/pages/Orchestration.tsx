@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ArtifactKind } from '@vestara/workflow-orchestrator';
-import { Badge, Button, EmptyState, Input, List, ListItemText, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
-import { Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
+import { ActionIcon, Badge, Button, EmptyState, Input, List, ListItemText, PanelHeader, StatusIndicator, Tabs } from '@vestara/ui';
+import { icons, Modal, OperationalPanel, ProgressBar, StatCard } from '@vestara/ui-components';
 import { WorkspaceTabs } from '../components/ui/WorkspaceTabs';
 import { WorkflowApprovalGate } from '../components/workflow/WorkflowApprovalGate';
 import { WorkflowBlockerActions } from '../components/workflow/WorkflowBlockerActions';
@@ -209,21 +210,23 @@ function ApprovalActions({ projectId, approvals, busy, onResolve }: {
               <p className="text-xs text-[var(--vestara-text-primary)]">{task.summary}</p>
               <p className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{task.approvalReason ?? 'high-risk change'}</p>
             </div>
-            <div className="flex items-center gap-[var(--vestara-spacing-2)]">
-              <button
+            <div className="flex items-center gap-[var(--vestara-spacing-1)]">
+              <ActionIcon
+                size="sm"
+                tone="success"
+                label={`Approve ${task.summary}`}
+                icon={<icons.Check size={14} />}
                 onClick={() => void onResolve(projectId, task.id, true)}
                 disabled={busy === task.id}
-                className="px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)] text-xs rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-status-success-bg)] border border-[var(--vestara-status-success-border)] text-[var(--vestara-status-success)] hover:brightness-125 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Approve
-              </button>
-              <button
+              />
+              <ActionIcon
+                size="sm"
+                tone="destructive"
+                label={`Deny ${task.summary}`}
+                icon={<icons.X size={14} />}
                 onClick={() => void onResolve(projectId, task.id, false)}
                 disabled={busy === task.id}
-                className="px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)] text-xs rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-status-error-bg)] border border-[var(--vestara-status-error-border)] text-[var(--vestara-status-error)] hover:brightness-125 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Deny
-              </button>
+              />
             </div>
           </div>
         ))}
@@ -481,6 +484,133 @@ function NextLane({ actions, projectsById, busyProjectId, onSelect }: {
   );
 }
 
+/**
+ * Full card view for one project — rendered inside the rail hover tooltip.
+ * Extracted so the tooltip shows the same card by construction (goal, phase
+ * chips, counts, progress, recommended-action banner, approvals, Re-run /
+ * Open graph, selection note).
+ */
+function ProjectCardBody({ project, metrics, approvals, action, busy, projectDetail, expanded, onResolveApproval, onOpenGraph, onExecuteAction, onRerun }: {
+  project: ProjectSummary;
+  metrics?: ProjectMetrics;
+  approvals: ApprovalTask[];
+  action: ReturnType<typeof getProjectAction> | undefined;
+  busy: string | null;
+  projectDetail?: { snapshot: Snapshot; audit: AuditEvent[] };
+  expanded: boolean;
+  onResolveApproval: (projectId: string, taskId: string, approved: boolean) => void;
+  onOpenGraph: (projectId: string) => void;
+  onExecuteAction: (projectId: string, kind: string) => void;
+  onRerun: (projectId: string) => void;
+}) {
+  const done = metrics?.tasks.completed ?? 0;
+  const total = metrics?.tasks.total ?? 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-element)]">
+        <span className="workflow-status-chip" data-status={project.phase}>
+          {project.phase.replaceAll('-', ' ')}
+        </span>
+        <span className="workflow-status-chip" data-status={project.status}>
+          {project.status.replaceAll('-', ' ')}
+        </span>
+      </div>
+      <p className="mt-[var(--vestara-spacing-2)] line-clamp-3 text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+        {project.goal}
+      </p>
+      {metrics && (
+        <p className="mt-[var(--vestara-spacing-2)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
+          {done}/{total} tasks · {metrics.retries} retries · {metrics.artifacts} artifacts
+        </p>
+      )}
+      {metrics && (
+        <div className="mt-[var(--vestara-spacing-2)]">
+          <ProgressBar pct={pct} size="sm" />
+        </div>
+      )}
+      <div className="mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)]">
+        <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+          Task progress {done}/{total} {pct}%
+        </span>
+        <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-1)]">
+          {RERUNNABLE_PHASES.has(project.phase) && (
+            <ActionIcon
+              size="sm"
+              label={
+                busy === `rerun-${project.id}`
+                  ? `Re-running ${project.name}…`
+                  : `Re-run ${project.name} — reset every task and run again from the executing phase`
+              }
+              icon={
+                <span aria-hidden="true" className="text-[length:var(--vestara-font-size-sm)]">
+                  ↻
+                </span>
+              }
+              onClick={() => onRerun(project.id)}
+              disabled={busy === `rerun-${project.id}`}
+            />
+          )}
+          <ActionIcon
+            size="sm"
+            label={`Open graph for ${project.name}`}
+            icon={<icons.ArrowRight size={14} />}
+            onClick={() => onOpenGraph(project.id)}
+          />
+        </div>
+      </div>
+
+      {action && (
+        <div
+          className={`mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border px-2.5 py-[var(--vestara-spacing-element)] ${
+            action.actionable
+              ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)]'
+              : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]'
+          }`}
+          role="status"
+          title={action.detail}
+        >
+          <span
+            className={`truncate text-[length:var(--vestara-font-size-xs)] ${
+              action.actionable ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-secondary)]'
+            }`}
+          >
+            {action.actionable ? '⚡' : 'ℹ'} {action.title}
+          </span>
+          <ActionIcon
+            size="sm"
+            tone="accent"
+            label={`${action.ctaLabel} for ${project.name}`}
+            tooltip={`${action.ctaLabel} — ${action.title}`}
+            icon={<icons.ArrowRight size={14} />}
+            onClick={() => onExecuteAction(project.id, action.kind)}
+          />
+        </div>
+      )}
+
+      <ApprovalActions projectId={project.id} approvals={approvals} busy={busy} onResolve={onResolveApproval} />
+
+      {expanded && (
+        <div className="workflow-project-selection-note">
+          {projectDetail ? (
+            <>
+              <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
+              <ActionIcon
+                size="sm"
+                label={`Open graph for ${project.name}`}
+                icon={<icons.ArrowRight size={14} />}
+                onClick={() => onOpenGraph(project.id)}
+              />
+            </>
+          ) : (
+            <span>Loading workflow snapshot...</span>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Row lamp for the projects list: blockers outrank approvals outrank phase. */
 function rowStatusVariant(
   project: { status: string; phase: string },
@@ -525,14 +655,82 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
   onExecuteAction: (projectId: string, kind: string) => void;
   onRerun: (projectId: string) => void;
 }) {
+  // Hover/focus tooltip anchor — a floating card preview positioned beside
+  // the hovered row (portal to document.body so rail scroll never clips it).
+  const [preview, setPreview] = useState<{ id: string; top: number; left: number } | null>(null);
+  const closeTimer = useRef<number | null>(null);
+  const tooltipId = useId();
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  const previewOpen = preview !== null;
+  useEffect(() => {
+    if (!previewOpen) return;
+    const dismiss = () => setPreview(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dismiss();
+    };
+    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('resize', dismiss);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('resize', dismiss);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [previewOpen]);
+
+  const openPreview = useCallback(
+    (projectId: string, anchor: HTMLElement) => {
+      cancelClose();
+      const rect = anchor.getBoundingClientRect();
+      const gap = 8;
+      const width = 320;
+      let left = rect.right + gap;
+      if (left + width > window.innerWidth - gap) left = Math.max(gap, rect.left - width - gap);
+      const top = Math.min(Math.max(gap, rect.top - 4), Math.max(gap, window.innerHeight - 240));
+      setPreview((current) => (current?.id === projectId ? current : { id: projectId, top, left }));
+    },
+    [cancelClose],
+  );
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setPreview(null), 150);
+  }, [cancelClose]);
+
+  const previewProject = preview ? (projects.find((project) => project.id === preview.id) ?? null) : null;
+  const previewData = previewProject
+    ? {
+        project: previewProject,
+        metrics: metricsByProject[previewProject.id],
+        approvals: approvalsByProject[previewProject.id] ?? [],
+        action: projectActions[previewProject.id],
+        projectDetail: detail[previewProject.id],
+        expanded: expandedId === previewProject.id,
+      }
+    : null;
+
   return (
+    <>
     <List dividers>
       {projects.map((project, i) => {
         const metrics = metricsByProject[project.id];
         const approvals = approvalsByProject[project.id] ?? [];
         const action = projectActions[project.id];
         const expanded = expandedId === project.id;
-        const projectDetail = detail[project.id];
         const done = metrics?.tasks.completed ?? 0;
         const total = metrics?.tasks.total ?? 0;
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -546,19 +744,26 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
         return (
           <li
             key={project.id}
-            className="group mpg-enter min-w-0"
+            className="mpg-enter min-w-0"
             style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+            onMouseEnter={(event) => openPreview(project.id, event.currentTarget)}
+            onMouseLeave={scheduleClose}
           >
             {/* List row — one-line summary mirroring ListItem tokens (selected /
-                hover / keyboard). Click selects; hover or focus reveals the
-                card view below. */}
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: row owns selection like ListItem (Enter/Space handled, focus-visible ring); inner card buttons stay native. */}
+                hover / keyboard). Click selects; hover or focus opens the
+                floating card tooltip. */}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: row owns selection like ListItem (Enter/Space handled, focus-visible ring); tooltip buttons stay native. */}
             <div
               role="button"
               tabIndex={0}
               aria-expanded={expanded}
+              aria-describedby={preview?.id === project.id ? tooltipId : undefined}
               aria-label={`${expanded ? 'Collapse' : 'Expand'} ${project.name} — ${project.phase}, ${done} of ${total} tasks`}
               onClick={() => onToggle(project.id)}
+              onFocus={(event) => openPreview(project.id, event.currentTarget)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleClose();
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
@@ -611,112 +816,44 @@ function ProjectList({ projects, metricsByProject, approvalsByProject, projectAc
                 ›
               </span>
             </div>
-            {/* Card view — revealed on row hover/focus, pinned open while selected. */}
-            <div
-              className={`grid transition-[grid-template-rows,opacity] duration-200 ${
-                expanded
-                  ? 'grid-rows-[1fr] opacity-100'
-                  : 'grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 group-focus-within:grid-rows-[1fr] group-focus-within:opacity-100'
-              }`}
-            >
-              <div className="overflow-hidden">
-                <div className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-4)]">
-            <div className="flex flex-wrap items-center gap-[var(--vestara-spacing-element)]">
-              <span className="workflow-status-chip" data-status={project.phase}>
-                {project.phase.replaceAll('-', ' ')}
-              </span>
-              <span className="workflow-status-chip" data-status={project.status}>
-                {project.status.replaceAll('-', ' ')}
-              </span>
-            </div>
-            <p className="mt-[var(--vestara-spacing-2)] line-clamp-3 text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-              {project.goal}
-            </p>
-            {metrics && (
-              <p className="mt-[var(--vestara-spacing-2)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]">
-                {done}/{total} tasks · {metrics.retries} retries · {metrics.artifacts} artifacts
-              </p>
-            )}
-            {metrics && (
-              <div className="mt-[var(--vestara-spacing-2)]">
-                <ProgressBar pct={pct} size="sm" />
-              </div>
-            )}
-            <div className="mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)]">
-              <span className="font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                Task progress {done}/{total} {pct}%
-              </span>
-              <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)]">
-                {RERUNNABLE_PHASES.has(project.phase) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRerun(project.id)}
-                    disabled={busy === `rerun-${project.id}`}
-                    title={`Reset every task and run ${project.name} again from the executing phase`}
-                  >
-                    {busy === `rerun-${project.id}` ? 'Re-running…' : 'Re-run'}
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" onClick={() => onOpenGraph(project.id)}>
-                  Open graph
-                </Button>
-              </div>
-            </div>
-
-            {action && (
-              <div
-                className={`mt-[var(--vestara-spacing-2)] flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-lg)] border px-2.5 py-[var(--vestara-spacing-element)] ${
-                  action.actionable
-                    ? 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)]'
-                    : 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)]'
-                }`}
-                role="status"
-                title={action.detail}
-              >
-                <span
-                  className={`truncate text-[length:var(--vestara-font-size-xs)] ${
-                    action.actionable
-                      ? 'text-[var(--vestara-status-warning)]'
-                      : 'text-[var(--vestara-text-secondary)]'
-                  }`}
-                >
-                  {action.actionable ? '⚡' : 'ℹ'} {action.title}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onExecuteAction(project.id, action.kind)}
-                  aria-label={`${action.ctaLabel} for ${project.name}`}
-                  className="shrink-0 cursor-pointer font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] hover:underline"
-                >
-                  {action.ctaLabel}
-                </button>
-              </div>
-            )}
-
-            <ApprovalActions projectId={project.id} approvals={approvals} busy={busy} onResolve={onResolveApproval} />
-
-            {expanded && (
-                <div className="workflow-project-selection-note">
-                  {projectDetail ? (
-                    <>
-                      <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
-                      <button type="button" className="workflow-tab-action" onClick={() => onOpenGraph(project.id)}>
-                        Open graph
-                      </button>
-                    </>
-                  ) : (
-                    <span>Loading workflow snapshot...</span>
-                  )}
-                </div>
-            )}
-                </div>
-              </div>
-            </div>
           </li>
         );
       })}
     </List>
+    {previewData &&
+      createPortal(
+        <div
+          id={tooltipId}
+          role="tooltip"
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+          onFocus={cancelClose}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleClose();
+          }}
+          className="fixed z-[var(--vestara-z-index-tooltip)] w-80 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-[var(--vestara-spacing-4)] shadow-[var(--vestara-elevation-lg)]"
+          style={{ top: preview?.top, left: preview?.left, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}
+        >
+          <div className="mb-[var(--vestara-spacing-2)] truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
+            {previewData.project.name}
+          </div>
+          <ProjectCardBody
+            project={previewData.project}
+            metrics={previewData.metrics}
+            approvals={previewData.approvals}
+            action={previewData.action}
+            busy={busy}
+            projectDetail={previewData.projectDetail}
+            expanded={previewData.expanded}
+            onResolveApproval={onResolveApproval}
+            onOpenGraph={onOpenGraph}
+            onExecuteAction={onExecuteAction}
+            onRerun={onRerun}
+          />
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
