@@ -10,6 +10,35 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-28] — Live Voice Streaming (P0 + WS slice)
+
+### Added
+
+- **Server STT/TTS went live** — `WhisperSTTProvider.transcribe` and
+  `PiperTTSProvider.synthesize` execute real CLIs (ffmpeg normalization,
+  sidecar parsing, temp cleanup, async execution). `GET /api/voice/health`
+  and `GET /api/voice/models` report per-engine availability with the exact
+  missing piece; `POST /api/tts` returns WAV with `X-Audio-Duration` (503,
+  never faked, when unconfigured).
+- **Incremental voice streaming over `WS /ws/voice`** — token-authed socket
+  on the `StreamingSTTProvider` contracts: `WhisperChunkedStreamingProvider`
+  segments utterances behind an energy VAD and forwards partial/final
+  transcript events. Proven live: ready → final → session closed → stopped.
+- **v2 Voice Streaming engine picker** — STT source (Browser / Whisper
+  live-WS-then-batch / OpenCode) and TTS source (System / Server / OpenCode
+  persona) with disabled-with-reason unavailable engines and measured
+  latencies where the transport reports them.
+
+### Fixed
+
+- **`POST /api/stt` corrupted binary uploads** — the hardened body reader
+  decodes text, so raw WAV bytes arrived mangled and whisper returned empty.
+  The endpoint now takes JSON `{audio: base64, language}`; the v2 client
+  sends base64. Legacy raw path retained.
+- **Provider availability was construction-time stale** — a whisper/Piper
+  installed after boot stayed "unavailable" until restart. Availability
+  re-resolves per call; input validation fires before environment checks.
+
 ## [2026-10-19] — Conversation Store: Native SQLite, Write Amplification Removed
 
 ### Fixed

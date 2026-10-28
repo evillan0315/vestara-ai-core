@@ -290,6 +290,9 @@ importers:
       '@vestara/marketplace':
         specifier: workspace:*
         version: link:../../packages/marketplace
+      '@vestara/media-conference':
+        specifier: workspace:*
+        version: link:../../packages/media-conference
       '@vestara/memory':
         specifier: workspace:*
         version: link:../../packages/memory
@@ -344,6 +347,9 @@ importers:
       '@vestara/tools-shell':
         specifier: workspace:*
         version: link:../../packages/tools/shell
+      '@vestara/tts':
+        specifier: workspace:*
+        version: link:../../packages/tts
       '@vestara/tui-projections':
         specifier: workspace:*
         version: link:../../packages/tui-projections

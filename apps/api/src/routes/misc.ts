@@ -199,8 +199,39 @@ export async function handleMiscRoute(
   if (method === 'POST' && p === '/api/stt') {
     try {
       const raw = await readBody(req);
-      const audio = toArrayBuffer(raw);
-      const result = await getSttService().transcribe(audio, 'en');
+      // Preferred: JSON {audio: base64, language}. Raw bytes are legacy —
+      // the hardened body reader decodes text, which corrupts binary WAVs.
+      let audio: ArrayBuffer;
+      let language = 'en';
+      try {
+        const url = new URL(req.url ?? '/api/stt', 'http://localhost');
+        const queryLang = url.searchParams.get('language')?.trim();
+        if (queryLang) language = queryLang;
+      } catch {
+        // Unparseable URL — keep the default language.
+      }
+      let parsed: unknown = null;
+      let isJson = false;
+      if (raw) {
+        try {
+          parsed = JSON.parse(raw);
+          isJson = true;
+        } catch {
+          // Legacy raw bytes — handled below (lossy for binary WAVs).
+        }
+      }
+      if (isJson) {
+        const body = (parsed ?? {}) as { audio?: unknown; language?: unknown };
+        if (typeof body.audio !== 'string' || !body.audio) {
+          throw new Error('stt requires base64 audio in JSON {audio, language}');
+        }
+        const bytes = Buffer.from(body.audio, 'base64');
+        audio = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        if (typeof body.language === 'string' && body.language.trim()) language = body.language.trim();
+      } else {
+        audio = toArrayBuffer(raw);
+      }
+      const result = await getSttService().transcribe(audio, language);
       json(res, 200, { text: result.text, confidence: result.confidence, duration: result.duration });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

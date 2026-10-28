@@ -1254,6 +1254,24 @@ Source:      4468 lines
 
 **Status**: ✅ Complete
 
+### v4.8 — Live Voice Streaming ✅ Complete
+
+**Objective**: Promote the v4.0 STT/TTS detection stubs to working live engines: server-side Whisper transcription and Piper synthesis with honest availability, plus incremental utterance streaming over a WebSocket for the v2 Voice Streaming UI.
+
+**Key artifacts**:
+
+- `WhisperSTTProvider` — real CLI execution (ffmpeg 16 kHz normalization, sidecar/stdout parsing, temp-dir cleanup, async so concurrent sessions never block the loop)
+- `PiperTTSProvider` — real CLI synthesis with `VESTARA_PIPER_BIN` / `VESTARA_PIPER_MODEL` / `VESTARA_PIPER_VOICES_DIR` / `VESTARA_TTS_VOICES` resolution and WAV duration parsing
+- `WhisperChunkedStreamingProvider` — utterance-batched `StreamingSTTProvider` (energy VAD segmentation, flush partials, overflow/cancel/backpressure session events)
+- `WS /ws/voice` — token-authed incremental streaming (`voice.start/audio/hint/flush/stop` → `voice.ready/partial/final/correction/session/stopped/error`), binary int16 + base64 JSON intake
+- `POST /api/stt` JSON `{audio: base64, language}` transport (raw bytes corrupt binary WAVs through the text body reader; legacy raw path retained)
+- v2 UI engine picker — STT source (Browser / Whisper live-WS-then-batch / OpenCode) and TTS source (System / Server Piper / OpenCode persona) with disabled-with-reason unavailable engines
+- `GET /api/voice/health`, `GET /api/voice/models`, `POST /api/tts` (WAV + duration header, 503 with the missing piece when unconfigured)
+
+**Verification**: provisioned whisper + ffmpeg + Piper on the host; live round trip proven against a booted API — `voice.ready → voice.final ("Hello from Vistara Voice.", seg-1, 0.9) → voice.session closed → voice.stopped`; `POST /api/tts → 200 audio/wav`.
+
+**Status**: ✅ Complete
+
 ---
 
 ## Operational Era

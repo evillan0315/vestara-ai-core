@@ -75,6 +75,7 @@ import { handleTerminalRoute } from './routes/terminal';
 import { handleTuiRoute } from './routes/tui';
 import { handleVerifierRoute } from './routes/verifier';
 import { handleVoiceRoute } from './routes/voice';
+import { attachVoiceWss, VOICE_WS_PATH } from './routes/voice-ws';
 import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
@@ -226,7 +227,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/telemetry'], handler: handleTelemetryRoute },
   { prefixes: ['/api/tui'], handler: tuiAdapter },
   { prefixes: ['/api/terminal'], handler: handleTerminalRoute },
-  { prefixes: ['/api/voice'], handler: handleVoiceRoute },
+  { prefixes: ['/api/voice', '/api/tts'], handler: handleVoiceRoute },
   { prefixes: ['/api/telegram'], handler: handleTelegramRoute },
 ];
 
@@ -825,6 +826,10 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
   // socket detaches the viewer — the session survives (UI lifecycle ≠
   // execution lifecycle) until killed, timed out, or server shutdown.
   const terminalWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+  // Voice streaming (WS /ws/voice): utterance-batched incremental STT over
+  // the StreamingSTTProvider contracts. Attached below after creation.
+  const voiceWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+  attachVoiceWss(voiceWss, ctx);
 
   // M11A is initialized before createServer() in the API entrypoint. Attach
   // M11B before the HTTP server can accept upgrades; an async dynamic import
@@ -875,6 +880,10 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
     }
     if (pathname === '/ws/terminal') {
       terminalWss.handleUpgrade(req, socket, head, (ws) => terminalWss.emit('connection', ws, req));
+      return;
+    }
+    if (pathname === VOICE_WS_PATH) {
+      voiceWss.handleUpgrade(req, socket, head, (ws) => voiceWss.emit('connection', ws, req));
       return;
     }
     socket.destroy();

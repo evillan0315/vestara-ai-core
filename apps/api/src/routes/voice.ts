@@ -9,9 +9,42 @@
 
 import type * as http from 'node:http';
 import type { BrowserRuntimeService } from '@vestara/browser-runtime';
+import { describeWhisperAvailability, VestaraSTTService, WhisperSTTProvider } from '@vestara/stt';
+import {
+  describePiperAvailability,
+  listPiperVoices,
+  PIPER_MAX_TEXT,
+  PiperTTSProvider,
+  VestaraTTSService,
+} from '@vestara/tts';
 import { type BrowserAction, BrowserEngineAdapter, intentToAction, parseVoiceIntent } from '@vestara/voice-browser';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
+
+// Lazy voice services — real providers when the binaries/models are present,
+// honest `unavailable` health otherwise (see describeWhisperAvailability /
+// describePiperAvailability). Never throws at construction.
+let sttService: VestaraSTTService | undefined;
+function getSttService(): VestaraSTTService {
+  if (!sttService) {
+    sttService = new VestaraSTTService({});
+    sttService.registerProvider(new WhisperSTTProvider());
+  }
+  return sttService;
+}
+
+let ttsService: VestaraTTSService | undefined;
+function getTtsService(): VestaraTTSService {
+  if (!ttsService) {
+    ttsService = new VestaraTTSService({});
+    ttsService.registerProvider(new PiperTTSProvider());
+  }
+  return ttsService;
+}
+
+function num(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
 
 async function readJson(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   const raw = await readBody(req);
@@ -65,6 +98,118 @@ export async function handleVoiceRoute(
   _port: number,
   _url: URL,
 ): Promise<boolean> {
+  if (!p.startsWith('/api/voice') && !p.startsWith('/api/tts')) return false;
+
+  // ── Live voice endpoints (no browser runtime required) ──────────
+
+  if (method === 'GET' && p === '/api/voice/health') {
+    const stt = getSttService();
+    const tts = getTtsService();
+    const [sttHealth, ttsHealth] = await Promise.all([stt.healthCheck(), tts.healthCheck()]);
+    const whisper = describeWhisperAvailability();
+    json(res, 200, {
+      stt: {
+        available: sttHealth.status === 'healthy',
+        provider: stt.providerName,
+        latency: sttHealth.latency,
+        detail: whisper.detail,
+      },
+      tts: {
+        available: ttsHealth.status === 'healthy',
+        provider: tts.providerName,
+        latency: ttsHealth.latency,
+        detail: describePiperAvailability().detail,
+      },
+      streaming: {
+        supported: whisper.available,
+        endpoint: '/ws/voice',
+        detail: whisper.available
+          ? 'Incremental utterance streaming over WS /ws/voice (?token=); batch POST /api/stt + /api/tts remain live'
+          : 'WS /ws/voice requires whisper on the server — batch POST /api/stt remains the fallback',
+      },
+    });
+    return true;
+  }
+
+  if (method === 'GET' && p === '/api/voice/models') {
+    const whisper = describeWhisperAvailability();
+    const piper = describePiperAvailability();
+    json(res, 200, {
+      sttEngines: [
+        {
+          id: 'browser',
+          name: 'Browser Web Speech',
+          available: true,
+          detail: 'Built-in SpeechRecognition — no server needed, Chrome/Edge only',
+        },
+        {
+          id: 'whisper',
+          name: 'Whisper (server)',
+          available: whisper.available,
+          detail: whisper.detail,
+        },
+        {
+          id: 'opencode',
+          name: 'OpenCode audio model',
+          available: null,
+          detail: 'Audio-capable configured models via GET /api/opencode/config/providers (capabilities input.audio)',
+        },
+      ],
+      ttsEngines: [
+        {
+          id: 'system',
+          name: 'System voices',
+          available: true,
+          detail: 'Built-in speechSynthesis — no server needed',
+        },
+        {
+          id: 'server',
+          name: 'Piper (server)',
+          available: piper.available,
+          detail: piper.detail,
+        },
+        {
+          id: 'opencode',
+          name: 'OpenCode audio model',
+          available: null,
+          detail: 'Audio-capable configured models via GET /api/opencode/config/providers (capabilities output.audio)',
+        },
+      ],
+      ttsVoices: listPiperVoices(),
+    });
+    return true;
+  }
+
+  if (method === 'POST' && (p === '/api/tts' || p === '/api/voice/tts')) {
+    try {
+      const body = await readJson(req);
+      const text = str(body.text)?.trim();
+      if (!text) throw new Error('tts requires non-empty text');
+      if (text.length > PIPER_MAX_TEXT) throw new Error(`tts input capped at ${PIPER_MAX_TEXT} characters`);
+      const voice = str(body.voice);
+      const speed = num(body.speed);
+      const { audio, duration } = await getTtsService().synthesize(text, {
+        ...(voice ? { voice } : {}),
+        ...(speed !== undefined ? { speed } : {}),
+      });
+      const bytes = Buffer.from(audio);
+      res.writeHead(200, {
+        'Content-Type': 'audio/wav',
+        'Content-Length': bytes.byteLength,
+        'X-Audio-Duration': duration.toFixed(2),
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(bytes);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const unavailable = /not available/i.test(message);
+      json(res, unavailable ? 503 : 400, { error: message });
+    }
+    return true;
+  }
+
   if (!p.startsWith('/api/voice')) return false;
 
   try {
