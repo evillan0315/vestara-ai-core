@@ -122,6 +122,15 @@ describe('openVoiceSocket', () => {
     expect((audio[0].data as string).length).toBeGreaterThan(4000);
   });
 
+  it('rejects ready on handshake timeout instead of hanging Record', async () => {
+    stubSocket();
+    const socket = openVoiceSocket('tok', {}, 'en', 30);
+    FakeSocket.instances[0].open();
+    // No voice.ready ever arrives (swallowed upgrade / stale server).
+    await expect(socket.ready).rejects.toMatchObject({ message: 'Voice streaming handshake timed out' });
+    expect(FakeSocket.instances[0].closed).not.toBeNull();
+  });
+
   it('rejects ready when the socket fails first', async () => {
     stubSocket();
     const errors: string[] = [];

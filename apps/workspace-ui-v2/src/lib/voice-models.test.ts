@@ -78,6 +78,30 @@ describe('fetchVoiceModels', () => {
     });
   });
 
+  it('collapses duplicate model ids to one row per provider', async () => {
+    stubFetch(async () => {
+      const voice = (id: string) => ({
+        id,
+        name: id,
+        family: 'f',
+        capabilities: { input: { audio: true }, output: { audio: true } },
+      });
+      return ok({
+        providers: [
+          { id: 'opencode', name: 'OpenCode', models: [voice('gemini-4-argon'), voice('gemini-4-argon')] },
+          { id: 'acme', name: 'Acme', models: [voice('gemini-4-argon')] },
+        ],
+        default: {},
+      });
+    });
+    const catalog = await fetchVoiceModels();
+    expect(catalog.stt.map((m) => `${m.providerId}/${m.modelId}`).sort()).toEqual([
+      'acme/gemini-4-argon',
+      'opencode/gemini-4-argon',
+    ]);
+    expect(catalog.tts).toHaveLength(2);
+  });
+
   it('returns an empty catalog when nothing is configured', async () => {
     stubFetch(async () => ok({ providers: [], default: {} }));
     await expect(fetchVoiceModels()).resolves.toEqual({

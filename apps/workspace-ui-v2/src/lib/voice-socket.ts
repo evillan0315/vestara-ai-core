@@ -47,8 +47,16 @@ export interface VoiceSocket {
 /**
  * Open an incremental streaming session. The socket stays usable across
  * VAD-bounded utterances until stop() (finalize) + close().
+ * `readyTimeoutMs` bounds the voice.ready wait — a proxy that swallows the
+ * upgrade (or a stale server that never answers) rejects instead of hanging
+ * the caller on Record forever.
  */
-export function openVoiceSocket(token: string, events: VoiceSocketEvents, language = 'en'): VoiceSocket {
+export function openVoiceSocket(
+  token: string,
+  events: VoiceSocketEvents,
+  language = 'en',
+  readyTimeoutMs = 8000,
+): VoiceSocket {
   const base = wsBaseUrl();
   if (!base) throw new VoiceSocketApiError('Voice streaming needs an HTTP(S) origin');
   if (typeof WebSocket === 'undefined') throw new VoiceSocketApiError('WebSocket unavailable in this browser');
@@ -69,6 +77,17 @@ export function openVoiceSocket(token: string, events: VoiceSocketEvents, langua
   let readySettled = false;
   let stoppedSettled = false;
   let closed = false;
+  const readyTimer = setTimeout(() => {
+    if (!readySettled) {
+      settleReady(new VoiceSocketApiError('Voice streaming handshake timed out'));
+      try {
+        socket.close(1001, 'handshake timeout');
+      } catch {
+        // Already gone.
+      }
+    }
+  }, readyTimeoutMs);
+  if (typeof readyTimer === 'object') readyTimer.unref?.();
   // Internal sink: early failures reject stopped too, and consumers that
   // only await ready must not trigger unhandled rejections. Awaiting
   // stopped elsewhere still observes the rejection via its own handler.
@@ -79,6 +98,7 @@ export function openVoiceSocket(token: string, events: VoiceSocketEvents, langua
   const settleReady = (error?: Error): void => {
     if (readySettled) return;
     readySettled = true;
+    clearTimeout(readyTimer);
     if (error) rejectReady(error);
     else resolveReady();
   };

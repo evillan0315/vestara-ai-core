@@ -60,6 +60,23 @@ describe('WhisperChunkedStreamingProvider', () => {
     expect(life.map((e) => e.type)).toEqual(['closed']);
   });
 
+  it('skips empty transcriptions instead of blanking the transcript', async () => {
+    const silent: WhisperTranscriber = async () => ({ text: '   ', confidence: 0, duration: 0.1 });
+    const provider = new WhisperChunkedStreamingProvider({
+      transcriber: silent,
+      segmenter: { silenceEndFrames: 5 },
+    });
+    const session = await provider.open(config);
+    const transcripts = collect<TranscriptEvent>(session.events());
+    const lifecycle = collect<StreamingSessionEvent>(session.sessionEvents());
+    session.push(frame(tone(1)));
+    session.push(frame(silence(0.5)));
+    await session.flush();
+    await session.close();
+    expect(await transcripts).toHaveLength(0);
+    expect((await lifecycle).map((e) => e.type)).toEqual(['closed']);
+  });
+
   it('drops sub-minimum noise blips', async () => {
     const provider = new WhisperChunkedStreamingProvider({
       transcriber: stubTranscriber,

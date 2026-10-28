@@ -508,6 +508,7 @@ export class WhisperChunkedTranscriptionSession implements StreamingTranscriptio
     try {
       const result = await this.transcriber(wav, this.language);
       if (this.cancelled || this.closed) return;
+      if (!result.text.trim()) return; // heard nothing — no blank interim row
       this.queues.transcript.push({
         type: 'partial',
         segmentId,
@@ -636,6 +637,7 @@ export class WhisperChunkedTranscriptionSession implements StreamingTranscriptio
     try {
       const result = await this.transcriber(wav, this.language);
       if (this.cancelled || this.finalized) return;
+      if (!result.text.trim()) return; // heard nothing — no blank final row
       this.utterances += 1;
       this.partialSegment = null;
       this.queues.transcript.push({

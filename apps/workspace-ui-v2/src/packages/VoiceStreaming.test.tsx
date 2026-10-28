@@ -480,6 +480,109 @@ describe('VoiceStreamingPkg', () => {
     expect(await screen.findByText('server hello')).toBeTruthy();
   });
 
+  it('drops empty live results instead of blanking the transcript', async () => {
+    class FakeEmptySocket {
+      static instances: FakeEmptySocket[] = [];
+
+      url: string;
+
+      readyState = 0;
+
+      onopen: (() => void) | null = null;
+
+      onmessage: ((event: { data: string }) => void) | null = null;
+
+      onerror: (() => void) | null = null;
+
+      onclose: ((event: { code: number }) => void) | null = null;
+
+      sent: string[] = [];
+
+      closed: { code: number } | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        FakeEmptySocket.instances.push(this);
+      }
+
+      send(data: string): void {
+        this.sent.push(data);
+      }
+
+      close(code = 1000): void {
+        this.readyState = 3;
+        this.closed = { code };
+        this.onclose?.({ code });
+      }
+
+      open(): void {
+        this.readyState = 1;
+        this.onopen?.();
+      }
+
+      receive(message: unknown): void {
+        this.onmessage?.({ data: JSON.stringify(message) });
+      }
+    }
+    FakeEmptySocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeEmptySocket);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [] })) },
+      configurable: true,
+    });
+    class FakeEmptyAudioContext {
+      sampleRate = 48000;
+
+      destination = {};
+
+      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() });
+
+      createAnalyser = () => ({ fftSize: 0, frequencyBinCount: 4, getByteFrequencyData: vi.fn() });
+
+      createScriptProcessor = () => ({ connect: vi.fn(), disconnect: vi.fn(), onaudioprocess: null });
+
+      createGain = () => ({ connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } });
+
+      resume = async () => {};
+
+      close = async () => {};
+    }
+    Object.defineProperty(window, 'AudioContext', { value: FakeEmptyAudioContext, configurable: true });
+    stubFetch(async (url) => {
+      if (url.startsWith('/api/voice/models')) {
+        return ok({
+          sttEngines: [{ id: 'whisper', name: 'Whisper', available: true, detail: 'ready' }],
+          ttsEngines: [],
+          ttsVoices: [],
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    localStorage.setItem('vestara-assistant-token', 'test-token');
+    render(<VoiceStreamingPkg />);
+    expect(await screen.findByText('SNAPSHOT')).toBeTruthy();
+    const whisper = screen.getByRole('radio', { name: 'STT source engine: Whisper' });
+    await waitFor(() => expect((whisper as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(whisper);
+    fireEvent.click(screen.getByRole('button', { name: /^record$/i }));
+    await waitFor(() => expect(FakeEmptySocket.instances).toHaveLength(1));
+    const live = FakeEmptySocket.instances[0];
+    live.open();
+    live.receive({ op: 'voice.ready', sessionId: 's1', engine: 'whisper-chunked' });
+    expect(await screen.findByText('Whisper live • WS streaming')).toBeTruthy();
+    // Empty interim creates no row; an empty final neither blanks nor appends.
+    live.receive({ op: 'voice.partial', text: '   ' });
+    live.receive({ op: 'voice.final', text: '', confidence: 0 });
+    await act(async () => {});
+    expect(screen.getByText(/Press Record to start streaming STT/)).toBeTruthy();
+    expect(screen.queryByText('Interim')).toBeNull();
+    expect(screen.queryByText('Final')).toBeNull();
+    // A real final afterwards still lands normally.
+    live.receive({ op: 'voice.final', text: 'hello there', confidence: 0.95 });
+    expect(await screen.findByText('hello there')).toBeTruthy();
+    expect(screen.getByText('Final')).toBeTruthy();
+  });
+
   it('streams Whisper utterances live over the voice socket', async () => {
     class FakeLiveSocket {
       static instances: FakeLiveSocket[] = [];
@@ -531,24 +634,30 @@ describe('VoiceStreamingPkg', () => {
       configurable: true,
     });
     const processors: Array<{ onaudioprocess: ((event: unknown) => void) | null }> = [];
-    // new-able: arrow implementations are not constructible.
-    const fakeAudioContext = vi.fn(function () {
-      return {
-        sampleRate: 48000,
-        createMediaStreamSource: () => ({ connect: vi.fn(), disconnect: vi.fn() }),
-        createAnalyser: () => ({ fftSize: 0, frequencyBinCount: 4, getByteFrequencyData: vi.fn() }),
-        createScriptProcessor: () => {
-          const processor = { connect: vi.fn(), disconnect: vi.fn(), onaudioprocess: null };
-          processors.push(processor);
-          return processor;
-        },
-        createGain: () => ({ connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } }),
-        destination: {},
-        resume: async () => {},
-        close: async () => {},
+    // Class, not vi.fn(arrow): the component news the constructor up, and
+    // the formatter rewrites function-returning-literals into arrows.
+    class FakeAudioContext {
+      sampleRate = 48000;
+
+      destination = {};
+
+      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() });
+
+      createAnalyser = () => ({ fftSize: 0, frequencyBinCount: 4, getByteFrequencyData: vi.fn() });
+
+      createScriptProcessor = () => {
+        const processor = { connect: vi.fn(), disconnect: vi.fn(), onaudioprocess: null };
+        processors.push(processor as { onaudioprocess: ((event: unknown) => void) | null });
+        return processor;
       };
-    });
-    Object.defineProperty(window, 'AudioContext', { value: fakeAudioContext, configurable: true });
+
+      createGain = () => ({ connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } });
+
+      resume = async () => {};
+
+      close = async () => {};
+    }
+    Object.defineProperty(window, 'AudioContext', { value: FakeAudioContext, configurable: true });
     stubFetch(async (url) => {
       if (url.startsWith('/api/voice/models')) {
         return ok({
@@ -667,6 +776,43 @@ describe('VoiceStreamingPkg', () => {
     await waitFor(() => expect((server as HTMLInputElement).disabled).toBe(false));
     fireEvent.click(server);
     expect(await screen.findByText('English Piper')).toBeTruthy();
+  });
+
+  it('renders same-id models from different providers without duplicate keys', async () => {
+    const errors: unknown[][] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args);
+    });
+    try {
+      const voice = (id: string, name: string) => ({
+        id,
+        name,
+        family: 'f',
+        capabilities: { input: { audio: true }, output: { audio: true } },
+      });
+      stubFetch(async (url) => {
+        if (url.startsWith('/api/voice/models')) return ok({ sttEngines: [], ttsEngines: [], ttsVoices: [] });
+        if (url.startsWith('/api/opencode/config/providers')) {
+          return ok({
+            providers: [
+              { id: 'opencode', name: 'OpenCode', models: [voice('gemini-4-argon', 'Argon • OpenCode')] },
+              { id: 'acme', name: 'Acme', models: [voice('gemini-4-argon', 'Argon • Acme')] },
+            ],
+            default: {},
+          });
+        }
+        throw new Error(`unexpected ${url}`);
+      });
+      render(<VoiceStreamingPkg />);
+      expect(await screen.findByText('LIVE')).toBeTruthy();
+      // Both provider rows survive in the unfiltered view…
+      expect(screen.getAllByText('Argon • OpenCode')).toHaveLength(2);
+      expect(screen.getAllByText('Argon • Acme')).toHaveLength(2);
+      // …and no duplicate-key warning was emitted.
+      expect(errors.flat().join(' ')).not.toContain('same key');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('filters the model lists by live voice provider', async () => {

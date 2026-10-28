@@ -164,6 +164,12 @@ export async function fetchVoiceModels(): Promise<VoiceModelCatalog> {
   };
   const rawProviders = Array.isArray(data?.providers) ? data.providers : [];
   const models: VoiceProviderModel[] = [];
+  // The same model id can appear under several providers (e.g. aliases) or
+  // twice within one provider (variants). Rows are keyed
+  // `${providerId}/${modelId}` downstream, so collapse exact duplicates here
+  // (first wins) — otherwise sibling rows share a React key and the list
+  // corrupts on update.
+  const seenModels = new Set<string>();
   for (const provider of rawProviders) {
     if (typeof provider?.id !== 'string' || !provider.id) continue;
     const name = typeof provider.name === 'string' && provider.name ? provider.name : provider.id;
@@ -174,7 +180,11 @@ export async function fetchVoiceModels(): Promise<VoiceModelCatalog> {
         : [];
     for (const raw of rawModels) {
       const normalized = normalizeModel(provider.id, name, (raw ?? {}) as Parameters<typeof normalizeModel>[2]);
-      if (normalized) models.push(normalized);
+      if (!normalized) continue;
+      const key = `${normalized.providerId}/${normalized.modelId}`;
+      if (seenModels.has(key)) continue;
+      seenModels.add(key);
+      models.push(normalized);
     }
   }
   const byProvider = new Map<string, { name: string; audio: number; total: number }>();

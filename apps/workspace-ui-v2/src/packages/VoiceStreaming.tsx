@@ -477,6 +477,9 @@ export function VoiceStreamingPkg() {
   };
 
   const appendLiveResult = (result: SpeechResult) => {
+    // Empty results (whisper heard nothing, muted mic) must never blank an
+    // interim row or append an empty final — drop them, and never duplex them.
+    if (!result.text.trim()) return;
     setStreamLatency(60 + Math.floor(Math.random() * 80));
     if (result.isFinal) {
       const finalized = interimIdRef.current;
@@ -580,7 +583,6 @@ export function VoiceStreamingPkg() {
       return;
     }
     setEngineNote('Whisper batch • transcribes on stop');
-    setEngineNote(null);
     let stream: MediaStream | null = null;
     try {
       const mic = await openMicrophone();
@@ -950,7 +952,7 @@ export function VoiceStreamingPkg() {
               )}
               {visibleStt.map((m) => (
                 <button
-                  key={m.id}
+                  key={`${m.provider}/${m.id}`}
                   type="button"
                   onClick={() => setSelectedSTTModel(m.id)}
                   className={`w-full text-left px-2 py-2 rounded-[var(--vestara-radius-lg)] border ${selectedSTTModel === m.id ? 'bg-[var(--vestara-accent-shell)]/10 border-[var(--vestara-accent-shell)]/30' : 'bg-[var(--vestara-surface-shell-raised)] border-[var(--vestara-border-shell)] hover:border-[var(--vestara-accent-shell)]/20'}`}
@@ -1056,7 +1058,7 @@ export function VoiceStreamingPkg() {
                 )}
                 {visibleTts.map((v) => (
                   <button
-                    key={v.id}
+                    key={`${v.provider}/${v.id}`}
                     type="button"
                     onClick={() => setSelectedVoice(v.id)}
                     className={`w-full text-left px-2 py-1.5 rounded-[var(--vestara-radius-lg)] border flex items-center gap-2 ${selectedVoice === v.id ? 'bg-[var(--vestara-accent-theme-violet)]/10 border-[var(--vestara-accent-theme-violet)]/30' : 'bg-[var(--vestara-surface-shell-raised)] border-[var(--vestara-border-shell)]'}`}
