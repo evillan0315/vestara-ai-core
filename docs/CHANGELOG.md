@@ -10,6 +10,31 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Package Browser-Build Hardening
+
+### Fixed
+
+- **Native ESM shipment** (`packages/assistant`) — the package shipped
+  CommonJS, whose getter-based re-export emit Vite's raw-file CJS interop
+  cannot statically analyze (`AssistantTurn` unresolvable in v1 dev).
+  Now `"type": "module"` with `.js`-suffixed relative imports, matching the
+  `@vestara/ui` / `ui-tokens` browser-package convention.
+- **Zero runtime deps for browsers** (`packages/assistant/src/store.ts`) —
+  `isAssistantExecutionDetail` was imported from CJS `@vestara/shared`,
+  whose `__exportStar` emit Rollup cannot resolve in production bundles
+  (first runtime value import from a CJS package in the browser bundle;
+  all previous shared imports were type-only). The package owns the same
+  validation; only `import type` remains. The v1 hook imports the guard
+  from the package.
+
+### Verification
+
+- `pnpm --filter @vestara/workspace-ui build` ✅ (tsc + vite, ~57s) ·
+  `pnpm --filter workspace-ui-v2 build` ✅ (~6s) · package vitest 28/28 ·
+  `dependencies:check` ✅ · `biome check` ✅.
+- `MILESTONES` recorded as GA-ASSIST-TOOL-004. Standing rule noted:
+  browser-imported workspace packages must be `"type": "module"`.
+
 ## [2026-10-31] — Assistant Adoption: v1 Rewire + v2 Migration (stages 3–5)
 
 ### Changed

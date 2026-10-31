@@ -7321,4 +7321,32 @@ Adoption: v1 Rewire + v2 Migration (stages 3–5)`.
 `stream-reattach` upgrade (active-poll + rehydrate retained and working);
 TUI/Telegram consumers; presentational convergence (stays per-app).
 
+## GA-ASSIST-TOOL-004 — Assistant Package Browser-Build Hardening ✅ 2026-10-31
+
+**Objective**: make `@vestara/assistant` actually load in both workspace
+UIs — the package as first shipped broke v1 dev (unresolvable export) and
+v1/v2 production builds (unresolvable shared import).
+
+**What changed** (commits `6d283c4`, `5890a54`):
+
+- `packages/assistant/package.json` — `"type": "module"`; all relative
+  imports `.js`-suffixed (the repo's own `type: module` exception, same as
+  `@vestara/ui` / `ui-tokens`). `dist` now carries static `export`
+  statements Vite resolves natively.
+- `packages/assistant/src/store.ts` — package-local
+  `isAssistantExecutionDetail` (same semantics as the hook's long-shipped
+  check); `import type` from `@vestara/shared` only. Package has zero
+  runtime dependencies for browsers.
+- `apps/workspace/src/hooks/useAssistantConversation.ts` — guard imported
+  from the package instead of `@vestara/shared`.
+
+**Verification**: `pnpm --filter @vestara/workspace-ui build` ✅ ·
+`pnpm --filter workspace-ui-v2 build` ✅ · package vitest 28/28 ·
+`dependencies:check` ✅ · `biome check` ✅. `CHANGELOG` recorded under
+`[2026-10-31] — Assistant Package Browser-Build Hardening`.
+
+**Not claimed**: converting the repo's pre-existing server-side CJS majority
+(explicitly out of scope); a CI gate asserting browser bundles import no
+CJS runtime values (recommended if UI builds gate CI).
+
 
