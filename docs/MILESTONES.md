@@ -7251,4 +7251,39 @@ and an unwired confinement check.
 (tracked future work); cross-restart broker audit persistence (in-memory,
 bounded); multi-tab budget coordination.
 
+## GA-ASSIST-TOOL-002 — Independent Assistant Client Package ✅ 2026-10-31 (stages 1–2)
+
+**Objective**: extract the assistant client (transport + turn state) into its
+own boundary-clean package so workspace v1, workspace-ui v2, and future
+non-React consumers share one implementation instead of two forks. No app
+code touched in this stage — the package proves out standalone first.
+
+**What changed** (commit `b02a271`, new `packages/assistant/`):
+
+- `transport.ts` — auth/session, conversation CRUD read, SSE stream with
+  `executionConfig` + `onEvent` fan-out (v2 fork dropped non-delta frames;
+  the package surfaces them), cancel/active/latest-text/messages fallback,
+  `createAssistantTransport({ baseUrl, fetchFn })` factory (base injected per
+  app, `fetchFn` injectable for tests).
+- `sse.ts` — `parseStreamFrames` with verbatim `execution` passthrough and
+  malformed-frame tolerance.
+- `store.ts` — framework-free `AssistantTurn` ported from the v1 hook
+  (op-id keying, FIFO, structured upserts, ASK queues, `hist-*`
+  rehydration), validating details via `@vestara/shared`
+  `isAssistantExecutionDetail`.
+- `react.ts` — `useAssistantTurn` thin binding; `fixtures.ts` — offline
+  thread (v2 shell-action starters stay app-local).
+- Deps: `@vestara/shared` only (+ React peer/dev for the binding);
+  `workspace-architecture.mjs` needed no changes (auto-absorbed as the
+  123rd project); `pnpm-lock.yaml` updated.
+
+**Verification**: `bash build-order.sh` ✅ · `pnpm dependencies:check` ✅ ·
+`pnpm check:source-artifacts` ✅ · `biome check` ✅ ·
+`pnpm vds:validate` ✅ · package vitest 26/26 ✅.
+`CHANGELOG` recorded under `[2026-10-31] — Independent Assistant Client
+Package (stages 1–2)`.
+
+**Not claimed**: v1/v2 app adoption (stages 3–5); TUI/Telegram consumers;
+presentational components (stay per-app by UI governance).
+
 

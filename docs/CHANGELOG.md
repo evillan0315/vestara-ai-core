@@ -10,6 +10,38 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Independent Assistant Client Package (stages 1–2)
+
+### Added
+
+- **New `packages/assistant` (`@vestara/assistant`, commit `b02a271`)** —
+  framework-free assistant client shared by workspace v1, workspace-ui v2,
+  and future non-React consumers (TUI, Telegram). Zero app code touched.
+- **`transport.ts`** — auth, conversations, SSE stream with `executionConfig`
+  passthrough and an `onEvent` fan-out (tool/tool_result/status/permission/
+  question frames are surfaced, not dropped), cancel/active/latest-text,
+  `getConversation` with `toolObservations`, bound-client factory (base URL
+  injected — no `import.meta`, CJS-safe). Ported from the v2 `assistant-api`
+  fork with stage-2 extensions.
+- **`sse.ts`** — blank-line frame parser, verbatim `execution` passthrough,
+  malformed-frame tolerant (one bad line never kills the turn).
+- **`store.ts`** — `AssistantTurn`: op-id keyed cards, no same-name merge,
+  FIFO completion, explicit-state-wins, structured edit/terminal/verification
+  upserts, task snapshot, pending ASK queues, historic rehydration with
+  deterministic `hist-*` ids. Binds `@vestara/shared` validators.
+- **`react.ts`** — `useAssistantTurn` thin binding; **`fixtures.ts`** —
+  offline-first thread (app shell-action starters stay in the apps).
+- **26 tests** (`__tests__`/sse, fixtures, transport, store, react) —
+  React binding tested via static markup, no DOM needed.
+
+### Verification
+
+- `bash build-order.sh` ✅ (123 projects — package auto-absorbed) ·
+  `pnpm dependencies:check` ✅ · `pnpm check:source-artifacts` ✅ ·
+  `biome check` ✅ · `pnpm vds:validate` ✅ · targeted vitest 26/26 ✅.
+- `MILESTONES` recorded as GA-ASSIST-TOOL-002. App adoption (v1 rewire,
+  v2 migration, fork deletion) is stages 3–5, out of this scope.
+
 ## [2026-10-31] — Assistant Tool Correctness & Policy Hardening
 
 ### Fixed
