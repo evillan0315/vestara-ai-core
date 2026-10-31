@@ -10,6 +10,39 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Streaming 02/03: bash live output + progressive reads
+
+### Changed
+
+- **Bash running preview end-to-end** (`packages/shared/src/assistant-execution.ts`,
+  `apps/api/src/assistant-execution-projection.ts`,
+  `apps/workspace/src/hooks/useAssistantConversation.ts`,
+  `apps/workspace-ui-v2/src/components/FloatingAssistant.tsx`) — the
+  normalizer now permits bounded `tool.preview` / `terminal.outputPreview` on
+  `running` (was `completed`-only); `shell.started` and running tool parts
+  forward partial output when the runtime supplies it; `tool` chunks feed the
+  detail into `AssistantTurn.onExecution` so `AssistantTerminal` appends live
+  (stick-to-bottom unless scrolled up). No fabricated deltas: absent partial
+  output renders the previous placeholder.
+- **Progressive read cards** (`packages/assistant/src/store.ts`,
+  `apps/workspace/src/components/assistant/AssistantToolCard.tsx`,
+  `ConversationPanel.tsx`) — `AssistantTurn` gains `structuredReads`
+  (op-id upsert, reset); the v1 timeline supersedes the generic read row
+  with the durable `ToolObservationRenderer` read card (request-context file
+  live, numbered rows on completion). OpenCode 1.18.27 emits reads
+  atomically, so this is file-immediately + content-on-completion, not
+  per-line deltas.
+
+### Verification
+
+- `pnpm --filter @vestara/assistant test` ✅ 28/28 · projection suites
+  (`assistant-edit-projection`, `assistant-opencode-tool-budget`) ✅ 12/12 ·
+  touched-file `biome check` clean except pre-existing `noVoidTypeReturn`.
+  `apps/api` full suite: 288/289 (1 pre-existing env failure in
+  `diagnostics-toolchain`, unrelated).
+- Tasks `ASSIST-STREAM-001/02`, `/03` complete (3/6). Next: `04` running
+  preview + edit live header.
+
 ## [2026-10-31] — Assistant Streaming 01: operation correlation fix
 
 ### Fixed

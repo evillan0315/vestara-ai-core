@@ -218,6 +218,7 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
               execution.kind !== 'task-snapshot'
                 ? execution.operationId
                 : undefined;
+            if (execution && operationId) turn.onExecution(frame?.execution);
             turn.onToolStart(frame?.name ?? 'tool', operationId);
           } else if (type === 'tool_result') {
             turn.onExecution(frame?.execution);

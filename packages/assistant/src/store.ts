@@ -97,6 +97,7 @@ function previewFor(detail: AssistantExecutionDetail, fallback: string): string 
 export class AssistantTurn {
   readonly operations: AssistantToolOperation[] = [];
   readonly structuredEdits: StructuredProjection[] = [];
+  readonly structuredReads: StructuredProjection[] = [];
   readonly structuredTerminals: StructuredProjection[] = [];
   readonly structuredVerifications: StructuredProjection[] = [];
   taskSnapshot: AssistantExecutionDetail | null = null;
@@ -206,6 +207,7 @@ export class AssistantTurn {
     if (!isAssistantExecutionDetail(value)) return;
     const execution = value;
     if (execution.kind === 'edit') this.upsertStructured(this.structuredEdits, execution);
+    else if (execution.kind === 'read') this.upsertStructured(this.structuredReads, execution);
     else if (execution.kind === 'terminal') this.upsertStructured(this.structuredTerminals, execution);
     else if (execution.kind === 'verification') this.upsertStructured(this.structuredVerifications, execution);
     else if (execution.kind === 'task-snapshot') this.taskSnapshot = execution;
@@ -261,6 +263,7 @@ export class AssistantTurn {
   reset(): void {
     this.operations.length = 0;
     this.structuredEdits.length = 0;
+    this.structuredReads.length = 0;
     this.structuredTerminals.length = 0;
     this.structuredVerifications.length = 0;
     this.taskSnapshot = null;

@@ -36,6 +36,7 @@ import type {
   AssistantToolOperation,
   OptimisticHumanTurn,
   StructuredEditOperation,
+  StructuredReadOperation,
   StructuredTerminalOperation,
   StructuredVerificationOperation,
   UseAssistantConversationReturn,
@@ -340,6 +341,7 @@ function ActiveTurn({
   status,
   operations,
   structuredEdits,
+  structuredReads,
   structuredTerminals,
   structuredVerifications,
   taskSnapshot,
@@ -349,6 +351,7 @@ function ActiveTurn({
   status?: string | null;
   operations?: AssistantToolOperation[];
   structuredEdits?: readonly StructuredEditOperation[];
+  structuredReads?: readonly StructuredReadOperation[];
   structuredTerminals?: readonly StructuredTerminalOperation[];
   structuredVerifications?: readonly StructuredVerificationOperation[];
   taskSnapshot?: AssistantExecutionDetail | null;
@@ -356,7 +359,7 @@ function ActiveTurn({
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
-  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || (structuredVerifications?.length ?? 0) > 0 || !!taskSnapshot;
+  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredReads?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || (structuredVerifications?.length ?? 0) > 0 || !!taskSnapshot;
 
   // GA-UX-CLEANUP: Suppress redundant task narration when structured execution
   // state is available. The task checklist + execution timeline already show
@@ -410,6 +413,7 @@ function ActiveTurn({
           <AssistantExecutionTimeline
             operations={ops}
             structuredEdits={structuredEdits}
+            structuredReads={structuredReads}
             structuredTerminals={structuredTerminals}
             structuredVerifications={structuredVerifications}
             taskSnapshot={taskSnapshot}
@@ -1929,6 +1933,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             status={assistant.streamStatus}
             operations={assistant.toolOperations ?? []}
             structuredEdits={assistant.structuredEdits ?? []}
+            structuredReads={assistant.structuredReads ?? []}
             structuredTerminals={assistant.structuredTerminals ?? []}
             structuredVerifications={assistant.structuredVerifications ?? []}
             taskSnapshot={assistant.taskSnapshot ?? null}
@@ -1944,6 +1949,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     assistant.streamStatus,
     assistant.toolOperations,
     assistant.structuredEdits,
+    assistant.structuredReads,
     assistant.structuredTerminals,
     assistant.structuredVerifications,
     assistant.taskSnapshot,

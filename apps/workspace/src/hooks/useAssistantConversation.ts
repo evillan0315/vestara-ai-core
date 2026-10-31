@@ -229,6 +229,12 @@ export interface UseAssistantConversationReturn {
    */
   structuredVerifications: StructuredVerificationOperation[];
   /**
+   * Structured read projections (ASSIST-STREAM-001/03). Parallel to
+   * `toolOperations`; a structured read supersedes the generic row for the
+   * same operation identity (request-context file live, content on completion).
+   */
+  structuredReads: StructuredReadOperation[];
+  /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). `todo.updated` events
    * are complete replacement snapshots — the checklist presents the most
    * recent one. Transient (per active turn); never persisted.
@@ -289,6 +295,15 @@ export interface StructuredVerificationOperation {
   /** The authoritative `assistant.execution.v1` verification detail. */
   detail: AssistantExecutionDetail;
   /** Client op id this verification supersedes, if correlated. */
+  supersedesOpId?: string;
+}
+
+export interface StructuredReadOperation {
+  /** Stable upstream operation identity (OpenCode callID). */
+  operationId: string;
+  /** The authoritative `assistant.execution.v1` read detail. */
+  detail: AssistantExecutionDetail;
+  /** Client op id this read supersedes, if correlated. */
   supersedesOpId?: string;
 }
 
@@ -393,6 +408,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const [, bumpTurn] = useReducer((version: number) => version + 1, 0);
   const toolOperations: AssistantToolOperation[] = turn.operations;
   const structuredEdits: StructuredEditOperation[] = turn.structuredEdits;
+  const structuredReads: StructuredReadOperation[] = turn.structuredReads;
   const structuredTerminals: StructuredTerminalOperation[] = turn.structuredTerminals;
   const structuredVerifications: StructuredVerificationOperation[] = turn.structuredVerifications;
   const taskSnapshot: AssistantExecutionDetail | null = turn.taskSnapshot;
@@ -406,10 +422,11 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     },
     [turn],
   );
-  /** Record one `tool` chunk start. */
+  /** Record one `tool` chunk start, feeding running execution detail live. */
   const pushToolStart = useCallback(
-    (name: string, operationId?: string) => {
-      turn.onToolStart(name, operationId);
+    (name: string, execution?: AssistantExecutionDetail) => {
+      if (execution) turn.onExecution(execution);
+      turn.onToolStart(name, execution?.operationId);
       bumpTurn();
     },
     [turn],
@@ -676,7 +693,9 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                   setStreamStatus(
                     toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
                   );
-                  pushToolStart(toolName, toolOperationId(chunk?.event?.execution));
+                  const startExecution = toExecutionDetail(chunk?.event?.execution);
+                  if (startExecution && toolOperationId(startExecution)) pushToolStart(toolName, startExecution);
+                  else pushToolStart(toolName);
                 } else if (eventType === 'tool_result') {
                   setStreamStatus('Preparing response…');
                   const toolName = typeof chunk?.event?.name === 'string' ? chunk.event.name : '';
@@ -1118,7 +1137,9 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 setStreamStatus(
                   toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
                 );
-                pushToolStart(toolName, toolOperationId(data?.event?.execution));
+                const startExecution = toExecutionDetail(data?.event?.execution);
+                if (startExecution && toolOperationId(startExecution)) pushToolStart(toolName, startExecution);
+                else pushToolStart(toolName);
               } else if (eventType === 'tool_result') {
                 setStreamStatus('Preparing response…');
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
@@ -1437,6 +1458,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     streamError,
     toolOperations,
     structuredEdits,
+    structuredReads,
     structuredTerminals,
     structuredVerifications,
     taskSnapshot,

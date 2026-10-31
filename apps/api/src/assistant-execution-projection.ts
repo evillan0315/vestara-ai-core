@@ -126,7 +126,7 @@ export function projectToolFailed(event: OpenCodeEventLike): AssistantExecutionD
   });
 }
 
-/** `session.next.shell.started` → running terminal. */
+/** `session.next.shell.started` → running terminal (partial output when the runtime supplies it). */
 export function projectTerminalStarted(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
   if (!isEvent(event, EVENT.shellStarted)) return undefined;
   const payload = event.payload ?? {};
@@ -136,6 +136,7 @@ export function projectTerminalStarted(event: OpenCodeEventLike): AssistantExecu
     ...baseEnvelope(callID, 'running', payload, 'terminal'),
     kind: 'terminal',
     command: str(payload.command),
+    outputPreview: str(payload.output) ?? str(payload.content),
   });
 }
 
@@ -203,6 +204,12 @@ export function projectMessagePartUpdated(event: OpenCodeEventLike): AssistantEx
     // Preview = bounded part output (never the raw full output verbatim past
     // the bound); `title` stays the allowlisted display title.
     toolPayload.preview = str(state?.output) ?? str(state?.title);
+  } else {
+    // Running parts may already carry partial output (e.g. bash streaming
+    // via tool parts). Forward it boundedly so the live terminal/tool card
+    // can append; absent output stays undefined (no fabrication).
+    const partial = str(state?.output);
+    if (partial !== undefined) toolPayload.preview = partial;
   }
   return projectDetail(toolPayload);
 }

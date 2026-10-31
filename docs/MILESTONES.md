@@ -7372,4 +7372,31 @@ touched-file `biome check` clean except pre-existing `noVoidTypeReturn` ·
 **Not claimed**: incremental bash/read/edit output streaming (`02`/`03`);
 running previews and timeline virtualization (`04`/`05`).
 
+## ASSIST-STREAM-001/02-03 — Bash Live Output + Progressive Reads ✅ 2026-10-31
+
+**Objective**: render what the runtime already emits — running terminal/read
+evidence live instead of placeholder-until-completed.
+
+**What changed** (`ASSIST-STREAM-001/02`, `/03`):
+
+- `packages/shared/src/assistant-execution.ts` — normalizer permits bounded
+  `tool.preview` / `terminal.outputPreview` on `running` (was completed-only).
+- `apps/api/src/assistant-execution-projection.ts` — `shell.started` carries
+  partial output when present; running tool parts forward `state.output` as
+  bounded preview (absent stays absent).
+- `useAssistantConversation.ts` — `pushToolStart` takes the execution detail
+  and feeds `onExecution` (running terminal/edit/read upsert live);
+  `FloatingAssistant.tsx` mirrors it. `AssistantTurn` gains `structuredReads`.
+- `AssistantToolCard.tsx` + `ConversationPanel.tsx` — timeline supersedes
+  the generic read row with the durable read card (file live, rows on
+  completion); one operation, one presentation.
+
+**Verification**: assistant 28/28 · projection suites 12/12 · touched-file
+biome clean except pre-existing `noVoidTypeReturn` · `CHANGELOG` recorded
+under `[2026-10-31] — Assistant Streaming 02/03`. `ASSIST-STREAM-001` 3/6.
+
+**Not claimed**: per-line read deltas (runtime emits reads atomically);
+running generic-card previews and edit live headers (`04`); timeline
+virtualization (`05`).
+
 

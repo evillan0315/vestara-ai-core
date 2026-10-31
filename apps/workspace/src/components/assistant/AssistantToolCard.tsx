@@ -15,12 +15,13 @@
  */
 
 import { memo, Profiler } from 'react';
-import type { AssistantExecutionDetail, EditExecutionDetail, TerminalExecutionDetail, VerificationExecutionDetail } from '@vestara/shared';
-import type { AssistantToolOperation, StructuredEditOperation, StructuredTerminalOperation, StructuredVerificationOperation } from '../../hooks/useAssistantConversation';
+import type { AssistantExecutionDetail, EditExecutionDetail, ReadExecutionDetail, TerminalExecutionDetail, ToolObservation, VerificationExecutionDetail } from '@vestara/shared';
+import type { AssistantToolOperation, StructuredEditOperation, StructuredReadOperation, StructuredTerminalOperation, StructuredVerificationOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
 import { AssistantTerminal } from './AssistantTerminal';
 import { AssistantVerification } from './AssistantVerification';
 import { AssistantTodoChecklist } from './AssistantTodoChecklist';
+import { ToolObservationRenderer } from './ToolObservationRenderer';
 
 // ─── Type guard ─────────────────────────────────────────────────
 
@@ -43,6 +44,28 @@ function isVerificationDetail(
   verification: StructuredVerificationOperation,
 ): verification is StructuredVerificationOperation & { detail: VerificationExecutionDetail } {
   return verification.detail.kind === 'verification';
+}
+
+/** Narrow a structured read's detail to the read variant the observation renderer consumes. */
+function isReadDetail(
+  read: StructuredReadOperation,
+): read is StructuredReadOperation & { detail: ReadExecutionDetail } {
+  return read.detail.kind === 'read';
+}
+
+/** Map a live read detail to a transient observation for the durable read card. */
+function toReadObservation(detail: ReadExecutionDetail): ToolObservation {
+  return {
+    toolCallId: detail.operationId,
+    operationId: detail.operationId,
+    observationKind: 'read',
+    toolName: detail.tool ?? 'read',
+    status: detail.state,
+    timestamp: new Date(detail.timestamp).toISOString(),
+    content: detail.contentPreview ?? '',
+    ...(detail.error ? { error: detail.error } : {}),
+    read: detail,
+  };
 }
 
 /** React Profiler callback for timeline performance monitoring (dev only). */
@@ -304,6 +327,11 @@ export interface AssistantExecutionTimelineProps {
    */
   structuredVerifications?: readonly StructuredVerificationOperation[];
   /**
+   * Structured read projections (ASSIST-STREAM-001/03). A structured read
+   * supersedes the generic M2 row for the same operation identity.
+   */
+  structuredReads?: readonly StructuredReadOperation[];
+  /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). One evolving checklist;
    * each todo.updated snapshot replaces the previous.
    */
@@ -328,24 +356,27 @@ export function AssistantExecutionTimeline({
   structuredEdits = [],
   structuredTerminals = [],
   structuredVerifications = [],
+  structuredReads = [],
   taskSnapshot,
   onOpenInEditor,
   expanded,
   onToggle,
 }: AssistantExecutionTimelineProps) {
-  if (operations.length === 0 && structuredEdits.length === 0 && structuredTerminals.length === 0 && structuredVerifications.length === 0 && !taskSnapshot) return null;
+  if (operations.length === 0 && structuredEdits.length === 0 && structuredReads.length === 0 && structuredTerminals.length === 0 && structuredVerifications.length === 0 && !taskSnapshot) return null;
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
 
   const supersededOpIds = new Set([
     ...structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined),
+    ...structuredReads.map((read) => read.supersedesOpId).filter((id): id is string => id !== undefined),
     ...structuredTerminals.map((t) => t.supersedesOpId).filter((id): id is string => id !== undefined),
     ...structuredVerifications.map((v) => v.supersedesOpId).filter((id): id is string => id !== undefined),
   ]);
   const standaloneEdits = structuredEdits.filter((edit) => edit.supersedesOpId === undefined);
+  const standaloneReads = structuredReads.filter((read) => read.supersedesOpId === undefined);
   const standaloneTerminals = structuredTerminals.filter((t) => t.supersedesOpId === undefined);
   const standaloneVerifications = structuredVerifications.filter((v) => v.supersedesOpId === undefined);
-  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneTerminals.length + standaloneVerifications.length;
+  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneReads.length + standaloneTerminals.length + standaloneVerifications.length;
   const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
 
   return (
@@ -392,6 +423,16 @@ export function AssistantExecutionTimeline({
                   />
                 );
               }
+              const read = structuredReads.find((entry) => entry.supersedesOpId === op.id);
+              if (read && isReadDetail(read)) {
+                return (
+                  <ToolObservationRenderer
+                    key={`read-${read.operationId}`}
+                    observations={[toReadObservation(read.detail)]}
+                    onOpenInEditor={onOpenInEditor}
+                  />
+                );
+              }
               const terminal = structuredTerminals.find((entry) => entry.supersedesOpId === op.id);
               if (terminal && isTerminalDetail(terminal)) {
                 return (
@@ -416,6 +457,13 @@ export function AssistantExecutionTimeline({
           })}
           {standaloneEdits.filter(isEditDetail).map((edit) => (
             <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
+          ))}
+          {standaloneReads.filter(isReadDetail).map((read) => (
+            <ToolObservationRenderer
+              key={`read-${read.operationId}`}
+              observations={[toReadObservation(read.detail)]}
+              onOpenInEditor={onOpenInEditor}
+            />
           ))}
           {standaloneTerminals.filter(isTerminalDetail).map((terminal) => (
             <AssistantTerminal key={`terminal-${terminal.operationId}`} detail={terminal.detail} />

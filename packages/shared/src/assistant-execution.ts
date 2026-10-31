@@ -577,7 +577,10 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         kind: 'tool',
         tool: base.tool ?? 'tool',
         title: boundedString(record.title, 200),
-        preview: state === 'completed' ? boundedString(record.preview, ASSISTANT_EXECUTION_BOUNDS.preview) : undefined,
+        preview:
+          state === 'running' || state === 'completed'
+            ? boundedString(record.preview, ASSISTANT_EXECUTION_BOUNDS.preview)
+            : undefined,
         error: state === 'failed' ? boundedString(record.error, ASSISTANT_EXECUTION_BOUNDS.error) : undefined,
         durationMs: boundedNumber(record.durationMs),
       };
@@ -683,7 +686,7 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         exitCode: boundedNumber(record.exitCode),
         durationMs: boundedNumber(record.durationMs),
         outputPreview:
-          state === 'completed'
+          state === 'running' || state === 'completed'
             ? boundedString(record.outputPreview, ASSISTANT_EXECUTION_BOUNDS.terminalOutputPreview)
             : undefined,
         cwdProvenance: record.cwdProvenance === 'runtime-provided' ? 'runtime-provided' : 'unavailable',
