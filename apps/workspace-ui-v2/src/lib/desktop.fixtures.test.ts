@@ -21,6 +21,7 @@ const ALL_TYPES: WinType[] = [
   'agent',
   'diagnostic',
   'activity',
+  'voice',
 ];
 
 describe('desktop fixtures', () => {
@@ -33,8 +34,8 @@ describe('desktop fixtures', () => {
     for (const t of ALL_TYPES) expect(WINDOW_TITLES[t]).toBeTruthy();
   });
 
-  it('dock order holds 8 known types', () => {
-    expect(DOCK_TYPES).toHaveLength(8);
+  it('dock order holds 9 known types', () => {
+    expect(DOCK_TYPES).toHaveLength(9);
     for (const t of DOCK_TYPES) expect(ALL_TYPES).toContain(t);
   });
 

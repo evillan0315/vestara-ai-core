@@ -194,9 +194,11 @@ export function LoginScreen({
   );
 
   return (
-    <div className="absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden bg-[var(--ds-canvas-bg)]">
-      <StartupWallpaper />
-      <div aria-hidden="true" className="absolute inset-0 bg-[var(--ds-canvas-bg)] opacity-65 backdrop-blur-[20px]" />
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[var(--ds-canvas-bg)] px-4 py-10">
+      <div aria-hidden="true" className="ds-login-wallpaper absolute inset-0 overflow-hidden">
+        <StartupWallpaper />
+      </div>
+      <div aria-hidden="true" className="absolute inset-0 bg-[var(--ds-canvas-bg)] opacity-65 backdrop-blur-xl" />
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-b from-[var(--ds-canvas-bg)] via-transparent to-[var(--ds-canvas-bg)] opacity-60"

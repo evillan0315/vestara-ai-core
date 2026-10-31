@@ -34,6 +34,12 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
     ['path', { d: 'M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1' }],
     ['path', { d: 'M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1' }],
   ],
+  Calendar: [
+    ['path', { d: 'M8 2v4' }],
+    ['path', { d: 'M16 2v4' }],
+    ['rect', { width: 18, height: 18, x: 3, y: 4, rx: 2 }],
+    ['path', { d: 'M3 10h18' }],
+  ],
   Check: [['path', { d: 'M20 6 9 17l-5-5' }]],
   CheckCheck: [
     ['path', { d: 'M18 6 7 17l-5-5' }],
@@ -200,6 +206,10 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
     ['line', { x1: 4, x2: 20, y1: 6, y2: 6 }],
     ['line', { x1: 4, x2: 20, y1: 18, y2: 18 }],
   ],
+  MapPin: [
+    ['path', { d: 'M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z' }],
+    ['circle', { cx: 12, cy: 10, r: 3 }],
+  ],
   MessageSquare: [['path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' }]],
   Minimize2: [
     ['polyline', { points: '4 14 10 14 10 20' }],
@@ -325,6 +335,16 @@ const ICON_NODES: Record<string, readonly IconNode[]> = {
     ['path', { d: 'M12 9v4' }],
     ['path', { d: 'M12 17h.01' }],
   ],
+  Users: [
+    ['path', { d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' }],
+    ['circle', { cx: 9, cy: 7, r: 4 }],
+    ['path', { d: 'M22 21v-2a4 4 0 0 0-3-3.87' }],
+    ['path', { d: 'M16 3.13a4 4 0 0 1 0 7.75' }],
+  ],
+  Video: [
+    ['path', { d: 'm22 8-6 4 6 4V8Z' }],
+    ['rect', { width: 14, height: 12, x: 2, y: 6, rx: 2, ry: 2 }],
+  ],
   Usb: [
     ['circle', { cx: 10, cy: 7, r: 1 }],
     ['circle', { cx: 4, cy: 20, r: 1 }],
@@ -398,6 +418,7 @@ function makeIcon(name: string) {
 }
 
 export const ArrowRight = makeIcon('ArrowRight');
+export const Calendar = makeIcon('Calendar');
 export const Box = makeIcon('Box');
 export const Braces = makeIcon('Braces');
 export const Check = makeIcon('Check');
@@ -429,6 +450,7 @@ export const Lock = makeIcon('Lock');
 export const List = makeIcon('List');
 export const Maximize2 = makeIcon('Maximize2');
 export const Menu = makeIcon('Menu');
+export const MapPin = makeIcon('MapPin');
 export const MessageSquare = makeIcon('MessageSquare');
 export const Minimize2 = makeIcon('Minimize2');
 export const PanelBottom = makeIcon('PanelBottom');
@@ -453,6 +475,8 @@ export const Terminal = makeIcon('Terminal');
 export const Trash2 = makeIcon('Trash2');
 export const TriangleAlert = makeIcon('TriangleAlert');
 export const Usb = makeIcon('Usb');
+export const Users = makeIcon('Users');
+export const Video = makeIcon('Video');
 export const X = makeIcon('X');
 export const Zap = makeIcon('Zap');
 
@@ -492,6 +516,8 @@ export const ICONS = {
   MessageSquare,
   Minimize2,
   PanelBottom,
+  Calendar,
+  MapPin,
   PanelBottomOpen,
   PenLine,
   Pin,
@@ -513,6 +539,8 @@ export const ICONS = {
   Trash2,
   TriangleAlert,
   Usb,
+  Users,
+  Video,
   X,
   Zap,
 } as const;

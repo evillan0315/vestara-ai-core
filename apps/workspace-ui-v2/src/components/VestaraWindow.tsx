@@ -45,7 +45,9 @@ export function VestaraWindow({ data, isFocused, onFocus, onClose, onMinimize, o
     onFocus(data.id);
     onUpdate(data.id, {
       x: Math.max(0, Math.min(window.innerWidth - 100, data.x + dx)),
-      y: Math.max(32, Math.min(window.innerHeight - 60, data.y + dy)),
+      // Container-relative coords: the window layer starts below the TopBar,
+      // so y=0 is flush with the TopBar's bottom edge (the layer clips above it).
+      y: Math.max(0, Math.min(window.innerHeight - 60, data.y + dy)),
     });
   };
 
@@ -59,7 +61,9 @@ export function VestaraWindow({ data, isFocused, onFocus, onClose, onMinimize, o
     const onMove = (e: MouseEvent) => {
       if (drag) {
         const nx = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
-        const ny = Math.max(32, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+        // Container-relative coords: the window layer starts below the TopBar,
+        // so y=0 is flush with the TopBar's bottom edge (the layer clips above it).
+        const ny = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
         onUpdate(data.id, { x: nx, y: ny });
       }
       if (resize) {
@@ -96,8 +100,10 @@ export function VestaraWindow({ data, isFocused, onFocus, onClose, onMinimize, o
 
   if (data.minimized) return null;
 
+  // Maximized fills the window layer: flush with the TopBar (top: 0) and
+  // keeping the 48px floating-dock clearance at the bottom.
   const style: React.CSSProperties = data.maximized
-    ? { left: 0, top: 32, width: '100%', height: 'calc(100% - 80px)', zIndex: data.z }
+    ? { left: 0, top: 0, width: '100%', height: 'calc(100% - 48px)', zIndex: data.z }
     : { left: data.x, top: data.y, width: data.w, height: data.h, zIndex: data.z };
 
   return (

@@ -10,7 +10,8 @@ export type WinType =
   | 'settings'
   | 'agent'
   | 'diagnostic'
-  | 'activity';
+  | 'activity'
+  | 'voice';
 
 export type WinData = {
   id: string;

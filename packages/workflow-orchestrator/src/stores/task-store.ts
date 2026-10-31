@@ -6,6 +6,7 @@ import { begin, commit, rollback } from '@vestara/sqlite-migrations';
 import type { Database } from 'sql.js';
 import { dbAll, dbGet, dbRun, jsonParse, now, str } from '../db';
 import { generateId } from '../ids';
+import { resolveTaskAgentId } from '../task-agent-resolver';
 import type { ExternalVerificationWait, TaskEffort, TaskStatus, WorkflowTask } from '../types';
 
 export interface CreateTaskInput {
@@ -16,6 +17,11 @@ export interface CreateTaskInput {
   readonly dependencies: readonly string[];
   readonly effort: TaskEffort;
   readonly requiredCapabilities: readonly string[];
+  /**
+   * Explicit owner override. When omitted, creation resolves the canonical
+   * agent from `requiredCapabilities` via `resolveTaskAgentId`.
+   */
+  readonly assignedAgentId?: string;
 }
 
 /** Begin an external-verification wait (in-progress → awaiting-verification). */
@@ -64,6 +70,9 @@ export class TaskStore {
         if (!numeric) return dependency;
         return seqByIndex.get(Number(dependency)) ?? dependency;
       });
+      // Wire the owning agent (primary or subagent) into the node: explicit
+      // pins win, otherwise resolve from required capabilities.
+      const assignedAgentId = input.assignedAgentId ?? resolveTaskAgentId(input.requiredCapabilities);
       const task: WorkflowTask = {
         id,
         planId,
@@ -74,6 +83,7 @@ export class TaskStore {
         status: 'pending',
         effort: input.effort,
         requiredCapabilities: input.requiredCapabilities,
+        ...(assignedAgentId ? { assignedAgentId } : {}),
         revisionCount: 0,
         attemptCount: 0,
         createdAt: nowIso,

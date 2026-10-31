@@ -14,7 +14,8 @@ export type UiComponentGroup =
   | 'auth-onboarding'
   | 'data-display'
   | 'terminal-drawer'
-  | 'workspace-chrome';
+  | 'workspace-chrome'
+  | 'calendar';
 
 export interface UiComponentEntry {
   /** Stable id / exported symbol name. */
@@ -56,6 +57,11 @@ export const UI_COMPONENT_GROUPS: readonly { id: UiComponentGroup; label: string
     id: 'workspace-chrome',
     label: 'Workspace Chrome',
     description: 'Global overlay and card surfaces: drawer, modal, operational panel, stats.',
+  },
+  {
+    id: 'calendar',
+    label: 'Calendar',
+    description: 'Scheduling surface: mini picker, month grid, list rows, composer, details, settings.',
   },
 ];
 
@@ -469,6 +475,85 @@ export const UI_COMPONENT_CATALOG: readonly UiComponentEntry[] = [
     group: 'workspace-chrome',
     category: 'ui',
     description: 'Thin progress bar with status-tone fill by completion band.',
+  },
+
+  // ── Calendar (11) ──
+  {
+    id: 'CalendarMini',
+    name: 'CalendarMini',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Mini month picker with today highlight and appointment count badge.',
+  },
+  {
+    id: 'AppointmentTypeList',
+    name: 'AppointmentTypeList',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Filterable appointment-type rows with color dot, count, and active toggle.',
+  },
+  {
+    id: 'WorkingHoursCard',
+    name: 'WorkingHoursCard',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Working-hours summary: hours, buffer, max per day, timezone.',
+  },
+  {
+    id: 'CalendarToolbar',
+    name: 'CalendarToolbar',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Month label, day count, Today action, view switcher, EHR sync dot.',
+  },
+  {
+    id: 'CalendarMonthGrid',
+    name: 'CalendarMonthGrid',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Month grid with per-day appointment chips and overflow count.',
+  },
+  {
+    id: 'AppointmentRow',
+    name: 'AppointmentRow',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Single appointment row: time, patient, type, location, status, actions.',
+  },
+  {
+    id: 'AppointmentListView',
+    name: 'AppointmentListView',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Week/day/agenda list of appointment rows for the selected day.',
+  },
+  {
+    id: 'AppointmentComposer',
+    name: 'AppointmentComposer',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Quick-create bar: patient, type, and time draft with Create action.',
+  },
+  {
+    id: 'AppointmentDetailsCard',
+    name: 'AppointmentDetailsCard',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Selected appointment details with reschedule and scribe actions plus history.',
+  },
+  {
+    id: 'AppointmentSettingsPanel',
+    name: 'AppointmentSettingsPanel',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Scheduling settings: general, working hours, reminders, compliance and EHR.',
+  },
+  {
+    id: 'CalendarShell',
+    name: 'CalendarShell',
+    group: 'calendar',
+    category: 'ui',
+    description: 'Composed 3-pane calendar: mini picker, month/list center, details/settings inspector.',
   },
 ];
 

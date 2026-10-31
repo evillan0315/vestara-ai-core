@@ -95,6 +95,20 @@
   animation: ds-pulse-glow 2.2s ease-in-out infinite;
 }
 
+/* ── VES-UI-001 T4: login wallpaper treatment ── */
+/* Wallpaper sits behind the scrim + card (absolute fill) and carries its own
+ * 20px blur (scaled to hide soft edges). Blur lives here — never as an
+ * arbitrary `backdrop-blur-[20px]` literal in JSX — per NO-HARDCODE. */
+.ds-login-wallpaper {
+  filter: blur(20px);
+  transform: scale(1.05);
+}
+
+.ds-login-wallpaper .st-wallpaper {
+  position: absolute;
+  inset: 0;
+}
+
 /* Boot progress fill — accent bar with a token-derived glow.
  * Width stays a dynamic inline style (geometry, not a visual literal). */
 .ds-boot-bar-fill {

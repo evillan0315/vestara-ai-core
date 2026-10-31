@@ -59,6 +59,55 @@ describe('desktop chrome', () => {
     expect(onUpdate).toHaveBeenCalledWith('win-overview', expect.objectContaining({ x: 130 }));
   });
 
+  it('clamps upward arrow-key moves at the layer top (flush with top bar)', () => {
+    const onUpdate = vi.fn();
+    render(
+      <VestaraWindow
+        data={{ ...SAMPLE_WINDOW, y: 5 }}
+        isFocused
+        onFocus={noop}
+        onClose={noop}
+        onMinimize={noop}
+        onUpdate={onUpdate}
+      >
+        body
+      </VestaraWindow>,
+    );
+    fireEvent.keyDown(screen.getByTitle('Move Overview with arrow keys'), { key: 'ArrowUp' });
+    expect(onUpdate).toHaveBeenCalledWith('win-overview', expect.objectContaining({ y: 0 }));
+  });
+
+  it('drags a window flush to the top bar instead of stopping 32px short', () => {
+    const onUpdate = vi.fn();
+    render(
+      <VestaraWindow data={SAMPLE_WINDOW} isFocused onFocus={noop} onClose={noop} onMinimize={noop} onUpdate={onUpdate}>
+        body
+      </VestaraWindow>,
+    );
+    const header = screen.getByTitle('Move Overview with arrow keys');
+    fireEvent.mouseDown(header, { clientX: 200, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 200, clientY: 10 });
+    expect(onUpdate).toHaveBeenCalledWith('win-overview', expect.objectContaining({ y: 0 }));
+  });
+
+  it('maximizes a window flush with the top bar keeping dock clearance', () => {
+    render(
+      <VestaraWindow
+        data={{ ...SAMPLE_WINDOW, maximized: true }}
+        isFocused
+        onFocus={noop}
+        onClose={noop}
+        onMinimize={noop}
+        onUpdate={noop}
+      >
+        body
+      </VestaraWindow>,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Overview' });
+    expect(dialog.style.top).toBe('0px');
+    expect(dialog.style.height).toBe('calc(100% - 48px)');
+  });
+
   it('exposes labelled dock actions', () => {
     render(<Dock windows={[]} onOpen={noop} onRestore={noop} />);
     expect(screen.getByLabelText('Open terminal window')).toBeTruthy();

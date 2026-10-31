@@ -8,7 +8,8 @@ import { SystemMenu } from './components/SystemMenu';
 import { TopBar } from './components/TopBar';
 import { VestaraWindow } from './components/VestaraWindow';
 import { getColdStartWinType, subscribeDeepLinks } from './lib/deep-link';
-import { DEFAULT_WINDOWS, WINDOW_TITLES } from './lib/desktop.fixtures';
+import { DEFAULT_WINDOWS, DESKTOP_ICONS, DOCK_TYPES, WINDOW_TITLES } from './lib/desktop.fixtures';
+import { isPackageLaunchable, subscribePackageState } from './lib/package-state';
 import { requestShellFullscreen } from './lib/shell-bridge';
 import type { LoginMode, Phase, WinData, WinType } from './lib/types';
 import { WALLPAPER_SOURCES } from './lib/wallpapers';
@@ -21,6 +22,7 @@ import { MarketplacePkg } from './packages/Marketplace';
 import { OverviewPkg } from './packages/Overview';
 import { SettingsPkg } from './packages/Settings';
 import { TerminalPkg } from './packages/Terminal';
+import { VoiceStreamingPkg } from './packages/VoiceStreaming';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('boot');
@@ -53,7 +55,18 @@ export default function App() {
   const updateWin = (id: string, patch: Partial<WinData>) =>
     setWins((ws) => ws.map((w) => (w.id === id ? { ...w, ...patch } : w)));
 
+  // Marketplace lifecycle: uninstalling/disabling a package closes its
+  // windows and removes its launchers (dock, desktop icons, assistant).
+  useEffect(
+    () =>
+      subscribePackageState(() => {
+        setWins((ws) => ws.filter((w) => isPackageLaunchable(w.type)));
+      }),
+    [],
+  );
+
   const openType = (t: WinType) => {
+    if (!isPackageLaunchable(t)) return;
     const existing = wins.find((w) => w.type === t);
     if (existing) {
       if (existing.minimized) updateWin(existing.id, { minimized: false });
@@ -127,6 +140,8 @@ export default function App() {
         return <DiagnosticPkg />;
       case 'files':
         return <FilesPkg />;
+      case 'voice':
+        return <VoiceStreamingPkg />;
       default:
         return (
           <div className="p-4 text-[length:var(--vestara-font-size-label)] text-[var(--vestara-text-shell-muted)]">
@@ -200,7 +215,7 @@ export default function App() {
         {showMenu && <SystemMenu onAction={handleSystemAction} onClose={() => setShowMenu(false)} />}
 
         <div className="flex-1 relative overflow-hidden">
-          <DesktopIcons onOpen={openType} />
+          <DesktopIcons onOpen={openType} items={DESKTOP_ICONS.filter((i) => isPackageLaunchable(i.type))} />
           {wins.map((w) => (
             <VestaraWindow
               key={w.id}
@@ -218,6 +233,7 @@ export default function App() {
 
         <Dock
           windows={wins}
+          types={DOCK_TYPES.filter((t) => isPackageLaunchable(t))}
           onOpen={openType}
           onRestore={(id) => {
             updateWin(id, { minimized: false });

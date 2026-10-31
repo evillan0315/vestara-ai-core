@@ -31,7 +31,7 @@ export default function ActivityRoomOperationalLane({ workflow }: ActivityRoomOp
         <div className="min-w-0">
           <p className="ar-kicker">Operational lane</p>
           <div className="ar-operational-lane__status">
-            <StatusIndicator variant={isActive ? 'live' : workflow.status === 'failed' ? 'error' : 'idle'} size="xs" pulse={isActive} ariaLabel={statusLabel} />
+            <StatusIndicator variant={isActive ? 'info' : workflow.status === 'failed' ? 'error' : 'idle'} size="xs" pulse={isActive} ariaLabel={statusLabel} />
             <strong>{statusLabel}</strong>
             <span className="ar-operational-lane__run">{workflow.workflowRunId}</span>
           </div>

@@ -1,5 +1,5 @@
-import { Activity, FolderOpen, LayoutDashboard, Store, Terminal } from 'lucide-react';
-import { DESKTOP_ICONS } from '../lib/desktop.fixtures';
+import { Activity, FolderOpen, LayoutDashboard, Mic, Store, Terminal } from 'lucide-react';
+import { DESKTOP_ICONS, type DesktopIconDef } from '../lib/desktop.fixtures';
 import type { WinType } from '../lib/types';
 
 const ICONS = {
@@ -8,12 +8,19 @@ const ICONS = {
   marketplace: Store,
   terminal: Terminal,
   files: FolderOpen,
+  voice: Mic,
 } as const;
 
-export function DesktopIcons({ onOpen }: { onOpen: (t: WinType) => void }) {
+export function DesktopIcons({
+  onOpen,
+  items = DESKTOP_ICONS,
+}: {
+  onOpen: (t: WinType) => void;
+  items?: DesktopIconDef[];
+}) {
   return (
     <div className="absolute left-3 top-[48px] z-10 flex flex-col gap-3">
-      {DESKTOP_ICONS.map((it) => {
+      {items.map((it) => {
         const Icon = ICONS[it.type];
         return (
           <button

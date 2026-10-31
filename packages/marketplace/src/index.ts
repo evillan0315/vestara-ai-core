@@ -78,6 +78,14 @@ export {
 } from './executable-resolver';
 export type { MarketplaceFilters } from './filters';
 export { applyFilters } from './filters';
+// ─── First-party scanners (ui-components / templates / apps) ──
+export type {
+  FirstPartyAppInput,
+  FirstPartyCatalogOptions,
+  FirstPartyComponentEntry,
+  FirstPartyTemplateInput,
+} from './first-party';
+export { appManifestToAsset, FIRST_PARTY_TAGS, templateDirToAsset, uiComponentCatalogToAssets } from './first-party';
 export type {
   MarketplaceRegistryScanResult,
   MarketplaceScanIssue,

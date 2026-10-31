@@ -167,6 +167,46 @@ export type {
 } from './workspace-chrome.js';
 export { Drawer, DrawerMenu, Modal, OperationalPanel, ProgressBar, SectionCard, StatCard } from './workspace-chrome.js';
 
+// ─── Calendar / appointments ─────────────────────────────────────
+
+export type {
+  CalendarAppointment,
+  CalendarAppointmentType,
+  CalendarView,
+} from './calendar.fixtures.js';
+export {
+  CALENDAR_APPOINTMENT_TYPES,
+  CALENDAR_APPOINTMENTS,
+  CALENDAR_MONTH_DAYS,
+  CALENDAR_VIEWS,
+  CALENDAR_WEEKDAYS,
+} from './calendar.fixtures.js';
+export type {
+  AppointmentComposerProps,
+  AppointmentDetailsCardProps,
+  AppointmentListViewProps,
+  AppointmentRowProps,
+  AppointmentTypeListProps,
+  CalendarMiniProps,
+  CalendarMonthGridProps,
+  CalendarShellProps,
+  CalendarToolbarProps,
+  WorkingHoursCardProps,
+} from './calendar.js';
+export {
+  AppointmentComposer,
+  AppointmentDetailsCard,
+  AppointmentListView,
+  AppointmentRow,
+  AppointmentSettingsPanel,
+  AppointmentTypeList,
+  CalendarMini,
+  CalendarMonthGrid,
+  CalendarShell,
+  CalendarToolbar,
+  WorkingHoursCard,
+} from './calendar.js';
+
 // ─── Terminal drawer ───────────────────────────────────────────
 
 export type {

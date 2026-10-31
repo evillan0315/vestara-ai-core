@@ -40,6 +40,7 @@ function taskInputs(value: unknown): CreateTaskInput[] {
       const dependencies = Array.isArray(item.dependencies) ? item.dependencies.map(String) : [];
       const files = Array.isArray(item.files) ? item.files.map(String) : [];
       const capabilities = Array.isArray(item.requiredCapabilities) ? item.requiredCapabilities.map(String) : [];
+      const assignedAgentId = str(item.assignedAgentId);
       return {
         planId: '',
         summary,
@@ -48,6 +49,9 @@ function taskInputs(value: unknown): CreateTaskInput[] {
         dependencies,
         effort: item.effort === 'small' || item.effort === 'large' ? item.effort : 'medium',
         requiredCapabilities: capabilities,
+        // Explicit owner pin; when omitted the orchestrator resolves the
+        // canonical agent (primary or subagent) from requiredCapabilities.
+        ...(assignedAgentId ? { assignedAgentId } : {}),
       };
     });
 }

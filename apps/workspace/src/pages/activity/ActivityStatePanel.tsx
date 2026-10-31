@@ -32,22 +32,28 @@ export default function ActivityStatePanel({
           ? `${state.needsAttention} item(s) need your attention`
           : 'Nothing needs your attention';
 
-  // Attention Bar tone: healthy (green), attention (amber), approval (blue),
-  // blocked (red) — "routine stays quiet, exceptional becomes prominent".
+  // Attention Bar tone: healthy (green), approval (blue), attention (amber),
+  // blocked/error (red) — "routine stays quiet, exceptional becomes prominent".
+  // Spec §5: approval = execution blue (--vestara-status-info), attention = warning amber.
   const approvals = state?.open.filter((item) => item.effect === 'authorization').length ?? 0;
+  const blocked = state?.open.some((item) => item.effect === 'block' || item.effect === 'failure') ?? false;
   const tone =
     source.status === 'loading' || source.status === 'idle'
-      ? { label: 'Checking…', icon: '◐', cls: 'border-(--vestara-accent-border) text-(--vestara-text-muted)' }
+      ? { label: 'Checking…', icon: '◐', cls: 'border-[var(--vestara-accent-border)] text-[var(--vestara-text-muted)]' }
       : source.status === 'error'
-        ? { label: 'Unavailable', icon: '✕', cls: 'border-(--vestara-red)/40 bg-(--vestara-red)/5 text-(--vestara-red)' }
+        ? { label: 'Unavailable', icon: '✕', cls: 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]' }
         : source.status === 'stale'
-          ? { label: 'Attention stale', icon: '◑', cls: 'border-(--vestara-amber)/40 bg-(--vestara-amber)/5 text-(--vestara-amber)' }
+          ? { label: 'Attention stale', icon: '◑', cls: 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]' }
           : state !== undefined && state.needsAttention > 0
-            ? { label: approvals > 0 ? 'Approval required' : 'Attention required', icon: approvals > 0 ? '●' : '⚠', cls: 'border-(--vestara-amber)/40 bg-(--vestara-amber)/5 text-(--vestara-amber)' }
-            : { label: 'Healthy', icon: '✓', cls: 'border-(--vestara-green)/40 bg-(--vestara-green)/5 text-(--vestara-green)' };
+            ? blocked
+              ? { label: 'Blocked', icon: '⛔', cls: 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]' }
+              : approvals > 0
+                ? { label: 'Approval required', icon: '●', cls: 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] text-[var(--vestara-status-info)]' }
+                : { label: 'Attention required', icon: '⚠', cls: 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]' }
+            : { label: 'Healthy', icon: '✓', cls: 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]' };
 
   return (
-    <div className={`shrink-0 rounded-xl border px-3 py-2 ${tone.cls}`}>
+    <div className={`sticky top-0 z-[var(--vestara-z-index-sticky,1100)] shrink-0 rounded-[var(--vestara-radius-lg)] border px-3 py-2 ${tone.cls}`}>
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -55,21 +61,21 @@ export default function ActivityStatePanel({
         aria-expanded={expanded}
       >
         <span className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold uppercase tracking-widest opacity-90">Effective state{scoped ? ' · scoped' : ''}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Effective state{scoped ? ' · scoped' : ''}</span>
           <span className="text-[10px] font-medium">
             {tone.icon} {tone.label} — {attentionSummary}
           </span>
         </span>
-        <span className="text-[9px] opacity-70">{expanded ? 'Hide' : 'Details'} · derived from history</span>
+        <span className="text-[10px] opacity-70">{expanded ? 'Hide' : 'Details'} · derived from history</span>
       </button>
 
       {expanded && (
         <div className="mt-2 space-y-1.5">
           {(source.status === 'loading' || source.status === 'idle') && (
-            <p className="text-[10px] text-(--vestara-text-muted)">Derived state is being refreshed for this scope.</p>
+            <p className="text-[10px] text-[var(--vestara-text-muted)]">Derived state is being refreshed for this scope.</p>
           )}
           {source.status === 'error' && (
-            <p className="flex items-center gap-2 text-[10px] text-(--vestara-amber)">
+            <p className="flex items-center gap-2 text-[10px] text-[var(--vestara-status-warning)]">
               <span>Derived state is temporarily unavailable. Activity history is still available below.</span>
               <button type="button" onClick={onRetry} className="shrink-0 underline cursor-pointer">
                 Retry
@@ -77,7 +83,7 @@ export default function ActivityStatePanel({
             </p>
           )}
           {source.status === 'stale' && (
-            <p className="flex items-center gap-2 text-[10px] text-(--vestara-amber)">
+            <p className="flex items-center gap-2 text-[10px] text-[var(--vestara-status-warning)]">
               <span>Showing previously computed state — the latest refresh failed.</span>
               <button type="button" onClick={onRetry} className="shrink-0 underline cursor-pointer">
                 Retry
@@ -88,11 +94,11 @@ export default function ActivityStatePanel({
             <>
               {state.corrections.length > 0 && (
                 <div>
-                  <div className="text-[8px] uppercase tracking-wider text-(--vestara-text-dim)">Corrections</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">Corrections</div>
                   {state.corrections.map((correction) => (
-                    <div key={correction.originalId} className="mt-0.5 text-[10px] text-(--vestara-text-2)">
-                      <span className="text-(--vestara-text-dim)">Corrected:</span>{' '}
-                      <span className="text-(--vestara-text)">{truncate(correction.originalContent ?? correction.content ?? correction.originalId)}</span>{' '}
+                    <div key={correction.originalId} className="mt-0.5 text-[10px] text-[var(--vestara-text-secondary)]">
+                      <span className="text-[var(--vestara-text-muted)]">Corrected:</span>{' '}
+                      <span className="text-[var(--vestara-text-primary)]">{truncate(correction.originalContent ?? correction.content ?? correction.originalId)}</span>{' '}
                       — by <span className="font-medium">{correction.correctedBy}</span>
                     </div>
                   ))}
@@ -101,11 +107,11 @@ export default function ActivityStatePanel({
 
               {state.open.length > 0 && (
                 <div>
-                  <div className="text-[8px] uppercase tracking-wider text-(--vestara-text-dim)">Open</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">Open</div>
                   {state.open.map((item) => (
-                    <div key={item.id} className="mt-0.5 text-[10px] text-(--vestara-text-2)">
+                    <div key={item.id} className="mt-0.5 text-[10px] text-[var(--vestara-text-secondary)]">
                       <span className="font-medium">{item.effect}</span> · {item.actor}
-                      <div className="truncate text-[9px] text-(--vestara-text-muted)">{truncate(item.content)}</div>
+                      <div className="truncate text-[10px] text-[var(--vestara-text-muted)]">{truncate(item.content)}</div>
                     </div>
                   ))}
                 </div>
@@ -113,9 +119,9 @@ export default function ActivityStatePanel({
 
               {state.units.length > 0 && (
                 <div>
-                  <div className="text-[8px] uppercase tracking-wider text-(--vestara-text-dim)">Workstreams</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">Workstreams</div>
                   {state.units.slice(0, 4).map((unit) => (
-                    <div key={`${unit.workflowId ?? ''}-${unit.sessionId ?? ''}`} className="mt-0.5 text-[10px] text-(--vestara-text-2)">
+                    <div key={`${unit.workflowId ?? ''}-${unit.sessionId ?? ''}`} className="mt-0.5 text-[10px] text-[var(--vestara-text-secondary)]">
                       <span className="font-medium">{unit.workflowId ?? unit.sessionId}</span> —{' '}
                       {unit.latestEffect === undefined ? 'no marked state' : `latest: ${unit.latestEffect}`} · {unit.recordCount} events
                     </div>

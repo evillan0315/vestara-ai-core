@@ -240,7 +240,7 @@ export default function M11CWorkflowBrowser({
                   aria-pressed={isSelected}
                 >
                   <StatusIndicator
-                    variant={unit.hasErrors ? 'error' : unit.isActive ? 'live' : 'idle'}
+                    variant={unit.hasErrors ? 'error' : unit.isActive ? 'info' : 'idle'}
                     size="xs"
                     pulse={unit.isActive}
                     ariaLabel={`Workflow ${unit.workflowId}: ${unit.status}`}
@@ -250,19 +250,43 @@ export default function M11CWorkflowBrowser({
                       wf:{unit.workflowId.length > 12 ? `${unit.workflowId.slice(0, 12)}…` : unit.workflowId}
                     </span>
                     <span className="ar-workflow-unit__meta">
-                      <span
-                        className={`mr-1 inline-block rounded-[var(--vestara-radius-full)] border px-1.5 text-[10px] font-semibold capitalize ${
-                          unit.hasErrors
-                            ? 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]'
-                            : unit.isActive
+                    <span
+                      className={`mr-1 inline-block rounded-[var(--vestara-radius-full)] border px-1.5 text-[10px] font-semibold capitalize ${
+                        unit.hasErrors
+                          ? 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]'
+                          : unit.isActive
+                            ? 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] text-[var(--vestara-status-info)]'
+                            : unit.status === 'completed'
                               ? 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]'
                               : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)]'
-                        }`}
-                      >
-                        {unit.status}
-                      </span>
-                      {unit.eventCount} events · {formatTimeAgo(unit.lastActivity)} ago
+                      }`}
+                    >
+                      {unit.status}
                     </span>
+                    {unit.eventCount} events · {formatTimeAgo(unit.lastActivity)} ago
+                    {unit.hasErrors ? <span className="ml-1 font-semibold text-[var(--vestara-status-error)]">⚠ error</span> : null}
+                    </span>
+                    {unit.taskCount > 0 ? (
+                      <span
+                        className="mt-[var(--vestara-spacing-1)] block h-[var(--vestara-spacing-1)] w-full overflow-hidden rounded-[var(--vestara-radius-full)] bg-[var(--vestara-surface-interactive)]"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={unit.taskCount}
+                        aria-valuenow={unit.completedTasks}
+                        aria-label={`${unit.completedTasks} of ${unit.taskCount} tasks complete`}
+                      >
+                        <span
+                          className={`block h-full rounded-[var(--vestara-radius-full)] ${
+                            unit.hasErrors
+                              ? 'bg-[var(--vestara-status-error)]'
+                              : unit.isActive
+                                ? 'bg-[var(--vestara-status-info)]'
+                                : 'bg-[var(--vestara-status-success)]'
+                          }`}
+                          style={{ width: `${Math.round((unit.completedTasks / unit.taskCount) * 100)}%` }}
+                        />
+                      </span>
+                    ) : null}
                   </div>
                 </button>
 

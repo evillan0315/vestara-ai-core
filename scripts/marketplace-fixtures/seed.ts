@@ -86,6 +86,17 @@ const FIXTURES: readonly FixtureSeed[] = [
     contributions: { verificationProfiles: [{ id: 'standard', name: 'Standard' }] },
     runtime: 'runtime.js',
   },
+  {
+    id: 'voice-streaming',
+    name: 'Voice Streaming',
+    version: '2.0.0',
+    description: 'STT • TTS • Duplex streaming package: live transcription, neural voices, real-time conversation.',
+    type: 'plugin',
+    capabilities: ['voice:stt-streaming', 'voice:tts-streaming', 'voice:duplex'],
+    permissions: [],
+    contributions: { workspaceViews: [{ id: 'voice', name: 'Voice Streaming' }] },
+    runtime: 'runtime.js',
+  },
 ];
 
 function rootDir(): string {

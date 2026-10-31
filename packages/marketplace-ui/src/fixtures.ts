@@ -340,9 +340,11 @@ export const DISCOVER_CATEGORY_FILTERS: DiscoverCategoryFilter[] = [
   {
     id: 'ui-components',
     label: 'UI Components',
-    match: [],
+    match: ['ui-component'],
     tags: ['ui', 'component', 'components', 'primitives', 'design-system', 'tokens'],
   },
+  { id: 'template', label: 'Templates', match: ['template'] },
+  { id: 'app', label: 'Apps', match: ['app'] },
   { id: 'agent-pack', label: 'Agents', match: ['agent-pack'] },
   { id: 'module', label: 'Modules', match: ['module'] },
   { id: 'plugin', label: 'Plugins', match: ['plugin'] },
@@ -369,10 +371,10 @@ export function normalizePackageType(type: string): string {
     case 'mcp-server':
     case 'mcpserver':
       return 'integration';
-    case 'template':
     case 'ui':
     case 'component':
-      return 'theme';
+    case 'components':
+      return 'ui-component';
     case 'system':
       return 'standards-pack';
     default:

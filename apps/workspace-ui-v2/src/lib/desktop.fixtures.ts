@@ -14,6 +14,7 @@ export const DESKTOP_ICONS: DesktopIconDef[] = [
   { type: 'marketplace', label: 'Marketplace' },
   { type: 'terminal', label: 'Terminal' },
   { type: 'files', label: 'Files' },
+  { type: 'voice', label: 'Voice Streaming' },
 ];
 
 export const DOCK_TYPES: WinType[] = [
@@ -25,11 +26,26 @@ export const DOCK_TYPES: WinType[] = [
   'diagnostic',
   'settings',
   'files',
+  'voice',
 ];
 
-// Clean desktop: no windows open by default. Users launch apps via
-// desktop icons, the dock, or the assistant.
-export const DEFAULT_WINDOWS: WinData[] = [];
+// Desktop opens on the Overview package — the live mission view is the
+// default window. Users launch more apps via icons, dock, or assistant.
+export const DEFAULT_WINDOWS: WinData[] = [
+  {
+    id: 'win-overview',
+    title: 'Overview',
+    subtitle: 'Good afternoon Director',
+    x: 120,
+    y: 60,
+    w: 560,
+    h: 380,
+    z: 1,
+    minimized: false,
+    maximized: false,
+    type: 'overview',
+  },
+];
 
 export const WINDOW_TITLES: Record<WinType, string> = {
   overview: 'Overview',
@@ -41,6 +57,7 @@ export const WINDOW_TITLES: Record<WinType, string> = {
   agent: 'Agent Workforce',
   diagnostic: 'Diagnostic Center',
   workspace: 'Workspace',
+  voice: 'Voice Streaming',
 };
 
 export const SHELL_USER = {

@@ -17,6 +17,39 @@ export function mapPackageType(detected: DetectedPackage): VestaraPackageType {
   const explicitType = extractExplicitType(raw);
   if (explicitType) return explicitType;
 
+  // First-party heuristics: templates, apps, and UI components have
+  // dedicated canonical types — check before the generic theme/module rules.
+  if (
+    name.includes('template') ||
+    name.includes('starter') ||
+    name.includes('scaffold') ||
+    name.includes('boilerplate')
+  )
+    return 'template';
+  if (name.endsWith('-app') || name.startsWith('app-') || name.includes('vestara-app') || name.includes('application'))
+    return 'app';
+  if (
+    name.includes('ui-component') ||
+    name.includes('ui-primitive') ||
+    name.includes('ui-token') ||
+    name.includes('design-system') ||
+    name === 'ui' ||
+    name === 'ui-components'
+  )
+    return 'ui-component';
+  if (tags.includes('template')) return 'template';
+  if (tags.includes('app')) return 'app';
+  if (
+    tags.includes('ui') &&
+    (tags.includes('component') ||
+      tags.includes('components') ||
+      tags.includes('primitive') ||
+      tags.includes('primitives') ||
+      tags.includes('design-system') ||
+      tags.includes('tokens'))
+  )
+    return 'ui-component';
+
   // Name-based heuristics
   if (name.includes('theme') || name.includes('skin') || name.includes('color')) return 'theme';
   if (name.includes('agent') && (name.includes('pack') || name.includes('bundle'))) return 'agent-pack';
@@ -72,6 +105,9 @@ const VALID_TYPES: readonly string[] = [
   'verification-pack',
   'standards-pack',
   'tui',
+  'ui-component',
+  'template',
+  'app',
 ];
 
 function isValidVestaraType(value: string): value is VestaraPackageType {

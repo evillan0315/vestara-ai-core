@@ -15,23 +15,42 @@ import {
 } from '../src/index';
 
 describe('normalizePackageType', () => {
-  it('maps legacy UI aliases onto canonical types', () => {
-    expect(normalizePackageType('ui')).toBe('theme');
-    expect(normalizePackageType('component')).toBe('theme');
-    expect(normalizePackageType('template')).toBe('theme');
+  it('maps legacy UI aliases onto the canonical ui-component type', () => {
+    expect(normalizePackageType('ui')).toBe('ui-component');
+    expect(normalizePackageType('component')).toBe('ui-component');
+    expect(normalizePackageType('components')).toBe('ui-component');
     expect(normalizePackageType('tool')).toBe('plugin');
     expect(normalizePackageType('system')).toBe('standards-pack');
+  });
+
+  it('passes the canonical template/app/ui-component types through', () => {
+    expect(normalizePackageType('template')).toBe('template');
+    expect(normalizePackageType('app')).toBe('app');
+    expect(normalizePackageType('ui-component')).toBe('ui-component');
   });
 });
 
 describe('UI Components category filter', () => {
-  it('is declared with tag discriminators', () => {
+  it('matches the canonical ui-component type with legacy tag fallback', () => {
     const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === 'ui-components');
     expect(filter).toBeDefined();
     expect(filter?.label).toBe('UI Components');
-    expect(filter?.match).toEqual([]);
+    expect(filter?.match).toContain('ui-component');
     expect(filter?.tags).toContain('ui');
     expect(filter?.tags).toContain('design-system');
+  });
+
+  it('declares template and app category filters', () => {
+    const template = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === 'template');
+    const app = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === 'app');
+    expect(template?.match).toEqual(['template']);
+    expect(app?.match).toEqual(['app']);
+  });
+
+  it('matches canonical ui-component/template/app assets by type', () => {
+    expect(assetMatchesCategory({ type: 'ui-component', tags: [] }, 'ui-components')).toBe(true);
+    expect(assetMatchesCategory({ type: 'template', tags: [] }, 'template')).toBe(true);
+    expect(assetMatchesCategory({ type: 'app', tags: [] }, 'app')).toBe(true);
   });
 
   it('matches every shared UI / tokens / primitives fixture', () => {

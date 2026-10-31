@@ -18,14 +18,17 @@ export type MarketplaceBadgeVariant = 'default' | 'success' | 'warning' | 'error
 // ─── Type Accents ───────────────────────────────────────────────
 // Canonical: VestaraPackageType from @vestara/extension-contracts
 // (provider | module | plugin | agent-pack | integration | theme |
-//  verification-pack | standards-pack | tui). New canonical types reuse
-// the existing categorical hues — no new palette. Legacy aliases
-// (agent, skill, workflow, mcp-server, command, …) are kept for
-// registry data published before the alignment.
+//  verification-pack | standards-pack | tui | ui-component | template |
+//  app). New canonical types reuse the existing categorical hues — no new
+// palette. Legacy aliases (agent, skill, workflow, mcp-server, command, …)
+// are kept for registry data published before the alignment.
 
 export const TYPE_ACCENTS: Record<string, string> = {
   // ── canonical ──
   'ui-components': 'var(--vestara-marketplace-theme)',
+  'ui-component': 'var(--vestara-marketplace-theme)',
+  template: 'var(--vestara-marketplace-theme)',
+  app: 'var(--vestara-marketplace-module)',
   'agent-pack': 'var(--vestara-marketplace-agent)',
   module: 'var(--vestara-marketplace-module)',
   plugin: 'var(--vestara-marketplace-plugin)',
@@ -64,7 +67,11 @@ export function typeBadgeVariant(type: string): MarketplaceBadgeVariant {
       return 'success';
     case 'theme':
     case 'tui':
+    case 'template':
+    case 'ui-component':
       return 'warning';
+    case 'app':
+      return 'default';
     case 'skill':
     case 'workflow':
     case 'command':

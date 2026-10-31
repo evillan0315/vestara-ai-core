@@ -25,6 +25,19 @@ import {
   WORKSPACE_UI_VERSION_OPTIONS,
 } from './settings.fixtures';
 import { TERMINAL_LINES, TERMINAL_PROMPT } from './terminal.fixtures';
+import {
+  AUDIO_PIPELINE,
+  CLINICAL_INTEGRATIONS,
+  DEFAULT_DUPLEX_MODEL_ID,
+  DEFAULT_STT_MODEL_ID,
+  DEFAULT_TTS_VOICE_ID,
+  PREFERRED_DUPLEX_MODEL,
+  STREAM_PHRASES,
+  STT_MODELS,
+  TTS_VOICES,
+  VOICE_PROVIDERS,
+  VOICE_STREAMING_MODES,
+} from './voice-streaming.fixtures';
 
 describe('package fixtures', () => {
   it('terminal transcript carries toned lines + prompt', () => {
@@ -51,9 +64,16 @@ describe('package fixtures', () => {
     expect(AGENT_ACTIVE_COUNT).toBe(10);
   });
 
-  it('marketplace holds 6 assets + badge', () => {
-    expect(MARKETPLACE_FIXTURE).toHaveLength(6);
+  it('marketplace holds 7 assets + badge', () => {
+    expect(MARKETPLACE_FIXTURE).toHaveLength(7);
     expect(MARKETPLACE_BADGE).toBe('2.0.0');
+  });
+
+  it('marketplace lists voice streaming as an installed, enabled package', () => {
+    const voice = MARKETPLACE_FIXTURE.find((a) => a.id === 'voice-streaming');
+    expect(voice?.displayName).toBe('Voice Streaming');
+    expect(voice?.installed).toBe(true);
+    expect(voice?.enabled).toBe(true);
   });
 
   it('overview holds greeting + 4 stats', () => {
@@ -100,6 +120,28 @@ describe('package fixtures', () => {
     expect(FILE_FAVOURITES.length).toBeGreaterThan(0);
     expect(FILE_ROWS.length).toBeGreaterThan(0);
     for (const row of FILE_ROWS) expect(['folder', 'file']).toContain(row.kind);
+  });
+
+  it('voice streaming models target the opencode provider', () => {
+    for (const m of STT_MODELS) expect(m.provider).toBe('opencode');
+    for (const v of TTS_VOICES) expect(v.provider).toBe('opencode');
+    expect(STT_MODELS.find((m) => m.id === DEFAULT_STT_MODEL_ID)?.family).toBe('muse-spark');
+    expect(TTS_VOICES.find((v) => v.id === DEFAULT_TTS_VOICE_ID)).toBeTruthy();
+    expect(DEFAULT_DUPLEX_MODEL_ID).toBe('opencode-go/muse-spark-1.3-contributor');
+    expect(PREFERRED_DUPLEX_MODEL).toEqual({
+      providerId: 'opencode-go',
+      modelId: 'muse-spark-1.3-contributor',
+    });
+    expect(VOICE_PROVIDERS).toEqual([{ id: 'opencode', name: 'OpenCode' }]);
+  });
+
+  it('voice streaming holds modes, models, voices, pipeline', () => {
+    expect(VOICE_STREAMING_MODES).toEqual(['stt', 'tts', 'duplex']);
+    expect(STT_MODELS.length).toBeGreaterThan(0);
+    expect(TTS_VOICES.length).toBeGreaterThan(0);
+    expect(STREAM_PHRASES.length).toBeGreaterThan(0);
+    expect(AUDIO_PIPELINE).toHaveLength(4);
+    expect(CLINICAL_INTEGRATIONS.length).toBeGreaterThan(0);
   });
 
   it('login holds preview cards + footer', () => {

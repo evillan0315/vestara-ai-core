@@ -13,7 +13,7 @@ import { forwardRef, type HTMLAttributes } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
-export type StatusVariant = 'live' | 'warn' | 'error' | 'idle' | 'off';
+export type StatusVariant = 'live' | 'warn' | 'error' | 'idle' | 'off' | 'info';
 export type StatusSize = 'xs' | 'sm' | 'md';
 
 export interface StatusIndicatorProps extends HTMLAttributes<HTMLSpanElement> {
@@ -38,6 +38,7 @@ const VARIANT_COLORS: Record<StatusVariant, string> = {
   error: 'bg-(--vestara-status-error) shadow-[0_0_6px_var(--vestara-status-error)]',
   idle: 'bg-(--vestara-status-idle)',
   off: 'bg-(--vestara-status-disabled)',
+  info: 'bg-(--vestara-status-info) shadow-[0_0_6px_var(--vestara-status-info)]',
 };
 
 const SIZE_STYLES: Record<StatusSize, string> = {
@@ -52,7 +53,7 @@ export const StatusIndicator = forwardRef<HTMLSpanElement, StatusIndicatorProps>
   { variant = 'idle', size = 'sm', pulse, className = '', ariaLabel, ...props },
   ref,
 ) {
-  const shouldPulse = pulse ?? (variant === 'live' || variant === 'warn');
+  const shouldPulse = pulse ?? (variant === 'live' || variant === 'warn' || variant === 'info');
 
   return (
     <span

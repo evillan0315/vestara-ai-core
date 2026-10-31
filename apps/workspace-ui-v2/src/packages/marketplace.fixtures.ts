@@ -12,6 +12,7 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '2.0.0',
     publisher: 'vestara',
     installed: true,
+    enabled: true,
   },
   {
     id: 'activity-room',
@@ -21,6 +22,7 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '2.0.0',
     publisher: 'vestara',
     installed: true,
+    enabled: true,
   },
   {
     id: 'agent-workforce',
@@ -30,6 +32,17 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '2.0.0',
     publisher: 'vestara',
     installed: true,
+    enabled: true,
+  },
+  {
+    id: 'voice-streaming',
+    displayName: 'Voice Streaming',
+    summary: 'STT • TTS • Duplex • 99 langs',
+    type: 'package',
+    version: '2.0.0',
+    publisher: 'vestara',
+    installed: true,
+    enabled: true,
   },
   {
     id: 'file-explorer',
@@ -39,6 +52,7 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '2.0.0',
     publisher: 'vestara',
     installed: false,
+    enabled: false,
   },
   {
     id: 'diagnostic-center',
@@ -48,6 +62,7 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '2.0.0',
     publisher: 'vestara',
     installed: false,
+    enabled: false,
   },
   {
     id: 'settings-sync',
@@ -57,6 +72,7 @@ export const MARKETPLACE_FIXTURE: LiveMarketplaceAsset[] = [
     version: '1.4.0',
     publisher: 'community',
     installed: false,
+    enabled: false,
   },
 ];
 

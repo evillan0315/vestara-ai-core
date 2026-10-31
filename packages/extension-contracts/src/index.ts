@@ -7,7 +7,10 @@ export type VestaraPackageType =
   | 'theme'
   | 'verification-pack'
   | 'standards-pack'
-  | 'tui';
+  | 'tui'
+  | 'ui-component'
+  | 'template'
+  | 'app';
 
 export type ExtensionIsolationMode = 'in-process' | 'worker' | 'process' | 'sandbox';
 
@@ -159,6 +162,9 @@ const packageTypes = new Set<VestaraPackageType>([
   'verification-pack',
   'standards-pack',
   'tui',
+  'ui-component',
+  'template',
+  'app',
 ]);
 const isolationModes = new Set<ExtensionIsolationMode>(['in-process', 'worker', 'process', 'sandbox']);
 const permissionScopes = new Set<VestaraPermissionScope>([

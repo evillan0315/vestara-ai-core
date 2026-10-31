@@ -1,4 +1,4 @@
-import { Activity, Box, Cpu, FolderOpen, LayoutDashboard, Settings, Store, Terminal } from 'lucide-react';
+import { Activity, Box, Cpu, FolderOpen, LayoutDashboard, Mic, Settings, Store, Terminal } from 'lucide-react';
 import { DOCK_TYPES } from '../lib/desktop.fixtures';
 import type { WinData, WinType } from '../lib/types';
 import { VestaraLogoTeal } from './VestaraLogoTeal';
@@ -13,18 +13,20 @@ const icons: Record<WinType, any> = {
   activity: Activity,
   agent: Box,
   diagnostic: Cpu,
+  voice: Mic,
 };
 
 export function Dock({
   windows,
   onOpen,
   onRestore,
+  types = DOCK_TYPES,
 }: {
   windows: WinData[];
   onOpen: (t: WinType) => void;
   onRestore: (id: string) => void;
+  types?: WinType[];
 }) {
-  const types = DOCK_TYPES;
   return (
     <div
       role="toolbar"

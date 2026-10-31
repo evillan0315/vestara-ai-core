@@ -33,6 +33,7 @@ export type { CreatePlanInput } from './stores/plan-store';
 export type { CreateProjectInput } from './stores/project-store';
 export type { CreateTaskInput } from './stores/task-store';
 export * from './subprocess-dispatcher';
+export * from './task-agent-resolver';
 export * from './task-graph';
 export * from './types';
 export * from './worker-pool';

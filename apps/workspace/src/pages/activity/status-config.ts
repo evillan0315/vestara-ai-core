@@ -71,7 +71,7 @@ export interface WorkflowStatusConfig {
  * Used by M11CActivityRoomPage workflow status strip.
  */
 export const WORKFLOW_STATUS_CONFIG: Record<string, WorkflowStatusConfig> = {
-  running: { variant: 'live', pulse: true },
+  running: { variant: 'info', pulse: true },
   completed: { variant: 'live', pulse: false },
   failed: { variant: 'error', pulse: false },
   cancelled: { variant: 'off', pulse: false },
