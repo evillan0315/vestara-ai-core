@@ -2176,6 +2176,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       <ExecutionTray
         active={isStreaming}
         operationCount={assistant.toolOperations?.length ?? 0}
+        maxToolCalls={execConfig.config.maxToolCalls}
         isCustom={execConfig.isCustom}
         turnStartedAt={turnStartedAt}
         taskSnapshot={assistant.taskSnapshot ?? null}

@@ -10,8 +10,9 @@
  *   Assistant authority = AssistantCapabilityPolicy ∩ OpenCodeRuntimeCapability ∩ RepositoryBinding
  *
  * Policy categories:
- *   ALLOW  — auto-approve (all known tools)
- *   ASK    — surface to user (currently unused; reserved for future gating)
+ *   ALLOW  — auto-approve (read/search + repo-scoped mutation/shell)
+ *   ASK    — surface to the user via the interaction broker (network and
+ *            external-directory tools: webfetch, websearch, external_directory)
  *   DENY   — auto-reject (unknown actions fall through)
  *
  * The policy is evaluated per permission request. Tool names are normalized
@@ -21,6 +22,8 @@
  * A skill must never transform DENY → ALLOW or ASK → ALLOW.
  */
 
+import { realpathSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import type { OpenCodePermissionAction } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
 import type { AgentDefinition } from '@vestara/workspace';
@@ -61,9 +64,11 @@ export interface AssistantCapabilityPolicy {
  *
  * capability available ≠ capability authorized ≠ capability executed.
  *
- * ALL tools (ALLOW — full assistant authority per GA-CAP-001):
+ * Matches GA-CAP-001 (network/external gated, everything else automatic):
  *   read, glob, grep, list, edit, write, bash, lsp, skill, todowrite,
- *   task, webfetch, websearch, external_directory  ALLOW
+ *   task  ALLOW (automatic — repository confinement still applies)
+ *   webfetch, websearch, external_directory  ASK (user decision per request
+ *     via the interaction broker; fail-safe deny on timeout)
  *
  * UNKNOWN (DENY):
  *   a newly appearing OpenCode tool must not automatically acquire mutation
@@ -80,13 +85,13 @@ export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCa
       { action: 'grep', decision: 'allow', reason: 'grep: safe content search' },
       { action: 'list', decision: 'allow', reason: 'list: safe directory listing' },
 
-      // ── MUTATION / SHELL (ALLOW — full assistant authority) ──
-      { action: 'edit', decision: 'allow', reason: 'edit: full assistant authority (GA-CAP-001)' },
-      { action: 'write', decision: 'allow', reason: 'write: full assistant authority (GA-CAP-001)' },
-      { action: 'bash', decision: 'allow', reason: 'bash: full assistant authority (GA-CAP-001)' },
+      // ── MUTATION / SHELL (ALLOW — repo-scoped automatic per GA-CAP-001) ──
+      { action: 'edit', decision: 'allow', reason: 'edit: automatic within repository (GA-CAP-001)' },
+      { action: 'write', decision: 'allow', reason: 'write: automatic within repository (GA-CAP-001)' },
+      { action: 'bash', decision: 'allow', reason: 'bash: automatic within repository (GA-CAP-001)' },
 
-      // ── NETWORK (ALLOW — full assistant authority) ──
-      { action: 'webfetch', decision: 'allow', reason: 'webfetch: full assistant authority (GA-CAP-001)' },
+      // ── NETWORK (ASK — user-gated per GA-CAP-001 §1) ──
+      { action: 'webfetch', decision: 'ask', reason: 'webfetch: network — user decision (GA-CAP-001)' },
 
       // ── 'other' catch-all with resource pattern checks ──
       // skill/todowrite/task/lsp: ALLOW (maps to 'other')
@@ -96,18 +101,18 @@ export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCa
         reason: 'assistant support tools: skill/todowrite/task/lsp',
         resourcePattern: /^(skill|todowrite|task|lsp)/i,
       },
-      // websearch: ALLOW (maps to 'other')
+      // websearch: ASK (maps to 'other')
       {
         action: 'other',
-        decision: 'allow',
-        reason: 'websearch: full assistant authority (GA-CAP-001)',
+        decision: 'ask',
+        reason: 'websearch: network — user decision (GA-CAP-001)',
         resourcePattern: /^websearch/i,
       },
-      // external directory access: ALLOW (maps to 'other')
+      // external directory access: ASK (maps to 'other')
       {
         action: 'other',
-        decision: 'allow',
-        reason: 'external_directory: full assistant authority (GA-CAP-001)',
+        decision: 'ask',
+        reason: 'external_directory: outside repository — user decision (GA-CAP-001)',
         resourcePattern: /external/i,
       },
     ],
@@ -277,19 +282,86 @@ export interface ConfinementCheck {
 /**
  * Check whether a resource path is confined to the repository directory.
  * Used for DENY-on-external and ASK-on-external decisions.
+ *
+ * Hardened: resolves symlinks via `realpathSync` before comparing, so a
+ * symlink inside the repo pointing outside (or a `..` traversal) cannot
+ * pass the lexical prefix check. Non-absolute resources (tool names, labels,
+ * globs) are not paths — they return confined:true with reason `not-a-path`
+ * so callers only gate actual filesystem scope. Unresolvable paths fail
+ * closed (confined:false) — an attacker-controlled unresolvable path must
+ * never read as inside.
+ *
+ * ENVELOPE DECISION (recorded 2026-10-26): the harness-path
+ * `FilesystemRuntime.evaluate` content-hash envelope does NOT cover
+ * OpenCode-native file operations (model-driven `edit`/`write` via the
+ * OpenCode server bypass `FilesystemRuntime` entirely). Compensating
+ * controls for the OpenCode path are: (1) this confinement check wired
+ * into the adapter permission gate (`assistant-opencode-adapter.ts` —
+ * absolute-path resources outside the repo downgrade ALLOW to DENY),
+ * (2) network/external tools gated to ASK, (3) per-turn tool-call budget.
+ * A unified content-hash envelope for OpenCode-native writes remains
+ * future work — tracked, not silently assumed.
  */
 export function checkRepositoryConfinement(repositoryDir: string, resourcePath: string): ConfinementCheck {
-  const normalizedRepo = repositoryDir.replace(/\/+$/, '');
-  const normalizedResource = resourcePath.replace(/\/+$/, '');
-
-  if (normalizedResource === normalizedRepo || normalizedResource.startsWith(`${normalizedRepo}/`)) {
-    return { confined: true, reason: 'resource is within repository', requestedPath: resourcePath, repositoryDir };
+  // Only absolute paths are filesystem scope; everything else (tool names,
+  // labels, globs, URLs) is not gated by confinement.
+  if (typeof resourcePath !== 'string' || !resourcePath.startsWith('/')) {
+    return {
+      confined: true,
+      reason: 'not-a-path: resource is not an absolute filesystem path',
+      requestedPath: resourcePath,
+      repositoryDir,
+    };
   }
-
-  return {
-    confined: false,
-    reason: 'resource is outside repository — external scope',
-    requestedPath: resourcePath,
-    repositoryDir,
-  };
+  try {
+    // Resolve the repo root itself (it may contain symlinked components).
+    const realRepo = realpathSync(resolve(repositoryDir));
+    // For existing files/symlinks realpath resolves the full chain; for
+    // not-yet-existing paths (new files) resolve the nearest existing
+    // ancestor — a symlinked parent dir pointing outside still escapes.
+    const candidate = resolve(resourcePath);
+    let realCandidate: string | null = null;
+    try {
+      realCandidate = realpathSync(candidate);
+    } catch {
+      let dir = dirname(candidate);
+      let suffix = candidate.slice(dir.length);
+      for (let depth = 0; depth < 16; depth += 1) {
+        try {
+          const realDir = realpathSync(dir);
+          realCandidate = resolve(realDir + suffix);
+          break;
+        } catch {
+          const parent = dirname(dir);
+          if (parent === dir) break;
+          suffix = dir.slice(parent.length) + suffix;
+          dir = parent;
+        }
+      }
+    }
+    if (!realCandidate) {
+      return {
+        confined: false,
+        reason: 'unresolvable path — fail closed',
+        requestedPath: resourcePath,
+        repositoryDir,
+      };
+    }
+    if (realCandidate === realRepo || realCandidate.startsWith(`${realRepo}/`)) {
+      return { confined: true, reason: 'resource is within repository', requestedPath: resourcePath, repositoryDir };
+    }
+    return {
+      confined: false,
+      reason: 'resource is outside repository — external scope',
+      requestedPath: resourcePath,
+      repositoryDir,
+    };
+  } catch {
+    return {
+      confined: false,
+      reason: 'confinement check failed — fail closed',
+      requestedPath: resourcePath,
+      repositoryDir,
+    };
+  }
 }

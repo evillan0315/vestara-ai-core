@@ -349,6 +349,11 @@ export async function handleConversationsRoute(
   // matched BEFORE the messages/stream guard — their paths
   // (/permissions/:id, /questions/:id) do not match that guard and would
   // otherwise return false (404) so the browser Allow button never resolves.
+  // Decision vocabulary mapping (three layers, one decision — all audited in
+  // AssistantInteractionBroker.getAuditTrail): UI/API `allow-once |
+  // allow-session | deny` → OpenCode wire `once | always | reject` →
+  // policy `allow | ask | deny`. The broker records requested/decided/expired;
+  // auto ALLOW/DENY is recorded by the adapter via recordPolicyDecision.
   const earlyPermissionMatch = p.match(/^\/api\/conversations\/([^/]+)\/permissions\/([^/]+)$/);
   if (earlyPermissionMatch && method === 'POST') {
     const earlyConversationId = decodeURIComponent(earlyPermissionMatch[1] as string);

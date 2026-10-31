@@ -13,7 +13,7 @@
  * maxOutput) are shown as read-only with "Provider-owned" labels.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GAExecutionConfigState } from '../../hooks/useGAExecutionConfig';
 
 // ─── Bounds (must match hook + server) ───────────────────────
@@ -67,6 +67,14 @@ export function ExecutionControlsPopover({
   anchorRef,
 }: ExecutionControlsPopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Unlimited (0) removes the safety bound — require an explicit second
+  // confirmation so a stray slider drag cannot silently unbound a turn.
+  // The slider still moves to 0 for preview, but the change only commits
+  // after the user presses "Confirm unlimited".
+  const [pendingUnlimited, setPendingUnlimited] = useState(false);
+  useEffect(() => {
+    if (config.maxToolCalls !== 0) setPendingUnlimited(false);
+  }, [config.maxToolCalls]);
 
   // Close on Escape
   useEffect(() => {
@@ -137,14 +145,59 @@ export function ExecutionControlsPopover({
         {/* Max Tool Calls */}
         <SliderControl
           label="Max tool calls"
-          value={config.maxToolCalls}
+          value={pendingUnlimited ? 0 : config.maxToolCalls}
           min={BOUNDS.maxToolCalls.min}
           max={BOUNDS.maxToolCalls.max}
           step={BOUNDS.maxToolCalls.step}
           format={formatLimit}
           defaultValue={defaults?.maxToolCalls ?? DEFAULTS.maxToolCalls}
-          onChange={onMaxToolCallsChange}
+          onChange={(v) => {
+            if (v === 0 && config.maxToolCalls !== 0) {
+              // First stop at unlimited: arm the confirm gate, don't commit yet.
+              setPendingUnlimited(true);
+              return;
+            }
+            setPendingUnlimited(false);
+            onMaxToolCallsChange(v);
+          }}
         />
+        {pendingUnlimited && (
+          <div
+            role="alert"
+            className="rounded-lg border border-(--vestara-status-warning)/40 bg-(--vestara-status-warning)/10 px-2.5 py-2"
+          >
+            <p className="text-(--vestara-font-size-caption) text-(--vestara-text-primary) font-medium">
+              Unlimited removes the tool-call safety bound.
+            </p>
+            <p className="mt-0.5 text-(--vestara-font-size-caption) text-(--vestara-text-secondary)">
+              A runaway turn can issue unbounded reads/edits/shell commands. Confirm only for supervised runs.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingUnlimited(false);
+                  onMaxToolCallsChange(0);
+                }}
+                className="rounded-md bg-(--vestara-status-warning)/20 px-2 py-1 text-(--vestara-font-size-caption) font-medium text-(--vestara-text-primary) hover:bg-(--vestara-status-warning)/30 transition-colors cursor-pointer"
+              >
+                Confirm unlimited
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingUnlimited(false)}
+                className="rounded-md px-2 py-1 text-(--vestara-font-size-caption) text-(--vestara-text-secondary) hover:text-(--vestara-text-primary) transition-colors cursor-pointer"
+              >
+                Keep limit
+              </button>
+            </div>
+          </div>
+        )}
+        {config.maxToolCalls === 0 && !pendingUnlimited && (
+          <p className="text-(--vestara-font-size-caption) text-(--vestara-status-warning)">
+            Unlimited active — this turn has no tool-call bound.
+          </p>
+        )}
       </div>
 
       {/* Provider-owned limits (read-only) */}

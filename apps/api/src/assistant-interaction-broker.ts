@@ -28,6 +28,29 @@ export interface AssistantQuestionDecision {
   readonly answers: readonly (readonly string[])[];
 }
 
+/**
+ * One audit entry for a permission/question lifecycle event. This is the
+ * unified assistant-side audit: interactive ASK decisions (browser), auto
+ * ALLOW/DENY policy resolutions (adapter), timeouts, and cancellations all
+ * land here with the same shape. The Console bridge (`routes/opencode.ts`)
+ * keeps its own `logAudit` + `AuditAction` entries; both surfaces record
+ * `{conversation|session, request, decision, scope, reason, latencyMs}` so a
+ * reviewer can join them on request id.
+ */
+export interface AssistantPermissionAuditEntry {
+  readonly at: string;
+  readonly kind: 'permission' | 'question';
+  readonly conversationId: string;
+  readonly requestId: string;
+  readonly event: 'requested' | 'decided' | 'expired' | 'cancelled' | 'auto-allow' | 'auto-deny';
+  readonly decision?: string;
+  readonly scope?: string;
+  readonly reason?: string;
+  readonly latencyMs?: number;
+}
+
+const MAX_AUDIT_ENTRIES = 200;
+
 interface PendingInteraction {
   readonly kind: 'permission' | 'question';
   readonly resolve: (decision: unknown) => void;
@@ -42,6 +65,7 @@ function key(conversationId: string, requestId: string): string {
 
 export class AssistantInteractionBroker {
   private readonly pending = new Map<string, PendingInteraction>();
+  private readonly audit: AssistantPermissionAuditEntry[] = [];
 
   /**
    * Wait for the user's decision on a pending permission request.
@@ -92,6 +116,14 @@ export class AssistantInteractionBroker {
     this.pending.delete(key(conversationId, questionRequestId));
     const record = entry as PendingInteraction & { timer?: ReturnType<typeof setTimeout> };
     if (record.timer) clearTimeout(record.timer);
+    this.pushAudit({
+      at: new Date().toISOString(),
+      kind: 'question',
+      conversationId,
+      requestId: questionRequestId,
+      event: 'cancelled',
+      latencyMs: Date.now() - entry.at,
+    });
     entry.resolve(undefined);
     return true;
   }
@@ -99,6 +131,44 @@ export class AssistantInteractionBroker {
   /** Bounded diagnostic: number of still-pending interactions. */
   get pendingCount(): number {
     return this.pending.size;
+  }
+
+  /**
+   * Unified audit trail (newest last, bounded). Every lifecycle event —
+   * requested, decided, expired, cancelled, auto-allow, auto-deny — is
+   * recorded here regardless of which path resolved it, so reviewers have
+   * one place to verify what authority actually executed.
+   */
+  getAuditTrail(): readonly AssistantPermissionAuditEntry[] {
+    return this.audit;
+  }
+
+  /**
+   * Record an automatic policy resolution (ALLOW/DENY) that never waited
+   * on the user. Called by the adapter alongside the OpenCode response so
+   * auto-decisions are auditable exactly like interactive ones.
+   */
+  recordPolicyDecision(entry: {
+    kind?: 'permission' | 'question';
+    conversationId: string;
+    requestId: string;
+    decision: 'auto-allow' | 'auto-deny';
+    reason?: string;
+  }): void {
+    this.pushAudit({
+      at: new Date().toISOString(),
+      kind: entry.kind ?? 'permission',
+      conversationId: entry.conversationId,
+      requestId: entry.requestId,
+      event: entry.decision,
+      decision: entry.decision,
+      ...(entry.reason ? { reason: entry.reason.slice(0, 500) } : {}),
+    });
+  }
+
+  private pushAudit(entry: AssistantPermissionAuditEntry): void {
+    this.audit.push(entry);
+    while (this.audit.length > MAX_AUDIT_ENTRIES) this.audit.shift();
   }
 
   private async awaitDecision(
@@ -120,8 +190,26 @@ export class AssistantInteractionBroker {
         timer: undefined as ReturnType<typeof setTimeout> | undefined,
       };
       this.pending.set(keyName, entry);
+      this.pushAudit({
+        at: new Date().toISOString(),
+        kind,
+        conversationId,
+        requestId,
+        event: 'requested',
+      });
       entry.timer = setTimeout(() => {
-        if (this.pending.delete(keyName)) resolve(undefined);
+        if (this.pending.delete(keyName)) {
+          this.pushAudit({
+            at: new Date().toISOString(),
+            kind,
+            conversationId,
+            requestId,
+            event: 'expired',
+            reason: 'no user decision within timeout — fail-safe reject',
+            latencyMs: Date.now() - entry.at,
+          });
+          resolve(undefined);
+        }
       }, timeoutMs);
     });
   }
@@ -137,6 +225,19 @@ export class AssistantInteractionBroker {
     this.pending.delete(key(conversationId, requestId));
     const record = entry as PendingInteraction & { timer?: ReturnType<typeof setTimeout> };
     if (record.timer) clearTimeout(record.timer);
+    const d = decision as { decision?: string; scope?: string; reason?: string; answers?: unknown };
+    this.pushAudit({
+      at: new Date().toISOString(),
+      kind,
+      conversationId,
+      requestId,
+      event: 'decided',
+      ...(typeof d?.decision === 'string' ? { decision: d.decision } : {}),
+      ...(typeof d?.scope === 'string' ? { scope: d.scope } : {}),
+      ...(typeof d?.reason === 'string' ? { reason: d.reason.slice(0, 500) } : {}),
+      ...(d && 'answers' in d ? { decision: 'answered' } : {}),
+      latencyMs: Date.now() - entry.at,
+    });
     entry.resolve(decision);
     return true;
   }

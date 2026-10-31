@@ -44,9 +44,15 @@ import {
   type StreamChunk,
   truncateReasoning,
 } from '@vestara/shared';
+// ROUTING-CONVERGENCE-001C persona resolution lives in
+// `./assistant-agent-persona` (split from this file — pure move).
+// Re-exported here so existing importers (`agent-persona-resolver.ts`)
+// keep working without churn.
+import { AgentPersonaError, type ResolvedAgentPersona, resolveTurnPersona } from './assistant-agent-persona';
 import {
   type AssistantCapabilityPolicy,
   buildToolsMap,
+  checkRepositoryConfinement,
   evaluatePermission,
   type PermissionEvaluation,
 } from './assistant-capability-policy';
@@ -71,53 +77,9 @@ import {
 } from './assistant-execution-projection';
 import type { AssistantInteractionBroker, AssistantQuestionDecision } from './assistant-interaction-broker';
 
-/**
- * ROUTING-CONVERGENCE-001C — per-turn resolved execution persona.
- *
- * Maps the requested logical `agentId` to the OpenCode runtime agent +
- * capability policy that actually execute the turn, both sourced from the
- * canonical AgentDefinition. The prompt_async request carries `runtimeAgent`;
- * the Vestara side retains the requested id for attribution, so a mismatch
- * can never silently pass as the requested agent.
- */
-export interface ResolvedAgentPersona {
-  /** OpenCode runtime agent for prompt_async.agent (e.g. 'vestara-developer'). */
-  readonly runtimeAgent: string;
-  /** Capability policy for this turn's tools map + permission evaluation. */
-  readonly capabilityPolicy?: AssistantCapabilityPolicy;
-}
-
-/**
- * Thrown when the per-turn persona cannot be resolved authoritatively.
- * The turn fails BEFORE any OpenCode session/message is created — an
- * explicitly targeted agent never executes as another persona.
- */
-export class AgentPersonaError extends Error {
-  readonly agentId?: string;
-
-  constructor(message: string, agentId?: string) {
-    super(message);
-    this.name = 'AgentPersonaError';
-    this.agentId = agentId;
-  }
-}
-
-/**
- * Resolve the turn persona: per-turn resolver wins; otherwise the
- * construction-time fallback agent governs generic execution only.
- */
-async function resolveTurnPersona(
-  options: AssistantOpenCodeExecutorOptions,
-  request: CompletionRequest,
-): Promise<ResolvedAgentPersona> {
-  if (options.resolveAgentPersona) {
-    return options.resolveAgentPersona(request.agentId);
-  }
-  return {
-    runtimeAgent: options.agent,
-    ...(options.capabilityPolicy ? { capabilityPolicy: options.capabilityPolicy } : {}),
-  };
-}
+export type { ResolvedAgentPersona };
+// Re-exported so existing importers (`agent-persona-resolver.ts`) keep working.
+export { AgentPersonaError, resolveTurnPersona };
 
 export interface AssistantOpenCodeExecutorOptions {
   client: OpenCodeHttpClient;
@@ -1082,10 +1044,36 @@ export async function* runAssistantOpenCodeTurn(
             if (policy && permissionId) {
               const action = normalizePermissionAction(detail.action);
               const resources = detail.resources ?? [];
-              const evaluation: PermissionEvaluation = evaluatePermission(policy, action, resources);
+              let evaluation: PermissionEvaluation = evaluatePermission(policy, action, resources);
+
+              // Confinement backstop: an ALLOW must never carry an absolute
+              // path outside the repository (symlink-resolved). Absolute-path
+              // resources escaping the repo downgrade to DENY even when the
+              // tool itself is allowed — defense against path traversal and
+              // symlink escapes on the OpenCode-native path (no
+              // FilesystemRuntime envelope there; see policy decision note).
+              if (evaluation.decision === 'allow' && policy.repositoryDir) {
+                const escaped = resources.find(
+                  (r) =>
+                    typeof r === 'string' &&
+                    r.startsWith('/') &&
+                    !checkRepositoryConfinement(policy.repositoryDir, r).confined,
+                );
+                if (escaped) {
+                  evaluation = {
+                    decision: 'deny',
+                    reason: `confinement: resource escapes repository: ${escaped.slice(0, 200)}`,
+                    ruleIndex: -1,
+                    action: evaluation.action,
+                    resources: evaluation.resources,
+                  };
+                }
+              }
 
               if (evaluation.decision === 'allow') {
-                // Auto-approve: respond to OpenCode and surface as status
+                // Auto-approve: respond to OpenCode and surface as status.
+                // Recorded in the broker audit so auto-decisions are as
+                // verifiable as interactive ones (unified audit).
                 try {
                   await client.respondToPermission(
                     resolvedSessionId,
@@ -1100,12 +1088,23 @@ export async function* runAssistantOpenCodeTurn(
                 } catch {
                   // permission response failed — continue, OpenCode will handle timeout
                 }
+                try {
+                  options.interactionBroker?.recordPolicyDecision({
+                    conversationId: request.conversationId ?? '',
+                    requestId: permissionId,
+                    decision: 'auto-allow',
+                    reason: evaluation.reason,
+                  });
+                } catch {
+                  // Audit is best-effort; never break the turn.
+                }
                 yield chunk('status', sequence++, {
                   content: `Auto-approved: ${detail.action}`,
                   detail,
                 });
               } else if (evaluation.decision === 'deny') {
-                // Auto-reject: respond to OpenCode and surface as status
+                // Auto-reject: respond to OpenCode and surface as status.
+                // Recorded in the broker audit (unified audit).
                 try {
                   await client.respondToPermission(
                     resolvedSessionId,
@@ -1118,6 +1117,16 @@ export async function* runAssistantOpenCodeTurn(
                   );
                 } catch {
                   // permission response failed — continue
+                }
+                try {
+                  options.interactionBroker?.recordPolicyDecision({
+                    conversationId: request.conversationId ?? '',
+                    requestId: permissionId,
+                    decision: 'auto-deny',
+                    reason: evaluation.reason,
+                  });
+                } catch {
+                  // Audit is best-effort; never break the turn.
                 }
                 yield chunk('status', sequence++, {
                   content: `Denied: ${detail.action} — ${evaluation.reason}`,

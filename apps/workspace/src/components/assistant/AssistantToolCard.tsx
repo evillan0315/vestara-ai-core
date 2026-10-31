@@ -62,27 +62,62 @@ export type ToolCategory = 'read' | 'search' | 'list' | 'edit' | 'bash' | 'task'
 
 /**
  * Normalize a wire tool name into a presentation category.
- * Pure string matching on the delivered name — never invents detail.
- * Unknown tools fall through to `generic`, which displays the raw name.
+ * Exact allowlist on the delivered name — never substring matching (so
+ * `thread` is not a task, `breadboard` is not a read, `runner` is not a
+ * shell). Unknown tools fall through to `generic`, which displays the raw
+ * name verbatim — never guessed.
  */
+const TOOL_CATEGORY_BY_NAME: Readonly<Record<string, ToolCategory>> = {
+  read: 'read',
+  glob: 'list',
+  grep: 'search',
+  list: 'list',
+  edit: 'edit',
+  write: 'edit',
+  bash: 'bash',
+  task: 'task',
+  todowrite: 'task',
+  webfetch: 'search',
+  websearch: 'search',
+  external_directory: 'list',
+  lsp: 'read',
+  skill: 'generic',
+  question: 'generic',
+  doom_loop: 'generic',
+};
+
+/** Exact legacy bare-name aliases (e.g. `shell.execute` → `execute` → bash). */
+const TOOL_CATEGORY_ALIAS: Readonly<Record<string, ToolCategory>> = {
+  execute: 'bash',
+  exec: 'bash',
+  shell: 'bash',
+  command: 'bash',
+  terminal: 'bash',
+  run: 'bash',
+  cat: 'read',
+  open: 'read',
+  apply: 'edit',
+  patch: 'edit',
+  search: 'search',
+  find: 'search',
+  dir: 'list',
+  ls: 'list',
+  todo: 'task',
+};
+
 export function normalizeToolCategory(name: string): ToolCategory {
-  const n = name.toLowerCase();
-  if (/(^|[^a-z])(read|cat|open)([^a-z]|$)/.test(n) || n.includes('read')) return 'read';
-  if (n.includes('grep') || n.includes('search') || n.includes('find') || n.includes('rg')) return 'search';
-  if (n.includes('glob') || n.includes('list') || n.includes('ls') || n.includes('dir') || n.includes('glob'))
-    return 'list';
-  if (n.includes('edit') || n.includes('write') || n.includes('apply') || n.includes('patch')) return 'edit';
-  if (
-    n.includes('bash') ||
-    n.includes('exec') ||
-    n.includes('shell') ||
-    n.includes('terminal') ||
-    n.includes('command') ||
-    /(^|[^a-z])run([^a-z]|$)/.test(n)
-  )
-    return 'bash';
-  if (n.includes('todo') || n.includes('task')) return 'task';
-  return 'generic';
+  const raw = name.trim().toLowerCase();
+  if (TOOL_CATEGORY_BY_NAME[raw]) return TOOL_CATEGORY_BY_NAME[raw];
+  // Legacy namespaced form (`filesystem.read`, `shell.execute`): strip the
+  // namespace and match the bare tool exactly. Substring matching stays
+  // forbidden — `thread` is not a task, `breadboard` is not a read.
+  const dot = raw.lastIndexOf('.');
+  if (dot >= 0) {
+    const bare = raw.slice(dot + 1);
+    if (TOOL_CATEGORY_BY_NAME[bare]) return TOOL_CATEGORY_BY_NAME[bare];
+    if (TOOL_CATEGORY_ALIAS[bare]) return TOOL_CATEGORY_ALIAS[bare];
+  }
+  return TOOL_CATEGORY_ALIAS[raw] ?? 'generic';
 }
 
 /** Display label. Generic shows the raw wire name (escaped by React) — never guessed. */

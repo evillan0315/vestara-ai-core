@@ -109,22 +109,24 @@ interface M11CStreamItemProps {
 // domain-event taxonomy: iconography, density, and emphasis only — never
 // persisted meaning, ordering, or identity.
 //
-// Kind provenance (audited 008D):
+// Kind provenance (audited 008D, updated Phase-1):
 //   human.message           → conversation (primary)
 //   agent.started/completed → activity (secondary). Start vs completion are
 //                             INDISTINGUISHABLE at M11C (no source-type field
 //                             survives projection), so WORK is uniform.
 //   agent.progress          → progress (muted)
 //   tool.called             → tool-call; tool.succeeded/failed → tool-result.
-//                             Succeeded vs failed are INDISTINGUISHABLE (no
-//                             error flag survives projection; recorded debt).
+//                             Terminal status IS projected (M9 payload.tool
+//                             status: started|completed|failed) — see
+//                             `tool-call`/`tool-result` rows below.
 //   task/workflow lifecycle → activity/log; task/agent/workflow.failed →
 //                             diagnostic (the authoritative failure class)
 //   system.event            → evidence (with data) / telemetry
 //   interaction.*           → interaction (owns its card, untouched)
 // Rendered "edit started"-style labels are adapter-authored payload.message
-// strings, not kinds. No callID exists in the projection chain, so pairing
-// is limited to shared subordinate markers by kind.
+// strings, not kinds. Tool correlation uses the durable `tool.callID`
+// (M9 `payload.tool.callID`, projected as `details.callID`); rows never
+// merge — pairing is by callID, never by proximity or kind.
 
 /** Content length above which a stream item body starts collapsed. */
 const COLLAPSE_THRESHOLD = 280;

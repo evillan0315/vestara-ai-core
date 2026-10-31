@@ -96,12 +96,14 @@ export type OptimisticDelivery = 'submitting' | 'persisted' | 'failed';
  * Derived ONLY from the existing browser-facing SSE contract
  * (`tool` / `tool_result` chunk types with `name` + bounded `content`).
  * Lifecycle is proven by chunk type, never by parsing status prose:
- * - `tool` → a `running` operation (upserted; consecutive same-name starts
- *   merge because today's contract carries no operation identity — M3 gap).
+ * - `tool` → a `running` operation (one card per start; same-name starts are
+ *   never merged — parallel calls to the same tool stay distinct. Chunks
+ *   carrying authoritative `operationId` correlate via the operationId map;
+ *   detail-less chunks without identity resolve FIFO at completion).
  * - `tool_result` → the matching `running` operation completes; `completed`
  *   with a bounded preview, or `failed` when content is exactly `failed`
- *   (the adapter's error encoding when a tool errors without output — M3
- *   should replace this with an explicit ok/error flag).
+ *   (the adapter's error encoding when a tool errors without output) or when
+ *   the authoritative execution detail carries explicit `state: failed`.
  * - `error` chunk / turn terminal → leftover `running` operations resolve
  *   (`failed` on error; `completed` without preview on `done`, since the
  *   terminal proves execution ended — never claimed from an unrelated event).
@@ -113,7 +115,11 @@ export type OptimisticDelivery = 'submitting' | 'persisted' | 'failed';
 export type ToolOperationState = 'running' | 'completed' | 'failed';
 
 export interface AssistantToolOperation {
-  /** Client-side projection id (NOT a runtime/tool identity — M3 gap). */
+  /**
+   * Client-side projection id. Live cards use a per-start counter id;
+   * rehydrated durable cards use deterministic `hist-<operationId|toolCallId>`
+   * so a later live result for the same authoritative operation correlates.
+   */
   id: string;
   /** Tool name exactly as delivered by the `tool`/`tool_result` event. */
   name: string;
@@ -317,7 +323,12 @@ function applyToolResult(
   const name = toolName || 'tool';
   const failed = eventContent === 'failed';
   const preview = failed ? undefined : boundPreview(eventContent);
-  const idx = toolName ? prev.map((op) => op.name).lastIndexOf(toolName) : -1;
+  // FIFO: complete the earliest still-running op of this name so parallel
+  // same-name calls without operationId resolve in start order instead of
+  // collapsing onto the most recent card.
+  const idx = toolName
+    ? prev.findIndex((op) => op.name === toolName && op.state === 'running')
+    : -1;
   const match = idx >= 0 ? prev[idx] : undefined;
   if (match && match.state === 'running') {
     return prev.map((op, i) =>
@@ -387,6 +398,48 @@ function applyStructuredToolResult(
   const created = { id: makeToolOpId(name), name, state: explicit as ToolOperationState, preview };
   operationIdToOpId.set(operationId, created.id);
   return [...prev, created];
+}
+
+/**
+ * Rehydrate a durable tool timeline from persisted conversation messages.
+ * Reads `toolObservations` (GA-CTX-001) off assistant messages — one entry
+ * per operation — so reselect/reload shows what tools actually did instead
+ * of an empty timeline. Ids are deterministic (`hist-<operationId|toolCallId>`)
+ * so a later live `tool_result` carrying the same authoritative operationId
+ * correlates instead of duplicating. Never fabricates: unknown shapes are skipped.
+ */
+export function historicToolOperationsFromMessages(
+  messages: readonly { id: string; role: string; toolObservations?: readonly {
+    toolCallId: string;
+    operationId?: string;
+    toolName: string;
+    status: string;
+    content: string;
+  }[] }[],
+): { operations: AssistantToolOperation[]; operationIdEntries: [string, string][] } {
+  const operations: AssistantToolOperation[] = [];
+  const operationIdEntries: [string, string][] = [];
+  const seen = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role !== 'assistant' || !msg.toolObservations) continue;
+    for (const obs of msg.toolObservations) {
+      if (!obs || typeof obs.toolName !== 'string') continue;
+      const operationId = typeof obs.operationId === 'string' && obs.operationId ? obs.operationId : undefined;
+      const clientId = `hist-${operationId ?? obs.toolCallId ?? `${msg.id}`}`;
+      if (seen.has(clientId)) continue;
+      seen.add(clientId);
+      const state: ToolOperationState =
+        obs.status === 'running' ? 'running' : obs.status === 'completed' ? 'completed' : 'failed';
+      operations.push({
+        id: clientId,
+        name: obs.toolName || 'tool',
+        state,
+        ...(state === 'completed' && obs.content ? { preview: obs.content.slice(0, TOOL_PREVIEW_MAX) } : {}),
+      });
+      if (operationId) operationIdEntries.push([operationId, clientId]);
+    }
+  }
+  return { operations, operationIdEntries };
 }
 
 function makeClientTurnId(): string {
@@ -846,8 +899,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                       operationIdMapRef.current.set(execution.operationId, created.id);
                       return [...prev, created];
                     }
-                    const last = prev[prev.length - 1];
-                    if (last && last.state === 'running' && last.name === (toolName || 'tool')) return prev;
+                    // No operationId on this chunk: each start is a distinct card.
+                    // Same-name `running` rows are never merged — parallel calls
+                    // to the same tool would otherwise collapse into one card and
+                    // a single result would mis-resolve the wrong operation.
                     return [
                       ...prev,
                       { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const },
@@ -993,7 +1048,16 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         apiFetch<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`)
           .then((data) => {
             setSelectedConversation(data.conversation);
-            setMessages(data.conversation.messages ?? []);
+            const loaded = data.conversation.messages ?? [];
+            setMessages(loaded);
+            // Rehydrate the durable tool timeline so reselect shows what tools
+            // did (transient live ops are gone after detach/reload).
+            const historic = historicToolOperationsFromMessages(loaded);
+            operationIdMapRef.current.clear();
+            for (const [opId, clientId] of historic.operationIdEntries) {
+              operationIdMapRef.current.set(opId, clientId);
+            }
+            setToolOperations(historic.operations);
             setMessagesPagination(data.conversation._pagination ?? null);
             probeActiveTurn(id);
           })
@@ -1088,7 +1152,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setSessionMessages([]);
       setSelectedSessionId(null);
       setSelectedConversation(data.conversation);
-      setMessages(data.conversation.messages ?? []);
+      const loaded = data.conversation.messages ?? [];
+      setMessages(loaded);
+      const historic = historicToolOperationsFromMessages(loaded);
+      operationIdMapRef.current.clear();
+      for (const [opId, clientId] of historic.operationIdEntries) {
+        operationIdMapRef.current.set(opId, clientId);
+      }
+      setToolOperations(historic.operations);
       setMessagesPagination(data.conversation._pagination ?? null);
     } catch {
       if (selectedIdRef.current !== conversationId) return;

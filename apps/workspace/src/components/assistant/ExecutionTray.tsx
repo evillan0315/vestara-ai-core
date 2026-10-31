@@ -23,6 +23,8 @@ export interface ExecutionTrayProps {
   active: boolean;
   /** Current operation/tool call count. */
   operationCount?: number;
+  /** Configured per-turn tool-call budget (0 = unlimited). */
+  maxToolCalls?: number;
   /** Whether custom execution limits are configured. */
   isCustom?: boolean;
   /** Turn start timestamp (ms since epoch). */
@@ -62,6 +64,7 @@ function getTaskProgress(taskSnapshot: AssistantExecutionDetail | null | undefin
 export const ExecutionTray = memo(function ExecutionTray({
   active,
   operationCount = 0,
+  maxToolCalls,
   isCustom,
   turnStartedAt,
   taskSnapshot,
@@ -160,12 +163,21 @@ export const ExecutionTray = memo(function ExecutionTray({
             </>
           )}
 
-          {/* Operation count */}
+          {/* Operation count + live budget */}
           {operationCount > 0 && (
             <>
               <span className="text-(--vestara-text-disabled)">·</span>
-              <span>{operationCount} op{operationCount !== 1 ? 's' : ''}</span>
+              <span title={typeof maxToolCalls === 'number' && maxToolCalls > 0 ? `Budget ${operationCount}/${maxToolCalls} tool calls` : 'Tool operations this turn'}>
+                {typeof maxToolCalls === 'number' && maxToolCalls > 0
+                  ? `${operationCount}/${maxToolCalls} ops`
+                  : `${operationCount} op${operationCount !== 1 ? 's' : ''}`}
+              </span>
             </>
+          )}
+          {typeof maxToolCalls === 'number' && maxToolCalls > 0 && operationCount >= maxToolCalls - 5 && (
+            <span className="text-(--vestara-status-warning)" title="Approaching the per-turn tool-call budget">
+              near limit
+            </span>
           )}
 
           {/* Elapsed time */}
