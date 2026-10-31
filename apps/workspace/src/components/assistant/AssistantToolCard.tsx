@@ -290,9 +290,10 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
             </span>
           )}
         </div>
-        {state !== 'running' && preview && (
+        {preview && (
           <div
             data-testid="assistant-tool-preview"
+            data-preview-state={state}
             className="mt-0.5 text-(--vestara-font-size-label) leading-snug text-(--vestara-text-disabled) break-words line-clamp-2 font-mono"
           >
             {preview}

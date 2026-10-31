@@ -113,21 +113,35 @@ export class AssistantTurn {
   }
 
   /** One card per start — same-name `running` rows never merge. */
-  onToolStart(name: string, operationId?: string): void {
+  onToolStart(name: string, operationId?: string, preview?: string): void {
     const toolName = name || 'tool';
+    const bounded = boundPreview(preview);
     if (operationId) {
       const knownId = this.operationIds.get(operationId);
       if (knownId) {
         const existing = this.operations.find((op) => op.id === knownId);
-        if (existing && existing.state !== 'running') existing.state = 'running';
-        if (existing) return;
+        if (existing) {
+          if (existing.state !== 'running') existing.state = 'running';
+          if (bounded !== undefined) existing.preview = bounded;
+          return;
+        }
       }
-      const created: AssistantToolOperation = { id: makeToolOpId(toolName), name: toolName, state: 'running' };
+      const created: AssistantToolOperation = {
+        id: makeToolOpId(toolName),
+        name: toolName,
+        state: 'running',
+        ...(bounded !== undefined ? { preview: bounded } : {}),
+      };
       this.operationIds.set(operationId, created.id);
       this.operations.push(created);
       return;
     }
-    this.operations.push({ id: makeToolOpId(toolName), name: toolName, state: 'running' });
+    this.operations.push({
+      id: makeToolOpId(toolName),
+      name: toolName,
+      state: 'running',
+      ...(bounded !== undefined ? { preview: bounded } : {}),
+    });
   }
 
   /**

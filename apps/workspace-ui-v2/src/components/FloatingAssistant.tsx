@@ -210,7 +210,9 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
         // structured status, and ASK queues render live instead of stalling.
         onEvent: (type, content, frame) => {
           if (type === 'tool') {
-            const execution = frame?.execution as { kind?: string; operationId?: string } | undefined;
+            const execution = frame?.execution as
+              | { kind?: string; operationId?: string; preview?: unknown; outputPreview?: unknown }
+              | undefined;
             const operationId =
               execution &&
               execution.kind !== 'permission' &&
@@ -219,7 +221,15 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
                 ? execution.operationId
                 : undefined;
             if (execution && operationId) turn.onExecution(frame?.execution);
-            turn.onToolStart(frame?.name ?? 'tool', operationId);
+            const runningPreview =
+              execution && (execution.kind === 'tool' || execution.kind === 'generic')
+                ? typeof execution.preview === 'string'
+                  ? execution.preview.slice(0, 200)
+                  : undefined
+                : execution && execution.kind === 'terminal' && typeof execution.outputPreview === 'string'
+                  ? execution.outputPreview.slice(0, 200)
+                  : undefined;
+            turn.onToolStart(frame?.name ?? 'tool', operationId, runningPreview);
           } else if (type === 'tool_result') {
             turn.onExecution(frame?.execution);
             turn.onToolResult(frame?.name ?? 'tool', content);

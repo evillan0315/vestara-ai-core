@@ -10,6 +10,29 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Streaming 04: running previews + edit live header
+
+### Changed
+
+- **Running generic-card previews** (`AssistantToolCard.tsx`,
+  `packages/assistant/src/store.ts`, `useAssistantConversation.ts`,
+  `FloatingAssistant.tsx`) — `onToolStart` accepts a bounded preview
+  (tool `preview` / terminal `outputPreview`, ≤200ch, React-escaped,
+  `line-clamp-2`); the pulse indicator stays. Preview renders in `running`
+  and `completed` (was completed-only).
+- **Edit live header** (`AssistantCodeEdit.tsx`) — the card mounts on the
+  running detail (header with file/op/counts, collapsed unavailable body);
+  when the completed detail arrives with a small diff (≤12 changed lines)
+  it auto-expands unless the user already toggled.
+
+### Verification
+
+- `pnpm --filter @vestara/assistant test` ✅ 28/28 · workspace hook +
+  assistant suites ✅ 20/20 · touched-file `biome check` clean except
+  pre-existing (`noVoidTypeReturn`, v2 imports/exhaustive-deps).
+- Task `ASSIST-STREAM-001/04` complete (4/6). Next: `05` timeline
+  virtualization.
+
 ## [2026-10-31] — Assistant Streaming 02/03: bash live output + progressive reads
 
 ### Changed

@@ -7399,4 +7399,27 @@ under `[2026-10-31] — Assistant Streaming 02/03`. `ASSIST-STREAM-001` 3/6.
 running generic-card previews and edit live headers (`04`); timeline
 virtualization (`05`).
 
+## ASSIST-STREAM-001/04 — Running Preview + Edit Live Header ✅ 2026-10-31
+
+**Objective**: running cards show what is known now (bounded preview + pulse);
+edit cards stay visible live and reveal small diffs on arrival.
+
+**What changed** (`ASSIST-STREAM-001/04`):
+
+- `AssistantToolCard.tsx` — preview renders in `running` and `completed`
+  (`data-preview-state`), React-escaped, `line-clamp-2` mono.
+- `packages/assistant/src/store.ts` — `onToolStart(name, operationId,
+  preview)` bounds and attaches the preview to new/existing running ops.
+- `useAssistantConversation.ts` (`runningPreviewFor`) + `FloatingAssistant`
+  — derive the running preview from tool `preview` / terminal
+  `outputPreview` (≤200ch); read/edit/write ride structured cards.
+- `AssistantCodeEdit.tsx` — user-toggle tracking; auto-expand when the
+  completed detail carries a small diff (respects manual toggle).
+
+**Verification**: assistant 28/28 · workspace hook + assistant suites 20/20 ·
+touched-file biome clean except pre-existing · `CHANGELOG` recorded under
+`[2026-10-31] — Assistant Streaming 04`. `ASSIST-STREAM-001` 4/6.
+
+**Not claimed**: timeline virtualization (`05`); a11y/tests closure (`06`).
+
 

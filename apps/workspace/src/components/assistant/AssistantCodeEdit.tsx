@@ -20,7 +20,7 @@
  * Accept / Reject / Revert / Run (observational surface).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditExecutionDetail } from '@vestara/shared';
 
 // ─── Deterministic presentation rules ─────────────────────────
@@ -107,8 +107,20 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
   const [expanded, setExpanded] = useState<boolean>(() => resolveDefaultExpanded(detail));
   const [copied, setCopied] = useState<'path' | 'diff' | null>(null);
   const [openInEditorDone, setOpenInEditorDone] = useState(false);
+  // ASSIST-STREAM-001/04: the live card mounts on the running detail
+  // (unavailable diff → collapsed header with file/op/counts); when the
+  // completed detail arrives with a small diff, expand unless the user
+  // already toggled.
+  const userToggledRef = useRef(false);
 
-  const toggle = useCallback(() => setExpanded((v) => !v), []);
+  const toggle = useCallback(() => {
+    userToggledRef.current = true;
+    setExpanded((v) => !v);
+  }, []);
+
+  useEffect(() => {
+    if (!userToggledRef.current && resolveDefaultExpanded(detail)) setExpanded(true);
+  }, [detail]);
   const filename = filenameOf(detail.file);
   const label = detail.operation ? OPERATION_LABEL[detail.operation] ?? 'Edit' : 'Edit';
   const truncated = detail.patchTruncated === true || detail.hunksTruncated === true;

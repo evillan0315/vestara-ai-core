@@ -53,6 +53,25 @@ function toExecutionDetail(value: unknown): AssistantExecutionDetail | undefined
 }
 
 /**
+ * Bounded running preview for the generic tool card (ASSIST-STREAM-001/04).
+ * Tool/generic kinds surface `preview`; terminal surfaces `outputPreview`
+ * (partial output while running). Read/edit/write ride their structured
+ * cards, so no generic preview there. Returns undefined when absent.
+ */
+function runningPreviewFor(execution?: AssistantExecutionDetail): string | undefined {
+  if (!execution || execution.state === 'failed') return undefined;
+  if (execution.kind === 'tool' || execution.kind === 'generic') {
+    const preview = (execution as { preview?: unknown }).preview;
+    return typeof preview === 'string' && preview.length > 0 ? preview.slice(0, 200) : undefined;
+  }
+  if (execution.kind === 'terminal') {
+    const output = (execution as { outputPreview?: unknown }).outputPreview;
+    return typeof output === 'string' && output.length > 0 ? output.slice(0, 200) : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Authoritative operation identity for `tool`-channel correlation.
  * Covers tool/terminal/generic/edit/read/write/verification/artifact so
  * parallel same-name calls correlate instead of FIFO-misresolving.
@@ -426,7 +445,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const pushToolStart = useCallback(
     (name: string, execution?: AssistantExecutionDetail) => {
       if (execution) turn.onExecution(execution);
-      turn.onToolStart(name, execution?.operationId);
+      turn.onToolStart(name, execution?.operationId, runningPreviewFor(execution));
       bumpTurn();
     },
     [turn],
