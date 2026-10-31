@@ -19,14 +19,30 @@
  *   permission/question queues.
  */
 
-import {
-  type AssistantExecutionDetail,
-  type GenericToolExecutionDetail,
-  isAssistantExecutionDetail,
-  type TerminalExecutionDetail,
-  type ToolExecutionDetail,
+import type {
+  AssistantExecutionDetail,
+  GenericToolExecutionDetail,
+  TerminalExecutionDetail,
+  ToolExecutionDetail,
 } from '@vestara/shared';
 import type { ConversationMessage } from './transport.js';
+
+/**
+ * Narrow an unknown payload to `AssistantExecutionDetail`.
+ *
+ * Package-local (not `@vestara/shared`'s normalizer) on purpose: this
+ * package ships to browsers, where `@vestara/shared`'s CJS `__exportStar`
+ * emit has no statically resolvable named exports for Rollup. The check
+ * mirrors the v1 hook's long-shipped validation — contract, version,
+ * operationId presence, lifecycle state — so behavior is unchanged.
+ */
+export function isAssistantExecutionDetail(value: unknown): value is AssistantExecutionDetail {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  if (record.contract !== 'assistant.execution.v1' || record.version !== 1) return false;
+  if (typeof record.operationId !== 'string' || record.operationId.length === 0) return false;
+  return record.state === 'running' || record.state === 'completed' || record.state === 'failed';
+}
 
 export type ToolOperationState = 'running' | 'completed' | 'failed';
 

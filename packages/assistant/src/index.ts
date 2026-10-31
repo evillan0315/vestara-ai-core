@@ -24,8 +24,9 @@ export {
   parseStreamFrames,
 } from './sse.js';
 export {
-  type AssistantToolOperation,
   AssistantTurn,
+  type AssistantToolOperation,
+  isAssistantExecutionDetail,
   type StructuredProjection,
   type ToolOperationState,
   type TurnTerminal,

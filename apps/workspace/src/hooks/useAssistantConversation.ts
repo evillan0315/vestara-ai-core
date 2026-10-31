@@ -35,7 +35,7 @@
  */
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { AssistantTurn } from '@vestara/assistant';
+import { AssistantTurn, isAssistantExecutionDetail } from '@vestara/assistant';
 import type {
   AssistantExecutionDetail,
   Conversation,
@@ -43,7 +43,6 @@ import type {
   Message,
   TurnSurfaceContext,
 } from '@vestara/shared';
-import { isAssistantExecutionDetail } from '@vestara/shared';
 import { openCodeApi } from '../lib/opencode';
 
 // ─── API Client ───────────────────────────────────────────────
