@@ -33,7 +33,9 @@ next-review: 2026-10-04
 
 - `pnpm --filter @vestara/assistant test` ✅ 31/31 · projection suites ✅
   12/12 · `pnpm vds:validate` ✅ · touched-file `biome check` clean except
-  pre-existing (`noVoidTypeReturn`, v2 imports/exhaustive-deps).
+  pre-existing (`noVoidTypeReturn`, v2 imports/exhaustive-deps) ·
+  `pnpm build:ui:v1` ✅ (~39s; required rebuilding `@vestara/assistant`
+  `dist/` first — UI resolves the package from `dist/`).
 - Tasks `ASSIST-STREAM-001/05`, `/06` complete — feature 6/6.
 
 ## [2026-10-31] — Assistant Streaming 04: running previews + edit live header

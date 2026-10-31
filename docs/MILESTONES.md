@@ -7437,6 +7437,7 @@ streaming feature with tests and governance gates.
 
 **Verification**: assistant 31/31 · projection suites 12/12 ·
 `vds:validate` ✅ · touched-file biome clean except pre-existing ·
+`pnpm build:ui:v1` ✅ (~39s, after rebuilding `@vestara/assistant` dist) ·
 `CHANGELOG` recorded under `[2026-10-31] — Assistant Streaming 05/06`.
 `ASSIST-STREAM-001` 6/6 complete — feature closed.
 
