@@ -53,6 +53,111 @@ export function cancelTurn(conversationId: string): boolean {
   return true;
 }
 
+// ─── Turn event buffer (reload reattach) ───────────────────────
+// Every SSE event emitted for a POST /stream turn is appended here BEFORE
+// the client-disconnect check, so a reloaded UI can replay + live-tail the
+// SAME execution via GET /turn-events or GET /stream-reattach instead of
+// starting a second turn (409). Read-only: never creates work.
+// Bounded per turn (500 events); oldest settled turns evicted past 200 ids.
+export interface BufferedTurnEvent {
+  seq: number;
+  event: ConversationChunk['event'];
+}
+
+interface TurnBuffer {
+  events: BufferedTurnEvent[];
+  nextSeq: number;
+  active: boolean;
+  startedAt: string;
+}
+
+const MAX_BUFFERED_EVENTS = 500;
+const MAX_BUFFERED_TURNS = 200;
+
+const turnEventBuffers = new Map<string, TurnBuffer>();
+const reattachListeners = new Map<string, Set<(entry: BufferedTurnEvent) => void>>();
+
+/** Reset (or create) the buffer at turn start. Next turn overwrites. */
+export function initTurnBuffer(conversationId: string): void {
+  if (!turnEventBuffers.has(conversationId) && turnEventBuffers.size >= MAX_BUFFERED_TURNS) {
+    for (const [id, buf] of turnEventBuffers) {
+      if (!buf.active) {
+        turnEventBuffers.delete(id);
+        if (turnEventBuffers.size < MAX_BUFFERED_TURNS) break;
+      }
+    }
+    if (turnEventBuffers.size >= MAX_BUFFERED_TURNS) {
+      const oldest = turnEventBuffers.keys().next().value;
+      if (oldest) turnEventBuffers.delete(oldest);
+    }
+  }
+  turnEventBuffers.set(conversationId, {
+    events: [],
+    nextSeq: 0,
+    active: true,
+    startedAt: new Date().toISOString(),
+  });
+}
+
+/** Append an event to the turn buffer; always runs, even when detached. */
+export function appendTurnEvent(conversationId: string, event: ConversationChunk['event']): BufferedTurnEvent {
+  let buf = turnEventBuffers.get(conversationId);
+  if (!buf) {
+    buf = { events: [], nextSeq: 0, active: true, startedAt: new Date().toISOString() };
+    turnEventBuffers.set(conversationId, buf);
+  }
+  const entry: BufferedTurnEvent = { seq: buf.nextSeq++, event };
+  buf.events.push(entry);
+  if (buf.events.length > MAX_BUFFERED_EVENTS) {
+    buf.events.splice(0, buf.events.length - MAX_BUFFERED_EVENTS);
+  }
+  const listeners = reattachListeners.get(conversationId);
+  if (listeners) {
+    for (const fn of listeners) {
+      try {
+        fn(entry);
+      } catch {
+        // Listener write failures clean up on 'close'; never break the turn.
+      }
+    }
+  }
+  return entry;
+}
+
+/** Mark the buffer settled (turn complete/failed/cancelled). Keeps events for late reattach. */
+export function markTurnBufferSettled(conversationId: string): void {
+  const buf = turnEventBuffers.get(conversationId);
+  if (buf) buf.active = false;
+}
+
+/** Test-visible: read the raw buffer. */
+export function getTurnBuffer(conversationId: string): TurnBuffer | undefined {
+  return turnEventBuffers.get(conversationId);
+}
+
+/** Test-visible: clear all buffers + listeners. */
+export function clearTurnBuffers(): void {
+  turnEventBuffers.clear();
+  reattachListeners.clear();
+}
+
+function addReattachListener(conversationId: string, fn: (entry: BufferedTurnEvent) => void): void {
+  let set = reattachListeners.get(conversationId);
+  if (!set) {
+    set = new Set();
+    reattachListeners.set(conversationId, set);
+  }
+  set.add(fn);
+}
+
+function removeReattachListener(conversationId: string, fn: (entry: BufferedTurnEvent) => void): void {
+  const set = reattachListeners.get(conversationId);
+  if (set) {
+    set.delete(fn);
+    if (set.size === 0) reattachListeners.delete(conversationId);
+  }
+}
+
 // ─── GA-EXEC-001: Execution Config Validation ──────────────────
 
 /** Bounds for GA execution config values (Vestara-owned limits). */
@@ -339,6 +444,109 @@ export async function handleConversationsRoute(
     return true;
   }
 
+  // Reattach replay (poll fallback): buffered SSE events for the current or
+  // just-settled turn. Read-only — never starts execution. `since` is the
+  // next unseen seq (defaults to 0); response carries `nextSeq` for paging.
+  const turnEventsMatch = p.match(/^\/api\/conversations\/([^/]+)\/turn-events$/);
+  if (turnEventsMatch && method === 'GET') {
+    const eventsId = decodeURIComponent(turnEventsMatch[1] as string);
+    const conversation = await ctx.conversationService.getConversation(eventsId, { limit: 0, offset: 0 });
+    if (!conversation) {
+      json(res, 404, { error: 'Conversation not found' });
+      return true;
+    }
+    const url = new URL(req.url ?? '', 'http://127.0.0.1');
+    const sinceRaw = Number(url.searchParams.get('since') ?? '0');
+    const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? Math.floor(sinceRaw) : 0;
+    const buf = getTurnBuffer(eventsId);
+    const events = buf ? buf.events.filter((e) => e.seq >= since) : [];
+    json(res, 200, {
+      conversationId: eventsId,
+      active: isTurnActive(eventsId),
+      events,
+      nextSeq: buf ? buf.nextSeq : 0,
+      ...(conversation.runtimeSessionId ? { runtimeSessionId: conversation.runtimeSessionId } : {}),
+    });
+    return true;
+  }
+
+  // Reattach live-tail (SSE): replay buffered events since `?since=N`, then
+  // stream new buffered events until the turn settles (done/error). Reattach
+  // ≠ create: 404 when there is no buffer and no in-flight turn; never
+  // starts a second execution.
+  const reattachMatch = p.match(/^\/api\/conversations\/([^/]+)\/stream-reattach$/);
+  if (reattachMatch && method === 'GET') {
+    const reattachId = decodeURIComponent(reattachMatch[1] as string);
+    const conversation = await ctx.conversationService.getConversation(reattachId, { limit: 0, offset: 0 });
+    if (!conversation) {
+      json(res, 404, { error: 'Conversation not found' });
+      return true;
+    }
+    const buf = getTurnBuffer(reattachId);
+    const active = isTurnActive(reattachId);
+    if (!buf && !active) {
+      json(res, 404, { error: 'No in-flight or buffered turn for this conversation' });
+      return true;
+    }
+    const url = new URL(req.url ?? '', 'http://127.0.0.1');
+    const sinceRaw = Number(url.searchParams.get('since') ?? '0');
+    const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? Math.floor(sinceRaw) : 0;
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      ...CORS,
+    });
+    res.flushHeaders();
+    const writeEntry = (seq: number, event: ConversationChunk['event']): boolean => {
+      try {
+        res.write(
+          `data: ${JSON.stringify({
+            schemaVersion: TUI_PROTOCOL_VERSION,
+            conversationId: reattachId,
+            messageId: `msg-${Date.now()}`,
+            sequence: seq,
+            timestamp: new Date().toISOString(),
+            event,
+          } satisfies ConversationChunk)}\n\n`,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    // Synchronous snapshot + subscribe: no await between, so no append can
+    // interleave and cause a gap or duplicate (single-threaded event loop).
+    const snapshot = buf ? buf.events.filter((e) => e.seq >= since) : [];
+    let settled = false;
+    const onEntry = (entry: BufferedTurnEvent): void => {
+      if (settled) return;
+      writeEntry(entry.seq, entry.event);
+      if (entry.event.type === 'done' || entry.event.type === 'error') {
+        settled = true;
+        removeReattachListener(reattachId, onEntry);
+        try {
+          res.end();
+        } catch {
+          // Client already gone.
+        }
+      }
+    };
+    const cleanup = (): void => {
+      settled = true;
+      removeReattachListener(reattachId, onEntry);
+    };
+    res.on('close', cleanup);
+    if (isTurnActive(reattachId)) addReattachListener(reattachId, onEntry);
+    for (const entry of snapshot) writeEntry(entry.seq, entry.event);
+    if (!isTurnActive(reattachId)) {
+      res.removeListener('close', cleanup);
+      res.end();
+      return true;
+    }
+    return true;
+  }
+
   const match = p.match(/^\/api\/conversations\/([^/]+)(?:\/(messages|stream))?$/);
   if (!match) return false;
   const conversationId = decodeURIComponent(match[1] as string);
@@ -448,7 +656,6 @@ export async function handleConversationsRoute(
     // validation and the busy check, so the 200 is already committed — makes
     // accept observable without adding an execution path.
     res.flushHeaders();
-    let sequence = 0;
     let clientDisconnected = false;
 
     // GA-DETACH-001: Detect client disconnect. When the client disconnects,
@@ -460,6 +667,9 @@ export async function handleConversationsRoute(
     res.on('close', onClientDisconnect);
 
     const emit = (event: ConversationChunk['event']): boolean => {
+      // Always buffer first: detached clients replay + live-tail via
+      // GET /turn-events and GET /stream-reattach. Buffering never fails.
+      const entry = appendTurnEvent(conversationId, event);
       if (clientDisconnected) return false;
       try {
         res.write(
@@ -467,7 +677,7 @@ export async function handleConversationsRoute(
             schemaVersion: TUI_PROTOCOL_VERSION,
             conversationId,
             messageId: `msg-${Date.now()}`,
-            sequence: sequence++,
+            sequence: entry.seq,
             timestamp: new Date().toISOString(),
             event,
           } satisfies ConversationChunk)}\n\n`,
@@ -488,6 +698,7 @@ export async function handleConversationsRoute(
     // It can only be triggered by explicit cancellation via the cancel endpoint.
     const abort = new AbortController();
     registerTurnController(conversationId, abort);
+    initTurnBuffer(conversationId);
     // DO NOT link res.on('close') to abort.abort() — that would detach=cancel.
     // The signal is passed to sendMessageStream but only fires on explicit cancel.
     try {
@@ -514,12 +725,11 @@ export async function handleConversationsRoute(
         // natural completion instead of breaking. Breaking the for-await
         // calls generator.return() on sendMessageStream → the adapter
         // finally → abortSession, which made reload == cancel. Draining
-        // keeps UI lifetime ≠ execution lifetime: the turn persists its
-        // full assistant message truthfully while the closed transport
-        // simply stops receiving events. Reattach polls GET /active +
-        // GET conversation; it never opens a second stream (409 above).
-        if (clientDisconnected) continue;
-
+        // keeps UI lifetime ≠ execution lifetime. emit() always buffers
+        // first, so detached turns still accumulate replayable events for
+        // GET /turn-events + GET /stream-reattach; the closed transport
+        // simply stops receiving writes. Reattach never opens a second
+        // stream (409 above).
         if (chunk.type === 'text' && chunk.content) {
           if (!emit({ type: 'delta', content: chunk.content })) continue;
         } else if (chunk.type === 'tool_call') {
@@ -560,9 +770,14 @@ export async function handleConversationsRoute(
     } catch (error) {
       emit({ type: 'error', content: error instanceof Error ? error.message : 'Stream failed' });
     } finally {
+      markTurnBufferSettled(conversationId);
       releaseTurnController(conversationId, abort);
       res.removeListener('close', onClientDisconnect);
-      res.end();
+      try {
+        res.end();
+      } catch {
+        // Client already disconnected; buffer retains the replay.
+      }
     }
     return true;
   }

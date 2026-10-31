@@ -604,16 +604,27 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
 
   // ── Reattach discovery (reload survival) ──
   // After reload/remount, GET /active is the authoritative truth for whether
-  // a Vestara turn is still running server-side. When active, the UI enters
-  // a polling reattach (streaming state so Stop stays available via
-  // POST /cancel) and reloads canonical messages on settlement. It never
-  // opens a second POST /stream (server returns 409 conversation-busy).
-  // Partial deltas from before the reload are NOT replayed — only the
-  // persisted completion is presented (no fabricated provenance).
+  // a Vestara turn is still running server-side. When active, the UI opens
+  // GET /stream-reattach (replay + live-tail of the SAME buffered turn) and
+  // feeds the shared delta/status/tool parsers so streaming text, tool ops,
+  // and structured projections resume live. It never opens a second
+  // POST /stream (server returns 409 conversation-busy). Detaching the
+  // reattach fetch never cancels execution — only POST /cancel does.
+  // If the reattach stream is unavailable, fall back to the legacy
+  // active-poll (static status until settlement).
+  const reattachAbortRef = useRef<AbortController | null>(null);
   const clearReattachPoll = useCallback(() => {
     if (reattachTimerRef.current) {
       clearInterval(reattachTimerRef.current);
       reattachTimerRef.current = null;
+    }
+    if (reattachAbortRef.current) {
+      try {
+        reattachAbortRef.current.abort();
+      } catch {
+        // Best-effort detach; server execution continues.
+      }
+      reattachAbortRef.current = null;
     }
   }, []);
 
@@ -624,20 +635,44 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       lastConvIdRef.current = convId;
       setStreamState('streaming');
       setStreamingText('');
-      setStreamStatus('Execution continues… Reconnected — updates appear on completion.');
+      setStreamStatus('Execution continues… Reconnected — replaying live updates…');
       setStreamError(null);
-      const poll = async () => {
-        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) {
-          clearReattachPoll();
-          return;
-        }
-        try {
-          const status = await apiFetch<{ active: boolean }>(
-            `/api/conversations/${encodeURIComponent(convId)}/active`,
-          );
-          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
-          if (!status.active) {
+      clearToolOperations();
+
+      // Legacy fallback: static status + 2s active poll until settlement.
+      // Used only when GET /stream-reattach is unavailable (404/no buffer).
+      const startLegacyPoll = () => {
+        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+        setStreamStatus('Execution continues… Reconnected — updates appear on completion.');
+        const poll = async () => {
+          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) {
             clearReattachPoll();
+            return;
+          }
+          try {
+            const status = await apiFetch<{ active: boolean }>(
+              `/api/conversations/${encodeURIComponent(convId)}/active`,
+            );
+            if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+            if (!status.active) {
+              clearReattachPoll();
+              try {
+                const data = await apiFetch<{ conversation: Conversation }>(
+                  `/api/conversations/${encodeURIComponent(convId)}`,
+                );
+                if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+                setSelectedConversation(data.conversation);
+                setMessages(data.conversation.messages ?? []);
+                setMessagesPagination(data.conversation._pagination ?? null);
+              } catch {
+                // Keep last-known messages on reload failure.
+              }
+              setStreamState('completed');
+              setStreamStatus(null);
+              setStreamingText('');
+              void refreshList();
+              return;
+            }
             try {
               const data = await apiFetch<{ conversation: Conversation }>(
                 `/api/conversations/${encodeURIComponent(convId)}`,
@@ -645,41 +680,259 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
               if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
               setSelectedConversation(data.conversation);
               setMessages(data.conversation.messages ?? []);
-              setMessagesPagination(data.conversation._pagination ?? null);
             } catch {
-              // Keep last-known messages on reload failure.
+              // Transient poll failure — keep polling.
             }
-            setStreamState('completed');
-            setStreamStatus(null);
-            setStreamingText('');
-            void refreshList();
-            return;
+          } catch {
+            // Active-probe failed — keep polling until selection changes.
           }
-          // Still active: refresh canonical messages so the persisted human
-          // turn (and any settled assistant message) stays visible while
-          // the server-side execution continues. No deltas are fabricated.
+        };
+        reattachTimerRef.current = setInterval(() => {
+          void poll();
+        }, 2000);
+        void poll();
+      };
+
+      const finalizeReattached = async (terminal: 'completed' | 'failed', errorContent?: string) => {
+        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+        clearReattachPoll();
+        try {
+          const data = await apiFetch<{ conversation: Conversation }>(
+            `/api/conversations/${encodeURIComponent(convId)}`,
+          );
+          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+          setSelectedConversation(data.conversation);
+          setMessages(data.conversation.messages ?? []);
+          setMessagesPagination(data.conversation._pagination ?? null);
+        } catch {
+          // Keep replayed deltas on reload failure.
+        }
+        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+        setStreamState(terminal);
+        setStreamStatus(null);
+        setStreamingText('');
+        if (terminal === 'failed' && errorContent) setStreamError(`Assistant response failed: ${errorContent}`);
+        setToolOperations((prev) =>
+          prev.map((op) => (op.state === 'running' ? { ...op, state: terminal as 'completed' | 'failed' } : op)),
+        );
+        void refreshList();
+      };
+
+      const runReattachStream = async () => {
+        const ctrl = new AbortController();
+        reattachAbortRef.current = ctrl;
+        // Show the persisted human turn immediately while deltas replay.
+        try {
+          const data = await apiFetch<{ conversation: Conversation }>(
+            `/api/conversations/${encodeURIComponent(convId)}`,
+          );
+          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+          setSelectedConversation(data.conversation);
+          setMessages(data.conversation.messages ?? []);
+        } catch {
+          // Canonical reload is best-effort; deltas still replay.
+        }
+        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+        let res: Response;
+        try {
+          res = await fetch(`/api/conversations/${encodeURIComponent(convId)}/stream-reattach?since=0`, {
+            headers: { Accept: 'text/event-stream' },
+            signal: ctrl.signal,
+          });
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          startLegacyPoll();
+          return;
+        }
+        if (!res.ok) {
+          // No buffer (404) or transient failure — legacy poll until settlement.
+          startLegacyPoll();
+          return;
+        }
+        const reader = res.body?.getReader();
+        if (!reader) {
+          startLegacyPoll();
+          return;
+        }
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulated = '';
+        let terminated = false;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) {
+              try {
+                await reader.cancel();
+              } catch {
+                // Detach is best-effort.
+              }
+              return;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data: ')) continue;
+              try {
+                const chunk = JSON.parse(trimmed.slice(6));
+                const eventType = chunk?.event?.type;
+                const eventContent = chunk?.event?.content ?? '';
+                if (eventType === 'delta') {
+                  accumulated += eventContent;
+                  setStreamingText(accumulated);
+                } else if (eventType === 'status') {
+                  setStreamStatus(eventContent || null);
+                  const execution = parseExecutionDetail(chunk?.event?.execution);
+                  if (execution) {
+                    upsertStructuredEdit(execution);
+                    upsertStructuredTerminal(execution);
+                    upsertStructuredVerification(execution);
+                    upsertTaskSnapshot(execution);
+                    if (execution.kind === 'permission') {
+                      if (execution.permissionState === 'requested') {
+                        setPendingPermissions((prev) =>
+                          prev.some((p) => p.operationId === execution.operationId)
+                            ? prev
+                            : [...prev, execution],
+                        );
+                      } else {
+                        setPendingPermissions((prev) =>
+                          prev.filter((p) => p.operationId !== execution.operationId),
+                        );
+                      }
+                    } else if (execution.kind === 'question') {
+                      if (execution.questionState === 'requested') {
+                        setPendingQuestions((prev) =>
+                          prev.some((q) => q.operationId === execution.operationId)
+                            ? prev
+                            : [...prev, execution],
+                        );
+                      } else {
+                        setPendingQuestions((prev) =>
+                          prev.filter((q) => q.operationId !== execution.operationId),
+                        );
+                      }
+                    }
+                  }
+                } else if (eventType === 'tool') {
+                  const toolName = typeof chunk?.event?.name === 'string' ? chunk.event.name : '';
+                  setStreamStatus(
+                    toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
+                  );
+                  const execution = parseExecutionDetail(chunk?.event?.execution);
+                  setToolOperations((prev) => {
+                    if (
+                      execution?.operationId &&
+                      (execution.kind === 'tool' ||
+                        execution.kind === 'terminal' ||
+                        execution.kind === 'generic')
+                    ) {
+                      const knownId = operationIdMapRef.current.get(execution.operationId);
+                      if (knownId) {
+                        return prev.map((op) =>
+                          op.id === knownId && op.state !== 'running'
+                            ? { ...op, state: 'running' as const }
+                            : op,
+                        );
+                      }
+                      const created = {
+                        id: makeToolOpId(toolName || 'tool'),
+                        name: toolName || 'tool',
+                        state: 'running' as const,
+                      };
+                      operationIdMapRef.current.set(execution.operationId, created.id);
+                      return [...prev, created];
+                    }
+                    const last = prev[prev.length - 1];
+                    if (last && last.state === 'running' && last.name === (toolName || 'tool')) return prev;
+                    return [
+                      ...prev,
+                      { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const },
+                    ];
+                  });
+                } else if (eventType === 'tool_result') {
+                  setStreamStatus('Preparing response…');
+                  const toolName = typeof chunk?.event?.name === 'string' ? chunk.event.name : '';
+                  const execution = parseExecutionDetail(chunk?.event?.execution);
+                  if (execution) {
+                    upsertStructuredEdit(execution);
+                    upsertStructuredTerminal(execution);
+                    upsertStructuredVerification(execution);
+                  }
+                  setToolOperations((prev) =>
+                    execution?.operationId
+                      ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
+                      : applyToolResult(prev, toolName, eventContent),
+                  );
+                } else if (eventType === 'done') {
+                  terminated = true;
+                  await finalizeReattached('completed');
+                  return;
+                } else if (eventType === 'error') {
+                  terminated = true;
+                  await finalizeReattached('failed', eventContent || 'Stream failed');
+                  return;
+                }
+              } catch {
+                // Non-fatal: skip malformed SSE lines.
+              }
+            }
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          // Transport dropped mid-replay: fall back to polling if the turn
+          // is still active, else finalize from canonical state.
+          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+          if (terminated) return;
           try {
-            const data = await apiFetch<{ conversation: Conversation }>(
-              `/api/conversations/${encodeURIComponent(convId)}`,
+            const status = await apiFetch<{ active: boolean }>(
+              `/api/conversations/${encodeURIComponent(convId)}/active`,
             );
             if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
-            setSelectedConversation(data.conversation);
-            setMessages(data.conversation.messages ?? []);
+            if (status.active) {
+              // SSE ended but execution continues (proxy timeout): keep the
+              // replayed deltas visible and poll for settlement.
+              setStreamStatus('Execution continues… Reconnected — updates appear on completion.');
+              startLegacyPoll();
+            } else {
+              await finalizeReattached('completed');
+            }
           } catch {
-            // Transient poll failure — keep polling.
+            startLegacyPoll();
           }
-        } catch {
-          // Active-probe failed (e.g. conversation deleted) — keep polling
-          // until selection changes; do not fabricate a terminal state.
+          return;
+        }
+        // Clean SSE end without a terminal event: settle from authority.
+        if (!terminated && pollId === streamIdRef.current && selectedIdRef.current === convId) {
+          try {
+            const status = await apiFetch<{ active: boolean }>(
+              `/api/conversations/${encodeURIComponent(convId)}/active`,
+            );
+            if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+            if (status.active) {
+              setStreamStatus('Execution continues… Reconnected — updates appear on completion.');
+              startLegacyPoll();
+            } else {
+              await finalizeReattached('completed');
+            }
+          } catch {
+            startLegacyPoll();
+          }
         }
       };
-      reattachTimerRef.current = setInterval(() => {
-        void poll();
-      }, 2000);
-      // Immediate first probe (async, non-blocking).
-      void poll();
+      void runReattachStream();
     },
-    [clearReattachPoll, refreshList],
+    [
+      clearReattachPoll,
+      refreshList,
+      upsertStructuredEdit,
+      upsertStructuredTerminal,
+      upsertStructuredVerification,
+      upsertTaskSnapshot,
+    ],
   );
 
   const probeActiveTurn = useCallback(
@@ -1341,12 +1594,20 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     }
   }, [loadMessages, clearReattachPoll]);
 
-  // Reattach poll must not outlive the hook (route unmount ≠ cancel: the
-  // server-side execution continues; we only stop polling here).
+  // Reattach stream/poll must not outlive the hook (route unmount ≠ cancel:
+  // the server-side execution continues; we only detach here).
   useEffect(
     () => () => {
       if (reattachTimerRef.current) clearInterval(reattachTimerRef.current);
       reattachTimerRef.current = null;
+      if (reattachAbortRef.current) {
+        try {
+          reattachAbortRef.current.abort();
+        } catch {
+          // Best-effort detach on unmount.
+        }
+        reattachAbortRef.current = null;
+      }
     },
     [],
   );

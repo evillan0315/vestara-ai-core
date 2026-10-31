@@ -10,6 +10,39 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Reload Reattach: Live Streaming Resume
+
+### Added
+
+- **Server turn-event buffer** (`apps/api/src/routes/conversations.ts`) —
+  every SSE event for a `POST /stream` turn is appended to a bounded
+  per-conversation buffer (500 events/turn, 200 turns) **before** the
+  client-disconnect check, so detached turns stay replayable. The drain loop
+  no longer skips buffering when the transport is closed; `done`/`error`
+  settle the buffer via `markTurnBufferSettled()`.
+- **`GET /api/conversations/:id/turn-events?since=N`** — read-only replay
+  endpoint returning `{ conversationId, active, events, nextSeq }`. Never
+  starts execution; `404` only when the conversation is unknown.
+- **`GET /api/conversations/:id/stream-reattach?since=N` (SSE)** — replays
+  buffered events from `since`, then live-tails the same turn until
+  `done`/`error`. Reattach ≠ create: `404` when there is no buffer and no
+  in-flight turn; never starts a second execution.
+- **Client live reattach** (`apps/workspace/src/hooks/useAssistantConversation.ts`)
+  — `pollReattachedTurn` now opens `GET /stream-reattach` and feeds the
+  shared `delta`/`status`/`tool`/`tool_result` parsers, so streaming text,
+  tool operations, structured edits/terminals/verifications, task snapshots,
+  and pending permissions/questions resume live after a browser reload.
+  Falls back to the legacy 2s `GET /active` poll when no buffer exists or
+  the stream drops mid-replay. Detaching the reattach fetch never cancels
+  execution — only `POST /cancel` (explicit Stop) does.
+
+### Verification
+
+- `pnpm --filter @vestara/api build` clean (`tsc`); `pnpm lint:check` clean
+  (1790 files); `pnpm --filter @vestara/api test` 288 passed, 1 failed
+  (pre-existing environment-specific `diagnostics-toolchain` host-path case,
+  unrelated). `pnpm --filter @vestara/workspace-ui build` success.
+
 ## [2026-10-31] — Single-Gutter Page Layout
 
 ### Fixed

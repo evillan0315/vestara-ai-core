@@ -7152,4 +7152,43 @@ work) preserved. `CHANGELOG` recorded under `[2026-10-31]`.
 **Verification**: `pnpm vds:validate` passed; `pnpm lint:check` clean
 (1790 files); `bash build-order.sh` success (122 projects, `tsc -b` clean).
 
+## GA-REATTACH-001 — Reload Reattach: Live Streaming Resume ✅ 2026-10-31
+
+**Objective**: a browser reload mid-turn resumes **live streaming** of the
+same server-side execution instead of parking on the static
+`Execution continues… Reconnected — updates appear on completion` banner
+until settlement. Follows GA-DETACH-001 (reload ≠ cancel): execution already
+continued server-side; now its deltas are observable again.
+
+**What changed** (2 source files + docs):
+
+- `apps/api/src/routes/conversations.ts` — per-conversation turn-event
+  buffer (bounded 500 events/turn, 200 turns, settled-turn eviction).
+  `emit()` appends before the disconnect check and fans out to reattach
+  listeners; the drain loop buffers even when the transport is closed.
+  New read-only endpoints: `GET /turn-events?since=N` (poll/replay JSON)
+  and `GET /stream-reattach?since=N` (SSE replay + live-tail to
+  `done`/`error`). Both are reattach-only (`404` with no buffer and no
+  in-flight turn; never start execution). `POST /stream` while in-flight
+  still returns `409 conversation-busy`.
+- `apps/workspace/src/hooks/useAssistantConversation.ts` —
+  `pollReattachedTurn` opens `GET /stream-reattach?since=0` and reuses the
+  live-turn `delta`/`status`/`tool`/`tool_result` parsers (streaming text,
+  tool ops with `operationId` correlation, structured edits/terminals/
+  verifications, task snapshot, pending permissions/questions). Canonical
+  messages reload on start and on terminal; SSE drop or missing buffer
+  falls back to the legacy 2s `GET /active` poll. Reattach detach never
+  calls `POST /cancel`; explicit Stop still cancels exactly the matching
+  turn via `lastConvIdRef`.
+
+**Verification**: `pnpm --filter @vestara/api build` clean; `pnpm
+lint:check` clean (1790 files); `pnpm --filter @vestara/api test` 288
+passed / 1 failed (pre-existing `diagnostics-toolchain` host-path case,
+unrelated); `pnpm --filter @vestara/workspace-ui build` success.
+`CHANGELOG` recorded under `[2026-10-31] — Assistant Reload Reattach`.
+
+**Not claimed**: cross-API-restart resume (buffers are in-memory);
+multi-tab leader election; live-model reload dogfood against a running dev
+API (owner restarts `:3001` to pick up rebuilt `dist`).
+
 
