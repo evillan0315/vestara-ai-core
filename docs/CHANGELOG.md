@@ -10,6 +10,27 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Streaming 01: operation correlation fix
+
+### Fixed
+
+- **Operation correlation for edit/read/write** (`apps/workspace/src/hooks/useAssistantConversation.ts`,
+  `apps/workspace-ui-v2/src/components/FloatingAssistant.tsx`,
+  `packages/assistant/src/store.ts`) — `tool`-channel correlation was
+  restricted to `tool/terminal/generic`, so parallel edit/read/write
+  completions fell back to FIFO and could misresolve. Now all kinds except
+  `permission/question/task-snapshot` correlate by authoritative
+  `operationId`; `question/task-snapshot` join `permission` in never minting
+  tool cards.
+
+### Verification
+
+- `pnpm --filter @vestara/assistant test` ✅ 28/28 · `biome check` on touched
+  files clean except pre-existing `noVoidTypeReturn` · repo-wide lint shows
+  10 pre-existing errors (untouched v2 imports/format).
+- Task `ASSIST-STREAM-001/01` marked complete (1/6). Next: `02` Bash live
+  output + `03` Read progressive (parallel).
+
 ## [2026-10-31] — Assistant Package Browser-Build Hardening
 
 ### Fixed

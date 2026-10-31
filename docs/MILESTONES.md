@@ -7349,4 +7349,27 @@ v1/v2 production builds (unresolvable shared import).
 (explicitly out of scope); a CI gate asserting browser bundles import no
 CJS runtime values (recommended if UI builds gate CI).
 
+## ASSIST-STREAM-001/01 — Operation Correlation Fix ✅ 2026-10-31
+
+**Objective**: stop parallel edit/read/write completions from FIFO-misresolving
+— correlate every card-carrying kind by authoritative `operationId`.
+
+**What changed** (`ASSIST-STREAM-001/01`):
+
+- `apps/workspace/src/hooks/useAssistantConversation.ts` — `toolOperationId`
+  allows all kinds except `permission/question/task-snapshot`.
+- `apps/workspace-ui-v2/src/components/FloatingAssistant.tsx` — same rule in
+  `onEvent` for `tool` starts.
+- `packages/assistant/src/store.ts` — `applyStructuredToolResult` guards
+  `question/task-snapshot` alongside `permission` (never mint cards); Biome
+  single-line format.
+
+**Verification**: `pnpm --filter @vestara/assistant test` ✅ 28/28 ·
+touched-file `biome check` clean except pre-existing `noVoidTypeReturn` ·
+`CHANGELOG` recorded under `[2026-10-31] — Assistant Streaming 01`.
+`ASSIST-STREAM-001` 1/6 complete.
+
+**Not claimed**: incremental bash/read/edit output streaming (`02`/`03`);
+running previews and timeline virtualization (`04`/`05`).
+
 

@@ -53,13 +53,14 @@ function toExecutionDetail(value: unknown): AssistantExecutionDetail | undefined
 }
 
 /**
- * Authoritative operation identity for `tool`-channel correlation — only for
- * tool/terminal/generic kinds. Permission/question details never mint tool
- * cards (no authority mutation there).
+ * Authoritative operation identity for `tool`-channel correlation.
+ * Covers tool/terminal/generic/edit/read/write/verification/artifact so
+ * parallel same-name calls correlate instead of FIFO-misresolving.
+ * Permission/question/task-snapshot details never mint tool cards.
  */
 function toolOperationId(value: unknown): string | undefined {
   if (!isAssistantExecutionDetail(value)) return undefined;
-  if (value.kind !== 'tool' && value.kind !== 'terminal' && value.kind !== 'generic') return undefined;
+  if (value.kind === 'permission' || value.kind === 'question' || value.kind === 'task-snapshot') return undefined;
   return value.operationId;
 }
 

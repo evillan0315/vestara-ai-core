@@ -212,7 +212,10 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
           if (type === 'tool') {
             const execution = frame?.execution as { kind?: string; operationId?: string } | undefined;
             const operationId =
-              execution && (execution.kind === 'tool' || execution.kind === 'terminal' || execution.kind === 'generic')
+              execution &&
+              execution.kind !== 'permission' &&
+              execution.kind !== 'question' &&
+              execution.kind !== 'task-snapshot'
                 ? execution.operationId
                 : undefined;
             turn.onToolStart(frame?.name ?? 'tool', operationId);

@@ -163,8 +163,8 @@ export class AssistantTurn {
   }
 
   private applyStructuredToolResult(toolName: string, content: string, execution: AssistantExecutionDetail): void {
-    // Permission projections never create cards (no authority mutation here).
-    if (execution.kind === 'permission') return;
+    // Permission/question/task-snapshot projections never create cards.
+    if (execution.kind === 'permission' || execution.kind === 'question' || execution.kind === 'task-snapshot') return;
     const operationId = execution.operationId;
     const explicit: ToolOperationState = execution.state === 'failed' ? 'failed' : 'completed';
     const preview = explicit === 'failed' ? undefined : previewFor(execution, content);
