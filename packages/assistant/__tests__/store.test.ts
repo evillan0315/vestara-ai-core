@@ -120,6 +120,42 @@ describe('AssistantTurn', () => {
     expect(turn.streamingText).toBe('');
   });
 
+  it('attaches bounded running previews without merging parallel starts', () => {
+    const turn = new AssistantTurn();
+    turn.onToolStart('bash', 'op-1', 'partial output here');
+    turn.onToolStart('bash', 'op-2');
+    expect(turn.operations).toHaveLength(2);
+    expect(turn.operations[0]).toMatchObject({ state: 'running', preview: 'partial output here' });
+    expect(turn.operations[1]?.preview).toBeUndefined();
+    // A later start for a known operation updates the preview in place.
+    turn.onToolStart('bash', 'op-2', 'second partial');
+    expect(turn.operations).toHaveLength(2);
+    expect(turn.operations[1]).toMatchObject({ state: 'running', preview: 'second partial' });
+  });
+
+  it('never mints cards for question/task-snapshot results', () => {
+    const turn = new AssistantTurn();
+    const base = toolDetail({ operationId: 'op-q' });
+    turn.onToolResult('tool', 'content', { ...base, kind: 'question' } as AssistantExecutionDetail);
+    turn.onToolResult('tool', 'content', { ...base, operationId: 'op-s', kind: 'task-snapshot' } as AssistantExecutionDetail);
+    expect(turn.operations).toHaveLength(0);
+  });
+
+  it('upserts structured reads with supersede correlation and clears them on reset', () => {
+    const turn = new AssistantTurn();
+    turn.onToolStart('read', 'op-r');
+    const read = toolDetail({ operationId: 'op-r' });
+    turn.onExecution({ ...read, kind: 'read' });
+    expect(turn.structuredReads).toHaveLength(1);
+    expect(turn.structuredReads[0]?.supersedesOpId).toBe(turn.operations[0]?.id);
+    // Later evidence for the same operation replaces, never appends.
+    turn.onExecution({ ...read, kind: 'read' });
+    expect(turn.structuredReads).toHaveLength(1);
+    turn.reset();
+    expect(turn.structuredReads).toHaveLength(0);
+    expect(turn.operations).toHaveLength(0);
+  });
+
   it('rehydrates durable history with deterministic ids that correlate later', () => {
     const turn = new AssistantTurn();
     turn.rehydrateFromMessages([

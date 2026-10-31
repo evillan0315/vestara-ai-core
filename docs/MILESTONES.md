@@ -7422,4 +7422,22 @@ touched-file biome clean except pre-existing · `CHANGELOG` recorded under
 
 **Not claimed**: timeline virtualization (`05`); a11y/tests closure (`06`).
 
+## ASSIST-STREAM-001/05-06 — Timeline Windowing + Closure ✅ 2026-10-31
+
+**Objective**: keep the live timeline bounded and announced; lock the
+streaming feature with tests and governance gates.
+
+**What changed** (`ASSIST-STREAM-001/05`, `/06`):
+
+- `AssistantToolCard.tsx` — `TIMELINE_RENDER_MAX = 50`; latest-window
+  rendering with `Show all` expander; standalone structured rows unaffected.
+- `AssistantTerminal.tsx` — elapsed `aria-label` (client-observed semantics).
+- `packages/assistant/__tests__/store.test.ts` — 3 new tests (running
+  previews, question/snapshot card guard, structured-read lifecycle).
+
+**Verification**: assistant 31/31 · projection suites 12/12 ·
+`vds:validate` ✅ · touched-file biome clean except pre-existing ·
+`CHANGELOG` recorded under `[2026-10-31] — Assistant Streaming 05/06`.
+`ASSIST-STREAM-001` 6/6 complete — feature closed.
+
 

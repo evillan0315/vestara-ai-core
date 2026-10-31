@@ -10,6 +10,32 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Streaming 05/06: timeline windowing + closure
+
+### Changed
+
+- **Timeline windowing** (`AssistantToolCard.tsx`) — past 50 generic rows
+  the expanded timeline renders the latest window with a `Show all`
+  expander (`assistant-timeline-windowed`, native button + `aria-label`);
+  standalone structured rows always render. Collapse discipline unchanged
+  (expanded while thinking, auto-collapsed on first delta, user-expandable).
+  `data-testid/state/kind` attributes preserved.
+- **Elapsed clock label** (`AssistantTerminal.tsx`) — client-observed elapsed
+  gains an `aria-label`; single `role="status"` announcer unchanged.
+
+### Added
+
+- **Store tests** (`packages/assistant/__tests__/store.test.ts`, 28 → 31) —
+  bounded running previews without merging, no cards for
+  question/task-snapshot results, structured-read upsert/replace/reset.
+
+### Verification
+
+- `pnpm --filter @vestara/assistant test` ✅ 31/31 · projection suites ✅
+  12/12 · `pnpm vds:validate` ✅ · touched-file `biome check` clean except
+  pre-existing (`noVoidTypeReturn`, v2 imports/exhaustive-deps).
+- Tasks `ASSIST-STREAM-001/05`, `/06` complete — feature 6/6.
+
 ## [2026-10-31] — Assistant Streaming 04: running previews + edit live header
 
 ### Changed

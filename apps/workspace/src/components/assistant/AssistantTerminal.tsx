@@ -200,6 +200,7 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
             <span
               data-testid="terminal-elapsed"
               title="Client-observed elapsed — the authoritative duration replaces it on completion"
+              aria-label="Client-observed elapsed time, replaced by the authoritative duration on completion"
               className="text-(--vestara-font-size-caption) text-(--vestara-accent-text)/80 tabular-nums"
             >
               {formatDuration(elapsedMs)}

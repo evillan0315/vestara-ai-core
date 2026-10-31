@@ -14,7 +14,7 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
-import { memo, Profiler } from 'react';
+import { memo, Profiler, useState } from 'react';
 import type { AssistantExecutionDetail, EditExecutionDetail, ReadExecutionDetail, TerminalExecutionDetail, ToolObservation, VerificationExecutionDetail } from '@vestara/shared';
 import type { AssistantToolOperation, StructuredEditOperation, StructuredReadOperation, StructuredTerminalOperation, StructuredVerificationOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
@@ -309,6 +309,9 @@ export const AssistantToolCard = memo(function AssistantToolCard({ operation }: 
 
 // ─── Execution timeline ─────────────────────────────────────────
 
+/** Max generic rows rendered before windowing (ASSIST-STREAM-001/05). */
+const TIMELINE_RENDER_MAX = 50;
+
 export interface AssistantExecutionTimelineProps {
   operations: AssistantToolOperation[];
   /**
@@ -378,6 +381,13 @@ export function AssistantExecutionTimeline({
   const standaloneTerminals = structuredTerminals.filter((t) => t.supersedesOpId === undefined);
   const standaloneVerifications = structuredVerifications.filter((v) => v.supersedesOpId === undefined);
   const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneReads.length + standaloneTerminals.length + standaloneVerifications.length;
+  // ASSIST-STREAM-001/05: bound the live DOM — past 50 generic rows render
+  // the latest window with a user-expandable "Show all" (collapse discipline
+  // itself lives in ActiveTurn: expanded while thinking, auto-collapsed on
+  // first delta). Standalone structured rows are rare and always render.
+  const [showAllOps, setShowAllOps] = useState(false);
+  const droppedOpCount = showAllOps ? 0 : Math.max(0, operations.length - TIMELINE_RENDER_MAX);
+  const renderedOps = showAllOps ? operations : operations.slice(-TIMELINE_RENDER_MAX);
   const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
 
   return (
@@ -412,7 +422,23 @@ export function AssistantExecutionTimeline({
               <AssistantTodoChecklist detail={taskSnapshot} />
             </div>
           )}
-          {operations.map((op) => {
+          {droppedOpCount > 0 && (
+            <div className="flex min-w-0 items-center gap-2 py-1" data-testid="assistant-timeline-windowed">
+              <span className="truncate text-(--vestara-font-size-caption) text-(--vestara-text-disabled)">
+                Showing latest {renderedOps.length} of {operations.length} operations
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAllOps(true)}
+                aria-expanded={false}
+                aria-label={`Show all ${operations.length} operations`}
+                className="shrink-0 rounded-md border border-(--vestara-border-default)/60 bg-(--vestara-surface-interactive)/50 px-2 py-0.5 text-(--vestara-font-size-caption) font-medium text-(--vestara-text-primary) transition-colors hover:bg-(--vestara-surface-interactive-hover)/60 cursor-pointer"
+              >
+                Show all
+              </button>
+            </div>
+          )}
+          {renderedOps.map((op) => {
             if (supersededOpIds.has(op.id)) {
               const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);
               if (edit && isEditDetail(edit)) {
