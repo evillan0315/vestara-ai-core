@@ -7286,4 +7286,39 @@ Package (stages 1–2)`.
 **Not claimed**: v1/v2 app adoption (stages 3–5); TUI/Telegram consumers;
 presentational components (stay per-app by UI governance).
 
+## GA-ASSIST-TOOL-003 — Assistant App Adoption: v1 Rewire + v2 Migration ✅ 2026-10-31 (stages 3–5)
+
+**Objective**: consume `@vestara/assistant` in both apps so one implementation
+owns the protocol — v1's hook becomes a thin adapter, v2's fork becomes a
+binding, and v2 gains the tool timeline + ASK surfaces it previously dropped.
+
+**What changed**:
+
+- Stage 3 — `apps/workspace/src/hooks/useAssistantConversation.ts`: deleted
+  the local op-id map, FIFO/structured appliers, `historic…` rehydration, and
+  the inline `assistant.execution.v1` validator (~300 lines) in favor of
+  `AssistantTurn` + shared `isAssistantExecutionDetail`. All stream paths
+  (live, reattach, finalize, failure), select/load rehydration, and
+  permission/question dismissal route through the store with a version bump.
+  Public hook shape unchanged — no consumer edits.
+- Package — `respondToPermission`/`answerQuestion` added to
+  `transport.ts` + `index.ts` (+ tests) so both apps answer ASK gates.
+- Stage 4–5 — `apps/workspace-ui-v2`: `workspace-ui-v2/package.json` gains
+  `@vestara/assistant`; `lib/assistant-api.ts` rewritten as a binding
+  (token-first signatures preserved for `FloatingAssistant`,
+  `VoiceStreaming`, `LoginScreen`); `assistant.fixtures.ts` re-exports the
+  package thread. `FloatingAssistant` feeds every non-delta frame to the
+  store, renders tool ops + ASK permission/question cards with decision
+  wiring, and rehydrates the timeline on reattach. Two new UI tests (tool
+  timeline, ASK decide-and-dismiss).
+
+**Verification**: v2 suite 247/247 · v1/package/adapter suites 135/135 ·
+`build-order.sh` ✅ · `dependencies:check` ✅ · `biome check` ✅ ·
+`vds:validate` ✅. `CHANGELOG` recorded under `[2026-10-31] — Assistant
+Adoption: v1 Rewire + v2 Migration (stages 3–5)`.
+
+**Not claimed**: v2 budget UI (server default 150 applies); v2
+`stream-reattach` upgrade (active-poll + rehydrate retained and working);
+TUI/Telegram consumers; presentational convergence (stays per-app).
+
 

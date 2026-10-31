@@ -229,6 +229,11 @@ export class AssistantTurn {
     if (idx >= 0) list.splice(idx, 1);
   }
 
+  /** Drop a decided/answered interaction from its pending queue. */
+  dismissPending(kind: 'permission' | 'question', operationId: string): void {
+    this.removePending(kind === 'permission' ? this.pendingPermissions : this.pendingQuestions, operationId);
+  }
+
   /** Turn terminal proves execution ended: resolve leftover running ops. */
   finalize(terminal: TurnTerminal): void {
     for (const op of this.operations) {

@@ -81,6 +81,15 @@ describe('AssistantTurn', () => {
     expect(turn.pendingPermissions).toHaveLength(0);
   });
 
+  it('dismisses decided interactions from the pending queues', () => {
+    const turn = new AssistantTurn();
+    turn.onExecution(permissionDetail('op-p', 'requested'));
+    turn.dismissPending('permission', 'op-p');
+    expect(turn.pendingPermissions).toHaveLength(0);
+    turn.dismissPending('permission', 'missing');
+    turn.dismissPending('question', 'missing');
+  });
+
   it('upserts structured projections and the task snapshot', () => {
     const turn = new AssistantTurn();
     turn.onToolStart('edit', 'op-e');

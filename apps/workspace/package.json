@@ -35,6 +35,7 @@
     "@tauri-apps/plugin-deep-link": "^2.6.2",
     "@tauri-apps/plugin-notification": "^2.4.0",
     "@vestara/activity-room": "workspace:*",
+    "@vestara/assistant": "workspace:*",
     "@vestara/ci-contracts": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/design-system": "workspace:*",

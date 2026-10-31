@@ -34,7 +34,8 @@
  * @see VESTARA-INTELLIGENCE-GA2-PREFLIGHT.md
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { AssistantTurn } from '@vestara/assistant';
 import type {
   AssistantExecutionDetail,
   Conversation,
@@ -42,28 +43,26 @@ import type {
   Message,
   TurnSurfaceContext,
 } from '@vestara/shared';
+import { isAssistantExecutionDetail } from '@vestara/shared';
 import { openCodeApi } from '../lib/opencode';
 
-/**
- * GA-UX-PREMIUM M3: cheap inline validation of the server-normalized
- * `assistant.execution.v1` detail. The browser never imports a runtime
- * normalizer (linked-CJS /@fs constraint) — the API already constructed the
- * allowlisted detail, so the hook only verifies the correlation-critical
- * fields (contract, version, operationId, state) before reading them.
- */
-function isAssistantExecutionDetail(value: unknown): value is AssistantExecutionDetail {
-  if (!value || typeof value !== 'object') return false;
-  const record = value as Record<string, unknown>;
-  if (record.contract !== 'assistant.execution.v1' || record.version !== 1) return false;
-  if (typeof record.operationId !== 'string' || record.operationId.length === 0) return false;
-  return record.state === 'running' || record.state === 'completed' || record.state === 'failed';
-}
+// ─── API Client ───────────────────────────────────────────────
 
-function parseExecutionDetail(value: unknown): AssistantExecutionDetail | undefined {
+/** Validated execution detail, or undefined for anything else. */
+function toExecutionDetail(value: unknown): AssistantExecutionDetail | undefined {
   return isAssistantExecutionDetail(value) ? value : undefined;
 }
 
-// ─── API Client ───────────────────────────────────────────────
+/**
+ * Authoritative operation identity for `tool`-channel correlation — only for
+ * tool/terminal/generic kinds. Permission/question details never mint tool
+ * cards (no authority mutation there).
+ */
+function toolOperationId(value: unknown): string | undefined {
+  if (!isAssistantExecutionDetail(value)) return undefined;
+  if (value.kind !== 'tool' && value.kind !== 'terminal' && value.kind !== 'generic') return undefined;
+  return value.operationId;
+}
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -294,153 +293,12 @@ export interface StructuredVerificationOperation {
 }
 
 let clientTurnCounter = 0;
-let toolOpCounter = 0;
 
-/** Defensive bound: the adapter already slices to ≤200 chars; never trust the wire. */
-const TOOL_PREVIEW_MAX = 200;
-
-function makeToolOpId(name: string): string {
-  toolOpCounter += 1;
-  return `op-${name || 'tool'}-${toolOpCounter}`;
-}
-
-function boundPreview(content: unknown): string | undefined {
-  if (typeof content !== 'string' || content.length === 0) return undefined;
-  return content.slice(0, TOOL_PREVIEW_MAX);
-}
-
-/**
- * Apply a `tool_result` chunk to the transient operation list.
- * Completion proven by the chunk; `failed` content heuristic retained for
- * backward compatibility only (the adapter's error encoding when a tool
- * errors without output — M3 should replace this with an explicit flag).
- */
-function applyToolResult(
-  prev: AssistantToolOperation[],
-  toolName: string,
-  eventContent: string,
-): AssistantToolOperation[] {
-  const name = toolName || 'tool';
-  const failed = eventContent === 'failed';
-  const preview = failed ? undefined : boundPreview(eventContent);
-  // FIFO: complete the earliest still-running op of this name so parallel
-  // same-name calls without operationId resolve in start order instead of
-  // collapsing onto the most recent card.
-  const idx = toolName
-    ? prev.findIndex((op) => op.name === toolName && op.state === 'running')
-    : -1;
-  const match = idx >= 0 ? prev[idx] : undefined;
-  if (match && match.state === 'running') {
-    return prev.map((op, i) =>
-      i === idx ? { ...op, state: (failed ? 'failed' : 'completed') as ToolOperationState, preview } : op,
-    );
-  }
-  const last = prev[prev.length - 1];
-  if (
-    last &&
-    last.name === name &&
-    last.state === (failed ? 'failed' : 'completed') &&
-    last.preview === preview
-  ) {
-    return prev;
-  }
-  return [
-    ...prev,
-    {
-      id: makeToolOpId(name),
-      name,
-      state: (failed ? 'failed' : 'completed') as ToolOperationState,
-      preview,
-    },
-  ];
-}
-
-/**
- * GA-UX-PREMIUM M3: apply a `tool_result` chunk carrying authoritative
- * `assistant.execution.v1` detail. Lifecycle comes from the explicit
- * `state` — NEVER from output text (§4: a successful tool that literally
- * returns "failed" stays completed). Correlation prefers `operationId` over
- * same-name merging; the M2 legacy path remains for detail-less chunks.
- */
-function applyStructuredToolResult(
-  prev: AssistantToolOperation[],
-  toolName: string,
-  eventContent: string,
-  execution: AssistantExecutionDetail,
-  operationIdToOpId: Map<string, string>,
-): AssistantToolOperation[] {
-  const name = toolName || 'tool';
-  // Permission projections never create cards (no authority mutation here).
-  if (execution.kind === 'permission') return prev;
-  const operationId = execution.operationId;
-  const explicit = execution.state === 'failed' ? 'failed' : 'completed';
-  const rawPreview =
-    execution.kind === 'terminal'
-      ? execution.outputPreview
-      : execution.kind === 'tool' || execution.kind === 'generic'
-        ? execution.preview
-        : undefined;
-  const preview = explicit === 'failed' ? undefined : boundPreview(rawPreview ?? eventContent);
-
-  const knownOpId = operationIdToOpId.get(operationId);
-  if (knownOpId) {
-    return prev.map((op) =>
-      op.id === knownOpId ? { ...op, name, state: explicit as ToolOperationState, preview } : op,
-    );
-  }
-  // Completion with authoritative identity but no observed start: resolve the
-  // trailing same-name running op (e.g. start emitted before subscription).
-  const last = prev[prev.length - 1];
-  if (last && last.state === 'running' && last.name === name) {
-    operationIdToOpId.set(operationId, last.id);
-    return prev.map((op) => (op.id === last.id ? { ...op, name, state: explicit as ToolOperationState, preview } : op));
-  }
-  const created = { id: makeToolOpId(name), name, state: explicit as ToolOperationState, preview };
-  operationIdToOpId.set(operationId, created.id);
-  return [...prev, created];
-}
-
-/**
- * Rehydrate a durable tool timeline from persisted conversation messages.
- * Reads `toolObservations` (GA-CTX-001) off assistant messages — one entry
- * per operation — so reselect/reload shows what tools actually did instead
- * of an empty timeline. Ids are deterministic (`hist-<operationId|toolCallId>`)
- * so a later live `tool_result` carrying the same authoritative operationId
- * correlates instead of duplicating. Never fabricates: unknown shapes are skipped.
- */
-export function historicToolOperationsFromMessages(
-  messages: readonly { id: string; role: string; toolObservations?: readonly {
-    toolCallId: string;
-    operationId?: string;
-    toolName: string;
-    status: string;
-    content: string;
-  }[] }[],
-): { operations: AssistantToolOperation[]; operationIdEntries: [string, string][] } {
-  const operations: AssistantToolOperation[] = [];
-  const operationIdEntries: [string, string][] = [];
-  const seen = new Set<string>();
-  for (const msg of messages) {
-    if (msg.role !== 'assistant' || !msg.toolObservations) continue;
-    for (const obs of msg.toolObservations) {
-      if (!obs || typeof obs.toolName !== 'string') continue;
-      const operationId = typeof obs.operationId === 'string' && obs.operationId ? obs.operationId : undefined;
-      const clientId = `hist-${operationId ?? obs.toolCallId ?? `${msg.id}`}`;
-      if (seen.has(clientId)) continue;
-      seen.add(clientId);
-      const state: ToolOperationState =
-        obs.status === 'running' ? 'running' : obs.status === 'completed' ? 'completed' : 'failed';
-      operations.push({
-        id: clientId,
-        name: obs.toolName || 'tool',
-        state,
-        ...(state === 'completed' && obs.content ? { preview: obs.content.slice(0, TOOL_PREVIEW_MAX) } : {}),
-      });
-      if (operationId) operationIdEntries.push([operationId, clientId]);
-    }
-  }
-  return { operations, operationIdEntries };
-}
+// Transient turn projections (tool timeline, structured evidence, pending
+// ASK queues) live in `@vestara/assistant`'s framework-free `AssistantTurn`
+// store — this hook is a thin adapter that re-renders on mutation. The local
+// public types below mirror the package shapes; structural assignment of the
+// store data enforces they stay in sync.
 
 function makeClientTurnId(): string {
   clientTurnCounter += 1;
@@ -527,72 +385,47 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const [streamingText, setStreamingText] = useState('');
   const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
-  // ── Tool operations (GA-UX-PREMIUM M2, transient projection only) ──
-  const [toolOperations, setToolOperations] = useState<AssistantToolOperation[]>([]);
-  // GA-UX-PREMIUM M3: authoritative `operationId` → client op id correlation
-  // (transient, per active turn; cleared with toolOperations).
-  const operationIdMapRef = useRef<Map<string, string>>(new Map());
-  // ── Structured edit projections (GA-UX-PREMIUM M4A, transient) ──
-  const [structuredEdits, setStructuredEdits] = useState<StructuredEditOperation[]>([]);
-  /** Upsert a structured edit by operationId (later evidence replaces earlier). */
-  const upsertStructuredEdit = useCallback((detail: AssistantExecutionDetail) => {
-    if (detail.kind !== 'edit') return;
-    const operationId = detail.operationId;
-    const supersedesOpId = operationIdMapRef.current.get(operationId);
-    setStructuredEdits((prev) => {
-      const existing = prev.find((entry) => entry.operationId === operationId);
-      const next: StructuredEditOperation = { operationId, detail, supersedesOpId };
-      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
-    });
-  }, []);
-  // ── Structured terminal projections (GA-UX-PREMIUM M6, transient) ──
-  const [structuredTerminals, setStructuredTerminals] = useState<StructuredTerminalOperation[]>([]);
-  /** Upsert a structured terminal by operationId (later evidence replaces earlier). */
-  const upsertStructuredTerminal = useCallback((detail: AssistantExecutionDetail) => {
-    if (detail.kind !== 'terminal') return;
-    const operationId = detail.operationId;
-    const supersedesOpId = operationIdMapRef.current.get(operationId);
-    setStructuredTerminals((prev) => {
-      const existing = prev.find((entry) => entry.operationId === operationId);
-      const next: StructuredTerminalOperation = { operationId, detail, supersedesOpId };
-      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
-    });
-  }, []);
-  // ── Structured verification projections (GA-UX-PREMIUM M7, transient) ──
-  const [structuredVerifications, setStructuredVerifications] = useState<StructuredVerificationOperation[]>([]);
-  /** Upsert a structured verification by operationId. */
-  const upsertStructuredVerification = useCallback((detail: AssistantExecutionDetail) => {
-    if (detail.kind !== 'verification') return;
-    const operationId = detail.operationId;
-    const supersedesOpId = operationIdMapRef.current.get(operationId);
-    setStructuredVerifications((prev) => {
-      const existing = prev.find((entry) => entry.operationId === operationId);
-      const next: StructuredVerificationOperation = { operationId, detail, supersedesOpId };
-      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
-    });
-  }, []);
-  // ── Runtime todo checklist projection (GA-UX-PREMIUM M5A, transient) ──
-  // `todo.updated` events are COMPLETE replacement snapshots of the OpenCode
-  // runtime todo list. A single evolving checklist (latest snapshot wins) is
-  // the truthful presentation — never append semantics, never fabricated IDs.
-  const [taskSnapshot, setTaskSnapshot] = useState<AssistantExecutionDetail | null>(null);
-  const upsertTaskSnapshot = useCallback((detail: AssistantExecutionDetail) => {
-    if (detail.kind !== 'task-snapshot') return;
-    setTaskSnapshot(detail);
-  }, []);
-  // ── GA-RUNTIME-001 B: interactive permission/question requests (transient) ──
-  const [pendingPermissions, setPendingPermissions] = useState<AssistantExecutionDetail[]>([]);
-  const [pendingQuestions, setPendingQuestions] = useState<AssistantExecutionDetail[]>([]);
-  const clearToolOperations = () => {
-    operationIdMapRef.current.clear();
-    setToolOperations([]);
-    setStructuredEdits([]);
-    setStructuredTerminals([]);
-    setStructuredVerifications([]);
-    setTaskSnapshot(null);
-    setPendingPermissions([]);
-    setPendingQuestions([]);
-  };
+  // ── Transient turn projections (tool timeline, structured evidence, ASK
+  // queues) — owned by `@vestara/assistant`'s framework-free `AssistantTurn`
+  // store. This hook is a thin adapter: mutate the store, bump to re-render.
+  // Public return shapes below are unchanged (local types mirror the package).
+  const [turn] = useState(() => new AssistantTurn());
+  const [, bumpTurn] = useReducer((version: number) => version + 1, 0);
+  const toolOperations: AssistantToolOperation[] = turn.operations;
+  const structuredEdits: StructuredEditOperation[] = turn.structuredEdits;
+  const structuredTerminals: StructuredTerminalOperation[] = turn.structuredTerminals;
+  const structuredVerifications: StructuredVerificationOperation[] = turn.structuredVerifications;
+  const taskSnapshot: AssistantExecutionDetail | null = turn.taskSnapshot;
+  const pendingPermissions: AssistantExecutionDetail[] = turn.pendingPermissions;
+  const pendingQuestions: AssistantExecutionDetail[] = turn.pendingQuestions;
+  /** Feed one status-channel `assistant.execution.v1` payload into the store. */
+  const pushExecution = useCallback(
+    (value: unknown) => {
+      turn.onExecution(value);
+      bumpTurn();
+    },
+    [turn],
+  );
+  /** Record one `tool` chunk start. */
+  const pushToolStart = useCallback(
+    (name: string, operationId?: string) => {
+      turn.onToolStart(name, operationId);
+      bumpTurn();
+    },
+    [turn],
+  );
+  /** Resolve one `tool_result` chunk. */
+  const pushToolResult = useCallback(
+    (name: string, content: string, execution?: AssistantExecutionDetail) => {
+      turn.onToolResult(name, content, execution);
+      bumpTurn();
+    },
+    [turn],
+  );
+  const clearToolOperations = useCallback(() => {
+    turn.reset();
+    bumpTurn();
+  }, [turn]);
   const abortRef = useRef<AbortController | null>(null);
   const streamIdRef = useRef(0); // stale-stream guard
   const busyRef = useRef(false); // synchronous duplicate-submit guard
@@ -765,9 +598,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         setStreamStatus(null);
         setStreamingText('');
         if (terminal === 'failed' && errorContent) setStreamError(`Assistant response failed: ${errorContent}`);
-        setToolOperations((prev) =>
-          prev.map((op) => (op.state === 'running' ? { ...op, state: terminal as 'completed' | 'failed' } : op)),
-        );
+        turn.finalize(terminal);
+        bumpTurn();
         void refreshList();
       };
 
@@ -838,90 +670,19 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                   setStreamingText(accumulated);
                 } else if (eventType === 'status') {
                   setStreamStatus(eventContent || null);
-                  const execution = parseExecutionDetail(chunk?.event?.execution);
-                  if (execution) {
-                    upsertStructuredEdit(execution);
-                    upsertStructuredTerminal(execution);
-                    upsertStructuredVerification(execution);
-                    upsertTaskSnapshot(execution);
-                    if (execution.kind === 'permission') {
-                      if (execution.permissionState === 'requested') {
-                        setPendingPermissions((prev) =>
-                          prev.some((p) => p.operationId === execution.operationId)
-                            ? prev
-                            : [...prev, execution],
-                        );
-                      } else {
-                        setPendingPermissions((prev) =>
-                          prev.filter((p) => p.operationId !== execution.operationId),
-                        );
-                      }
-                    } else if (execution.kind === 'question') {
-                      if (execution.questionState === 'requested') {
-                        setPendingQuestions((prev) =>
-                          prev.some((q) => q.operationId === execution.operationId)
-                            ? prev
-                            : [...prev, execution],
-                        );
-                      } else {
-                        setPendingQuestions((prev) =>
-                          prev.filter((q) => q.operationId !== execution.operationId),
-                        );
-                      }
-                    }
-                  }
+                  pushExecution(chunk?.event?.execution);
                 } else if (eventType === 'tool') {
                   const toolName = typeof chunk?.event?.name === 'string' ? chunk.event.name : '';
                   setStreamStatus(
                     toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
                   );
-                  const execution = parseExecutionDetail(chunk?.event?.execution);
-                  setToolOperations((prev) => {
-                    if (
-                      execution?.operationId &&
-                      (execution.kind === 'tool' ||
-                        execution.kind === 'terminal' ||
-                        execution.kind === 'generic')
-                    ) {
-                      const knownId = operationIdMapRef.current.get(execution.operationId);
-                      if (knownId) {
-                        return prev.map((op) =>
-                          op.id === knownId && op.state !== 'running'
-                            ? { ...op, state: 'running' as const }
-                            : op,
-                        );
-                      }
-                      const created = {
-                        id: makeToolOpId(toolName || 'tool'),
-                        name: toolName || 'tool',
-                        state: 'running' as const,
-                      };
-                      operationIdMapRef.current.set(execution.operationId, created.id);
-                      return [...prev, created];
-                    }
-                    // No operationId on this chunk: each start is a distinct card.
-                    // Same-name `running` rows are never merged — parallel calls
-                    // to the same tool would otherwise collapse into one card and
-                    // a single result would mis-resolve the wrong operation.
-                    return [
-                      ...prev,
-                      { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const },
-                    ];
-                  });
+                  pushToolStart(toolName, toolOperationId(chunk?.event?.execution));
                 } else if (eventType === 'tool_result') {
                   setStreamStatus('Preparing response…');
                   const toolName = typeof chunk?.event?.name === 'string' ? chunk.event.name : '';
-                  const execution = parseExecutionDetail(chunk?.event?.execution);
-                  if (execution) {
-                    upsertStructuredEdit(execution);
-                    upsertStructuredTerminal(execution);
-                    upsertStructuredVerification(execution);
-                  }
-                  setToolOperations((prev) =>
-                    execution?.operationId
-                      ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
-                      : applyToolResult(prev, toolName, eventContent),
-                  );
+                  const execution = toExecutionDetail(chunk?.event?.execution);
+                  if (execution) pushExecution(execution);
+                  pushToolResult(toolName, eventContent, execution);
                 } else if (eventType === 'done') {
                   terminated = true;
                   await finalizeReattached('completed');
@@ -980,14 +741,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       };
       void runReattachStream();
     },
-    [
-      clearReattachPoll,
-      refreshList,
-      upsertStructuredEdit,
-      upsertStructuredTerminal,
-      upsertStructuredVerification,
-      upsertTaskSnapshot,
-    ],
+    [clearReattachPoll, refreshList, pushExecution, pushToolResult, pushToolStart, turn, bumpTurn],
   );
 
   const probeActiveTurn = useCallback(
@@ -1052,12 +806,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
             setMessages(loaded);
             // Rehydrate the durable tool timeline so reselect shows what tools
             // did (transient live ops are gone after detach/reload).
-            const historic = historicToolOperationsFromMessages(loaded);
-            operationIdMapRef.current.clear();
-            for (const [opId, clientId] of historic.operationIdEntries) {
-              operationIdMapRef.current.set(opId, clientId);
-            }
-            setToolOperations(historic.operations);
+            turn.rehydrateFromMessages(loaded);
+            bumpTurn();
             setMessagesPagination(data.conversation._pagination ?? null);
             probeActiveTurn(id);
           })
@@ -1075,7 +825,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         setMessagesLoading(false);
       }
     },
-    [clearReattachPoll, probeActiveTurn],
+    [clearReattachPoll, probeActiveTurn, turn, bumpTurn],
   );
 
   // ── Sticky restore: once per mount, reselect the stored conversation ──
@@ -1154,19 +904,15 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setSelectedConversation(data.conversation);
       const loaded = data.conversation.messages ?? [];
       setMessages(loaded);
-      const historic = historicToolOperationsFromMessages(loaded);
-      operationIdMapRef.current.clear();
-      for (const [opId, clientId] of historic.operationIdEntries) {
-        operationIdMapRef.current.set(opId, clientId);
-      }
-      setToolOperations(historic.operations);
+      turn.rehydrateFromMessages(loaded);
+      bumpTurn();
       setMessagesPagination(data.conversation._pagination ?? null);
     } catch {
       if (selectedIdRef.current !== conversationId) return;
       setMessages([]);
       setMessagesPagination(null);
     }
-  }, []);
+  }, [turn, bumpTurn]);
 
   // ── VES-PERF-001B: load the next older message window ──
   // Prepends older messages ahead of the current window. Chronological order
@@ -1327,9 +1073,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
           // Turn terminal proves execution ended: resolve any operation still
           // marked running (a missed tool_result must not stick forever).
           // Completed WITHOUT preview — completion is proven, output is not.
-          setToolOperations((prev) =>
-            prev.map((op) => (op.state === 'running' ? { ...op, state: 'completed' as const } : op)),
-          );
+          turn.finalize('completed');
+          bumpTurn();
           // Reload canonical messages, then reconcile: the persisted human
           // message is now present, so the optimistic entry must go.
           await loadMessages(finalConvId);
@@ -1363,83 +1108,23 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 accumulated += eventContent;
                 setStreamingText(accumulated);
               } else if (eventType === 'status') {
-                // Bounded operational status replaces Thinking…/previous status
+                // Bounded operational status replaces Thinking…/previous status.
+                // Structured projections, task snapshots, and pending ASK
+                // queues ride this channel via the shared turn store.
                 setStreamStatus(eventContent || null);
-                // GA-UX-PREMIUM M4A: structured edit projections ride the
-                // status channel (file.edited / turn-end diff enrichment).
-                // M5A: runtime todo snapshots (todo.updated → task-snapshot)
-                // replace the active checklist on every snapshot event.
-                const execution = parseExecutionDetail(data?.event?.execution);
-                if (execution) {
-                  upsertStructuredEdit(execution);
-                  upsertStructuredTerminal(execution);
-                  upsertStructuredVerification(execution);
-                  upsertTaskSnapshot(execution);
-                  // GA-RUNTIME-001 B: interactive permission/question surfaces.
-                  if (execution.kind === 'permission') {
-                    if (execution.permissionState === 'requested') {
-                      setPendingPermissions((prev) =>
-                        prev.some((p) => p.operationId === execution.operationId)
-                          ? prev
-                          : [...prev, execution],
-                      );
-                    } else {
-                      setPendingPermissions((prev) =>
-                        prev.filter((p) => p.operationId !== execution.operationId),
-                      );
-                    }
-                  } else if (execution.kind === 'question') {
-                    if (execution.questionState === 'requested') {
-                      setPendingQuestions((prev) =>
-                        prev.some((q) => q.operationId === execution.operationId)
-                          ? prev
-                          : [...prev, execution],
-                      );
-                    } else {
-                      setPendingQuestions((prev) =>
-                        prev.filter((q) => q.operationId !== execution.operationId),
-                      );
-                    }
-                  }
-                }
+                pushExecution(data?.event?.execution);
               } else if (eventType === 'tool') {
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
                 setStreamStatus(
                   toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
                 );
-                // GA-UX-PREMIUM M3: prefer authoritative operation identity;
-                // legacy same-name merge remains for detail-less servers.
-                const execution = parseExecutionDetail(data?.event?.execution);
-                setToolOperations((prev) => {
-                  if (execution?.operationId && (execution.kind === 'tool' || execution.kind === 'terminal' || execution.kind === 'generic')) {
-                    const knownId = operationIdMapRef.current.get(execution.operationId);
-                    if (knownId) {
-                      return prev.map((op) =>
-                        op.id === knownId && op.state !== 'running' ? { ...op, state: 'running' as const } : op,
-                      );
-                    }
-                    const created = { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const };
-                    operationIdMapRef.current.set(execution.operationId, created.id);
-                    return [...prev, created];
-                  }
-                  const last = prev[prev.length - 1];
-                  if (last && last.state === 'running' && last.name === (toolName || 'tool')) return prev;
-                  return [...prev, { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const }];
-                });
+                pushToolStart(toolName, toolOperationId(data?.event?.execution));
               } else if (eventType === 'tool_result') {
                 setStreamStatus('Preparing response…');
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
-                const execution = parseExecutionDetail(data?.event?.execution);
-                if (execution) {
-                  upsertStructuredEdit(execution);
-                  upsertStructuredTerminal(execution);
-                  upsertStructuredVerification(execution);
-                }
-                setToolOperations((prev) =>
-                  execution?.operationId
-                    ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
-                    : applyToolResult(prev, toolName, eventContent),
-                );
+                const execution = toExecutionDetail(data?.event?.execution);
+                if (execution) pushExecution(execution);
+                pushToolResult(toolName, eventContent, execution);
               } else if (eventType === 'done') {
                 // Stream completed successfully
                 await finalizeSuccess();
@@ -1494,9 +1179,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 `Assistant response failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
               );
               // Turn-level failure resolves leftover running operations.
-              setToolOperations((prev) =>
-                prev.map((op) => (op.state === 'running' ? { ...op, state: 'failed' as const } : op)),
-              );
+              turn.finalize('failed');
+              bumpTurn();
             }
           }
         }
@@ -1507,7 +1191,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         busyRef.current = false;
       }
     },
-    [loadMessages, refreshList, upsertStructuredEdit, upsertTaskSnapshot, probeActiveTurn],
+    [loadMessages, refreshList, pushExecution, pushToolResult, pushToolStart, probeActiveTurn, turn, bumpTurn],
   );
 
   // ── Send message + stream response ──
@@ -1663,7 +1347,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     } else {
       setOptimisticTurns((prev) => prev.filter((t) => t.delivery === 'failed'));
     }
-  }, [loadMessages, clearReattachPoll]);
+  }, [loadMessages, clearReattachPoll, clearToolOperations]);
 
   // Reattach stream/poll must not outlive the hook (route unmount ≠ cancel:
   // the server-side execution continues; we only detach here).
@@ -1696,13 +1380,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision }) },
         );
         if (!res.ok) return false;
-        setPendingPermissions((prev) => prev.filter((p) => p.operationId !== permissionId));
+        turn.dismissPending('permission', permissionId);
+        bumpTurn();
         return true;
       } catch {
         return false;
       }
     },
-    [],
+    [turn, bumpTurn],
   );
 
   const answerQuestion = useCallback(
@@ -1713,13 +1398,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }) },
         );
         if (!res.ok) return false;
-        setPendingQuestions((prev) => prev.filter((q) => q.operationId !== requestId));
+        turn.dismissPending('question', requestId);
+        bumpTurn();
         return true;
       } catch {
         return false;
       }
     },
-    [],
+    [turn, bumpTurn],
   );
 
   return {

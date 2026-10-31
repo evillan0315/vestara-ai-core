@@ -181,6 +181,69 @@ describe('FloatingAssistant', () => {
     expect(await screen.findByText('answered in 42ms')).toBeTruthy();
   });
 
+  it('renders live tool operations from stream frames', async () => {
+    localStorage.setItem('vestara-assistant-token', 'tok-live');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: unknown) => {
+        const u = String(url);
+        if (u.endsWith('/api/auth/me')) return ok({ user: { id: 'u1' } });
+        if (u.endsWith('/api/conversations')) return ok({ conversation: { id: 'conv-tools' } }, 201);
+        if (u.includes('/stream'))
+          return new Response(
+            'data: {"event":{"type":"tool","name":"read","execution":{"contract":"assistant.execution.v1","version":1,"kind":"tool","tool":"read","operationId":"op-1","state":"running","source":"opencode","timestamp":1}}}\n\n' +
+              'data: {"event":{"type":"tool_result","name":"read","content":"file body","execution":{"contract":"assistant.execution.v1","version":1,"kind":"tool","tool":"read","operationId":"op-1","state":"completed","source":"opencode","timestamp":2}}}\n\n' +
+              'data: {"event":{"type":"done"}}\n\n',
+          );
+        throw new Error(`unexpected fetch ${u}`);
+      }),
+    );
+    const user = userEvent.setup();
+    render(<FloatingAssistant />);
+    await user.click(screen.getByLabelText('Open assistant'));
+    await user.type(screen.getByLabelText('Message Vestara assistant'), 'read it{Enter}');
+    expect(await screen.findByTestId('assistant-tool-ops')).toBeTruthy();
+    expect(await screen.findByText('read')).toBeTruthy();
+    expect(await screen.findByText(/file body/)).toBeTruthy();
+  });
+
+  it('shows ASK permission cards and resolves them via the decision endpoint', async () => {
+    localStorage.setItem('vestara-assistant-token', 'tok-live');
+    const calls: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: unknown, init?: RequestInit) => {
+        const u = String(url);
+        calls.push({ url: u, body: String(init?.body ?? '') });
+        if (u.endsWith('/api/auth/me')) return ok({ user: { id: 'u1' } });
+        if (u.endsWith('/api/conversations')) return ok({ conversation: { id: 'conv-ask' } }, 201);
+        if (u.includes('/permissions/')) return ok({ ok: true, permissionId: 'per-1' });
+        if (u.includes('/stream'))
+          return new Response(
+            'data: {"event":{"type":"status","content":"Waiting for permission: webfetch","execution":{"contract":"assistant.execution.v1","version":1,"kind":"permission","operationId":"per-1","state":"running","permissionRequestId":"per-1","action":"webfetch","resources":["https://example.com"],"permissionState":"requested","source":"opencode","timestamp":1}}}\n\n' +
+              'data: {"event":{"type":"done"}}\n\n',
+          );
+        throw new Error(`unexpected fetch ${u}`);
+      }),
+    );
+    const user = userEvent.setup();
+    render(<FloatingAssistant />);
+    await user.click(screen.getByLabelText('Open assistant'));
+    await user.type(screen.getByLabelText('Message Vestara assistant'), 'fetch it{Enter}');
+    expect(await screen.findByTestId('assistant-permission-card')).toBeTruthy();
+    expect(await screen.findByText('webfetch')).toBeTruthy();
+    await user.click(screen.getByText('Once'));
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.url.endsWith('/permissions/per-1'))).toBe(true);
+    });
+    expect(JSON.parse(calls.find((c) => c.url.endsWith('/permissions/per-1'))?.body ?? '{}')).toEqual({
+      decision: 'allow-once',
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId('assistant-permission-card')).toBeNull();
+    });
+  });
+
   it('stops a live turn via AbortController plus the cancel endpoint', async () => {
     localStorage.setItem('vestara-assistant-token', 'tok-live');
     const calls: string[] = [];

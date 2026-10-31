@@ -1,16 +1,20 @@
+/**
+ * Binding tests for the v2 assistant transport layer.
+ *
+ * The protocol (SSE parsing, error mapping, retries) is owned and tested by
+ * `@vestara/assistant`. These tests pin the v2 binding contract only:
+ * token-first signatures, same-origin paths, and event/budget passthrough.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  answerQuestion,
   cancelAssistantTurn,
   createAssistantConversation,
-  fetchAssistantIdentity,
-  getLatestAssistantText,
-  isAssistantTurnActive,
   loginAssistant,
-  loginWithPassword,
+  respondToPermission,
   sendAssistantMessage,
   streamAssistantMessage,
   validateAssistantToken,
-  verifyMfaCode,
 } from './assistant-api';
 
 const ok = (data: unknown, status = 200) =>
@@ -28,8 +32,29 @@ function stubFetch(handler: (url: string, init?: RequestInit) => Promise<Respons
   );
 }
 
-describe('assistant-api', () => {
-  it('logs in with a username', async () => {
+const sseResponse = (chunks: string[]) => {
+  const queue = [...chunks];
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({}),
+    body: {
+      getReader: () => ({
+        read: async () => {
+          const next = queue.shift();
+          if (next === undefined) return { done: true, value: undefined };
+          return { done: false, value: new TextEncoder().encode(next) };
+        },
+        releaseLock: () => {},
+      }),
+    },
+  } as unknown as Response;
+};
+
+const frame = (event: unknown) => `data: ${JSON.stringify({ schemaVersion: 1, event })}\n\n`;
+
+describe('assistant-api binding', () => {
+  it('logs in with a username against the same-origin base', async () => {
     stubFetch(async (url, init) => {
       expect(url).toBe('/api/auth/login');
       expect(init?.method).toBe('POST');
@@ -44,182 +69,67 @@ describe('assistant-api', () => {
     await expect(loginAssistant('eddie')).rejects.toMatchObject({ status: 500 });
   });
 
-  it('creates conversations by id', async () => {
-    stubFetch(async (url, init) => {
-      expect(url).toBe('/api/conversations');
-      expect(init?.headers).toMatchObject({ authorization: 'Bearer t' });
-      return ok({ conversation: { id: 'conv-9' } }, 201);
-    });
-    await expect(createAssistantConversation('t')).resolves.toBe('conv-9');
-  });
-
-  it('returns the assistant reply text with latency, never the user echo', async () => {
-    stubFetch(async (url) => {
-      expect(url).toBe('/api/conversations/conv-1/messages');
-      return ok({ message: { content: 'hi' }, response: { content: 'Live answer' }, latency: 12 });
-    });
-    await expect(sendAssistantMessage('t', 'conv-1', 'hi')).resolves.toMatchObject({
-      text: 'Live answer',
-      latencyMs: 12,
-    });
-  });
-
-  it('surfaces API error bodies with status', async () => {
-    stubFetch(async () => err(400, { error: 'message is required' }));
-    await expect(sendAssistantMessage('t', 'c', 'x')).rejects.toMatchObject({
-      status: 400,
-      message: 'message is required',
-    });
-  });
-
-  it('reports transport failure as status 0', async () => {
-    stubFetch(async () => {
-      throw new TypeError('fetch failed');
-    });
-    await expect(sendAssistantMessage('t', 'c', 'x')).rejects.toMatchObject({ status: 0 });
-  });
-
-  it('validates tokens and distinguishes offline from signed-out', async () => {
-    stubFetch(async () => ok({ user: { id: 'u1' } }));
-    await expect(validateAssistantToken('good')).resolves.toBe(true);
-    stubFetch(async () => err(401, { error: 'Authentication is required.' }));
-    await expect(validateAssistantToken('bad')).resolves.toBe(false);
-    stubFetch(async () => {
-      throw new TypeError('fetch failed');
-    });
-    await expect(validateAssistantToken('x')).rejects.toMatchObject({ status: 0 });
-  });
-
-  it('fetches the session identity for the login shell', async () => {
-    stubFetch(async (url, init) => {
-      expect(url).toBe('/api/auth/me');
-      expect(init?.headers).toMatchObject({ authorization: 'Bearer t' });
-      return ok({ user: { name: 'eddie', role: 'admin' }, currentUser: { username: 'eddie', role: 'admin' } });
-    });
-    await expect(fetchAssistantIdentity('t')).resolves.toEqual({ name: 'eddie', username: 'eddie', role: 'admin' });
-    stubFetch(async () => err(401, { error: 'Authentication is required.' }));
-    await expect(fetchAssistantIdentity('bad')).rejects.toMatchObject({ status: 401 });
-  });
-
-  const sse = (events: unknown[]) => events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('');
-
-  const frame = (event: unknown) => ({
-    schemaVersion: 1,
-    conversationId: 'c',
-    messageId: 'm',
-    sequence: 0,
-    timestamp: 't',
-    event,
-  });
-
-  it('streams deltas to done', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          sse([
-            frame({ type: 'delta', content: 'Hel' }),
-            frame({ type: 'delta', content: 'lo' }),
-            frame({ type: 'done' }),
-          ]),
-        ),
-    );
+  it('forwards non-delta frames to onEvent and the budget to the body', async () => {
     const seen: string[] = [];
-    const result = await streamAssistantMessage('t', 'c', 'hi', {
-      signal: new AbortController().signal,
-      onDelta: (d) => seen.push(d),
-    });
-    expect(result).toEqual({ ended: 'done', text: 'Hello' });
-    expect(seen).toEqual(['Hel', 'lo']);
-  });
-
-  it('reports busy on 409 without duplicating turns', async () => {
-    stubFetch(async () => new Response('{}', { status: 409 }));
-    const result = await streamAssistantMessage('t', 'c', 'hi', {
-      signal: new AbortController().signal,
-      onDelta: () => {},
-    });
-    expect(result).toEqual({ ended: 'busy', text: '' });
-  });
-
-  it('reports aborted on an aborted signal', async () => {
+    let body = '';
     stubFetch(async (_url, init) => {
-      if ((init?.signal as AbortSignal | undefined)?.aborted) {
-        throw new DOMException('AbortError', 'AbortError');
-      }
-      throw new Error('unreachable');
+      body = String(init?.body);
+      return sseResponse([
+        frame({ type: 'tool', name: 'read', execution: { kind: 'tool', operationId: 'op-1' } }),
+        frame({ type: 'delta', content: 'hi' }),
+        frame({ type: 'done' }),
+      ]);
     });
-    const controller = new AbortController();
-    controller.abort();
-    const result = await streamAssistantMessage('t', 'c', 'hi', {
-      signal: controller.signal,
-      onDelta: () => {},
-    });
-    expect(result.ended).toBe('aborted');
-  });
-
-  it('surfaces stream error frames with partial text', async () => {
-    stubFetch(
-      async () =>
-        new Response(sse([frame({ type: 'delta', content: 'part' }), frame({ type: 'error', content: 'boom' })])),
+    const deltas: string[] = [];
+    const result = await streamAssistantMessage(
+      'tok',
+      'conv-1',
+      'hello',
+      {
+        signal: new AbortController().signal,
+        onDelta: (d) => deltas.push(d),
+        onEvent: (type) => seen.push(type),
+      },
+      { maxToolCalls: 150 },
     );
-    const result = await streamAssistantMessage('t', 'c', 'hi', {
-      signal: new AbortController().signal,
-      onDelta: () => {},
-    });
-    expect(result).toEqual({ ended: 'error', text: 'part', error: 'boom' });
+    expect(result).toEqual({ ended: 'done', text: 'hi' });
+    expect(deltas).toEqual(['hi']);
+    expect(seen).toEqual(['tool', 'done']);
+    expect(JSON.parse(body).executionConfig).toEqual({ maxToolCalls: 150 });
   });
 
-  it('cancels idempotently and never throws', async () => {
-    stubFetch(async () => ok({ cancelled: true }));
-    await expect(cancelAssistantTurn('t', 'c')).resolves.toBe(true);
-    stubFetch(async () => err(500, { error: 'x' }));
-    await expect(cancelAssistantTurn('t', 'c')).resolves.toBe(false);
-    stubFetch(async () => {
-      throw new TypeError('fetch failed');
+  it('answers permission and question gates', async () => {
+    const calls: { url: string; body: string }[] = [];
+    stubFetch(async (url, init) => {
+      calls.push({ url, body: String(init?.body) });
+      return ok({ ok: true });
     });
-    await expect(cancelAssistantTurn('t', 'c')).resolves.toBe(false);
+    await expect(respondToPermission('tok', 'c', 'per-1', 'allow-once')).resolves.toBe(true);
+    await expect(answerQuestion('tok', 'c', 'q-1', [['a']])).resolves.toBe(true);
+    expect(calls[0]).toMatchObject({ url: '/api/conversations/c/permissions/per-1' });
+    expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({ decision: 'allow-once' });
+    expect(calls[1]?.url).toBe('/api/conversations/c/questions/q-1');
   });
 
-  it('reads turn activity and the latest assistant text', async () => {
+  it('reports busy on 409 and validates tokens', async () => {
     stubFetch(async (url) => {
-      if (url.endsWith('/active')) return ok({ conversationId: 'c', active: true });
-      return ok({
-        conversation: {
-          messages: [
-            { role: 'assistant', content: 'Second answer' },
-            { role: 'user', content: 'q2' },
-            { role: 'assistant', content: 'First answer' },
-          ],
-        },
-      });
+      if (url.endsWith('/stream')) return err(409, { error: 'busy' });
+      return ok({ user: { id: 'u1' } });
     });
-    await expect(isAssistantTurnActive('t', 'c')).resolves.toBe(true);
-    await expect(getLatestAssistantText('t', 'c')).resolves.toBe('Second answer');
+    const handlers = { signal: new AbortController().signal, onDelta: () => {} };
+    await expect(streamAssistantMessage('tok', 'c', 'hi', handlers)).resolves.toMatchObject({ ended: 'busy' });
+    await expect(validateAssistantToken('tok')).resolves.toBe(true);
   });
 
-  it('logs in with a password or surfaces the MFA challenge', async () => {
-    stubFetch(async (url, init) => {
-      expect(url).toBe('/api/auth/password');
-      expect(init?.method).toBe('POST');
-      expect(init?.body).toBe(JSON.stringify({ username: 'eddie', password: 's3cret' }));
-      return ok({ user: { token: 'tok-2', username: 'eddie' } });
+  it('cancels idempotently and falls back to the messages call', async () => {
+    stubFetch(async (url) => {
+      if (url.endsWith('/cancel')) return ok({ cancelled: true });
+      if (url.endsWith('/messages')) return ok({ response: { content: 'Fallback' }, latency: 7 });
+      if (url.endsWith('/api/conversations')) return ok({ conversation: { id: 'c1' } }, 201);
+      throw new Error(`unexpected ${url}`);
     });
-    await expect(loginWithPassword('eddie', 's3cret')).resolves.toMatchObject({
-      mfaRequired: false,
-      session: { token: 'tok-2' },
-    });
-    stubFetch(async () => ok({ mfaRequired: true, username: 'eddie' }));
-    await expect(loginWithPassword('eddie', 's3cret')).resolves.toMatchObject({ mfaRequired: true });
-  });
-
-  it('verifies MFA codes into a session', async () => {
-    stubFetch(async (url, init) => {
-      expect(url).toBe('/api/auth/mfa/verify');
-      expect(init?.body).toBe(JSON.stringify({ username: 'eddie', code: '123456' }));
-      return ok({ user: { token: 'tok-3', username: 'eddie' } });
-    });
-    await expect(verifyMfaCode('eddie', '123456')).resolves.toEqual({ token: 'tok-3', username: 'eddie' });
-    stubFetch(async () => ok({ user: {} }));
-    await expect(verifyMfaCode('eddie', '123456')).rejects.toMatchObject({ status: 500 });
+    await expect(cancelAssistantTurn('tok', 'c1')).resolves.toBe(true);
+    await expect(createAssistantConversation('tok')).resolves.toBe('c1');
+    await expect(sendAssistantMessage('tok', 'c1', 'hi')).resolves.toEqual({ text: 'Fallback', latencyMs: 7 });
   });
 });

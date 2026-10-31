@@ -575,6 +575,9 @@ importers:
       '@vestara/activity-room':
         specifier: workspace:*
         version: link:../../packages/activity-room
+      '@vestara/assistant':
+        specifier: workspace:*
+        version: link:../../packages/assistant
       '@vestara/ci-contracts':
         specifier: workspace:*
         version: link:../../packages/ci-contracts
@@ -744,6 +747,9 @@ importers:
       '@tauri-apps/plugin-deep-link':
         specifier: ^2.6.2
         version: 2.6.2
+      '@vestara/assistant':
+        specifier: workspace:*
+        version: link:../../packages/assistant
       '@vestara/settings-framework':
         specifier: workspace:*
         version: link:../../packages/settings-framework

@@ -1,11 +1,14 @@
 import { Plus, Send, Sparkles, Square, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { AssistantTurn } from '@vestara/assistant';
 import {
+  answerQuestion,
   AssistantApiError,
   cancelAssistantTurn,
   createAssistantConversation,
-  getLatestAssistantText,
+  getConversation,
   isAssistantTurnActive,
+  respondToPermission,
   sendAssistantMessage,
   streamAssistantMessage,
   validateAssistantToken,
@@ -59,6 +62,10 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
   const [catchingUp, setCatchingUp] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>(ASSISTANT_GREETING);
   const [mode, setMode] = useState<Mode>(() => (readAssistantToken() ? 'checking' : 'fixture'));
+  // Transient turn projections (tool timeline, ASK queues) owned by the
+  // shared package store; this component only re-renders on mutation.
+  const [turn] = useState(() => new AssistantTurn());
+  const [, bumpTurn] = useReducer((version: number) => version + 1, 0);
   const replyRef = useRef(0);
   const convRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -100,20 +107,29 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
       try {
         const token = readAssistantToken();
         if (!token) return;
-        if (await isAssistantTurnActive(token, stored)) {
-          setCatchingUp(true);
-          tries += 1;
-          if (tries < 15) {
-            timer = window.setTimeout(poll, 2000);
-            keepWaiting = true;
+          if (await isAssistantTurnActive(token, stored)) {
+            setCatchingUp(true);
+            tries += 1;
+            if (tries < 15) {
+              timer = window.setTimeout(poll, 2000);
+              keepWaiting = true;
+            }
+            return;
           }
-          return;
-        }
-        const latest = await getLatestAssistantText(token, stored);
-        if (!cancelled && latest) {
-          const n = replyRef.current++;
-          setMessages((m) => [...m, { id: `reattach-${n}`, from: 'assistant', text: latest }]);
-        }
+          // Settle: rehydrate the durable tool timeline and append the latest
+          // persisted assistant text. Never opens a second stream.
+          const rehydrated = await getConversation(token, stored);
+          if (!cancelled) {
+            turn.rehydrateFromMessages(rehydrated);
+            bumpTurn();
+            const latest = [...rehydrated]
+              .reverse()
+              .find((m) => m?.role === 'assistant' && m.content?.trim())?.content?.trim();
+            if (latest) {
+              const n = replyRef.current++;
+              setMessages((m) => [...m, { id: `reattach-${n}`, from: 'assistant', text: latest }]);
+            }
+          }
       } catch {
         // Stale thread or offline — session affinity heals on next send.
       } finally {
@@ -181,12 +197,35 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
     pendingId: string,
     signal: AbortSignal,
   ): Promise<'streamed' | 'busy'> => {
-    const result = await streamAssistantMessage(token, conv, clean, {
-      signal,
-      onDelta: (d) => {
-        setMessages((m) => m.map((x) => (x.id === pendingId ? { ...x, text: x.text + d } : x)));
+    const result = await streamAssistantMessage(
+      token,
+      conv,
+      clean,
+      {
+        signal,
+        onDelta: (d) => {
+          setMessages((m) => m.map((x) => (x.id === pendingId ? { ...x, text: x.text + d } : x)));
+        },
+        // Every non-delta frame feeds the shared turn store: tool cards,
+        // structured status, and ASK queues render live instead of stalling.
+        onEvent: (type, content, frame) => {
+          if (type === 'tool') {
+            const execution = frame?.execution as { kind?: string; operationId?: string } | undefined;
+            const operationId =
+              execution && (execution.kind === 'tool' || execution.kind === 'terminal' || execution.kind === 'generic')
+                ? execution.operationId
+                : undefined;
+            turn.onToolStart(frame?.name ?? 'tool', operationId);
+          } else if (type === 'tool_result') {
+            turn.onExecution(frame?.execution);
+            turn.onToolResult(frame?.name ?? 'tool', content);
+          } else if (type === 'status') {
+            turn.onExecution(frame?.execution);
+          }
+          bumpTurn();
+        },
       },
-    });
+    );
     if (result.ended === 'busy') return 'busy';
     if (result.ended === 'aborted') {
       setMessages((m) => m.map((x) => (x.id === pendingId ? { ...x, text: x.text.trim() || '(stopped)' } : x)));
@@ -211,6 +250,8 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
   const sendLive = (clean: string) => {
     const n = replyRef.current++;
     const pendingId = `asst-${n}`;
+    turn.reset();
+    bumpTurn();
     setMessages((m) => [
       ...m,
       { id: `user-${n}`, from: 'user', text: clean },
@@ -281,7 +322,35 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
   const newChat = () => {
     convRef.current = null;
     clearAssistantThread();
+    turn.reset();
+    bumpTurn();
     setMessages(ASSISTANT_GREETING);
+  };
+
+  // Permission/question details carry the OpenCode request id as their
+  // operationId, so one id addresses both the endpoint and the store queue.
+  const decidePermission = (requestId: string, decision: 'allow-once' | 'allow-session' | 'deny') => {
+    const token = readAssistantToken();
+    const conv = convRef.current;
+    if (!token || !conv) return;
+    void respondToPermission(token, conv, requestId, decision).then((ok) => {
+      if (ok) {
+        turn.dismissPending('permission', requestId);
+        bumpTurn();
+      }
+    });
+  };
+
+  const answerTurnQuestion = (requestId: string, label: string) => {
+    const token = readAssistantToken();
+    const conv = convRef.current;
+    if (!token || !conv) return;
+    void answerQuestion(token, conv, requestId, [[label]]).then((ok) => {
+      if (ok) {
+        turn.dismissPending('question', requestId);
+        bumpTurn();
+      }
+    });
   };
 
   const pill = MODE_PILL[mode];
@@ -362,6 +431,104 @@ export function FloatingAssistant({ onAction }: { onAction?: (type: WinType) => 
                 </div>
               ),
             )}
+            {turn.operations.length > 0 && (
+              <div className="flex justify-start">
+                <div
+                  data-testid="assistant-tool-ops"
+                  className="max-w-[85%] rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-surface-shell-panel)] border border-[var(--vestara-border-shell)] px-2.5 py-1.5 text-[length:var(--vestara-font-size-caption)] font-mono text-[var(--vestara-text-shell-muted)] space-y-0.5"
+                >
+                  {turn.operations.map((op) => (
+                    <div key={op.id} className="flex items-center gap-1.5 truncate">
+                      <span aria-hidden="true">
+                        {op.state === 'running' ? (
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--vestara-accent-shell)] animate-pulse" />
+                        ) : op.state === 'completed' ? (
+                          <span className="text-[var(--vestara-status-shell-success)]">✓</span>
+                        ) : (
+                          <span className="text-[var(--vestara-status-shell-danger)]">✕</span>
+                        )}
+                      </span>
+                      <span className="truncate">
+                        {op.name}
+                        {op.preview ? <span className="opacity-60"> · {op.preview}</span> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {turn.pendingPermissions.map((p) => {
+              const detail = p as unknown as {
+                operationId: string;
+                action: string;
+                resources: readonly string[];
+              };
+              return (
+                <div
+                  key={detail.operationId}
+                  className="flex justify-start"
+                  data-testid="assistant-permission-card"
+                >
+                  <div className="max-w-[85%] rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-surface-shell-panel)] border border-[var(--vestara-status-shell-warning)]/40 px-2.5 py-1.5">
+                    <div className="text-[length:var(--vestara-font-size-label)] text-[var(--vestara-text-shell-primary)]">
+                      Allow <span className="font-mono">{detail.action}</span>?
+                    </div>
+                    {detail.resources?.[0] && (
+                      <div className="mt-0.5 truncate text-[length:var(--vestara-font-size-micro-small)] font-mono text-[var(--vestara-text-shell-muted)]">
+                        {detail.resources[0]}
+                      </div>
+                    )}
+                    <div className="mt-1.5 flex gap-1.5">
+                      {(['allow-once', 'allow-session', 'deny'] as const).map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => decidePermission(detail.operationId, d)}
+                          className="text-[length:var(--vestara-font-size-caption)] px-2 py-0.5 rounded-full bg-[var(--vestara-surface-shell-canvas)] border border-[var(--vestara-border-shell)] text-[var(--vestara-text-shell-secondary)] hover:border-[var(--vestara-accent-shell)]/30 hover:text-[var(--vestara-text-shell-primary)] transition"
+                        >
+                          {d === 'allow-once' ? 'Once' : d === 'allow-session' ? 'Session' : 'Deny'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {turn.pendingQuestions.map((q) => {
+              const detail = q as unknown as {
+                operationId: string;
+                questions: readonly {
+                  question: string;
+                  options?: readonly { label: string }[];
+                }[];
+              };
+              const first = detail.questions?.[0];
+              return (
+                <div
+                  key={detail.operationId}
+                  className="flex justify-start"
+                  data-testid="assistant-question-card"
+                >
+                  <div className="max-w-[85%] rounded-[var(--vestara-radius-lg)] bg-[var(--vestara-surface-shell-panel)] border border-[var(--vestara-status-shell-warning)]/40 px-2.5 py-1.5">
+                    <div className="text-[length:var(--vestara-font-size-label)] text-[var(--vestara-text-shell-primary)]">
+                      {first?.question ?? 'Question'}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {(first?.options ?? []).map((opt) => (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => answerTurnQuestion(detail.operationId, opt.label)}
+                          className="text-[length:var(--vestara-font-size-caption)] px-2 py-0.5 rounded-full bg-[var(--vestara-surface-shell-canvas)] border border-[var(--vestara-border-shell)] text-[var(--vestara-text-shell-secondary)] hover:border-[var(--vestara-accent-shell)]/30 hover:text-[var(--vestara-text-shell-primary)] transition"
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
             {busy && (
               <div className="flex justify-start">
                 <div

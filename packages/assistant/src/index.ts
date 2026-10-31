@@ -31,8 +31,10 @@ export {
   type TurnTerminal,
 } from './store';
 export {
+  answerQuestion,
   AssistantApiError,
   type AssistantIdentity,
+  type AssistantPermissionDecision,
   type AssistantReply,
   type AssistantSession,
   type AssistantTransport,
@@ -48,6 +50,7 @@ export {
   loginAssistant,
   loginWithPassword,
   type PasswordLoginResult,
+  respondToPermission,
   type StreamEnd,
   type StreamHandlers,
   type StreamResult,

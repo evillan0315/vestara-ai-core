@@ -10,6 +10,38 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Adoption: v1 Rewire + v2 Migration (stages 3–5)
+
+### Changed
+
+- **v1 hook is a thin adapter over the package** (`apps/workspace/src/hooks/useAssistantConversation.ts`,
+  `apps/workspace/package.json`) — the hook's transient projection machinery
+  (op-id map, FIFO completion, structured upserts, ASK queues, rehydration)
+  is deleted (~300 lines) in favor of `@vestara/assistant`'s `AssistantTurn`
+  store with a version-bump re-render. Public return shapes unchanged
+  (`ConversationPanel`, `AssistantToolCard`, `FullWindowSurface`,
+  `GlobalAssistant` untouched); store data structurally enforces the local
+  public types. `respondToPermission`/`answerQuestion` dismiss via
+  `store.dismissPending`.
+- **v2 fork replaced by a binding** (`apps/workspace-ui-v2/...`) —
+  `lib/assistant-api.ts` (324-line fork) is now a ~140-line binding over the
+  package preserving token-first signatures; `packages/assistant.fixtures.ts`
+  re-exports the package thread and keeps only the shell-action map.
+  `FloatingAssistant` renders the live tool timeline, ASK permission/question
+  cards wired to the decision endpoints, and rehydrates the timeline on
+  reattach via `getConversation`. New `respondToPermission`/`answerQuestion`
+  added to the package transport (both apps' interactive turns).
+
+### Verification
+
+- v2 suite 247/247 (incl. 2 new: tool-timeline render, ASK card decide +
+  dismiss) · v1 assistant suites + package + adapter suites 135/135 ·
+  `bash build-order.sh` ✅ · `dependencies:check` ✅ · `biome check` ✅ ·
+  `pnpm vds:validate` ✅ (new v2 cards use existing shell tokens only).
+- `MILESTONES` recorded as GA-ASSIST-TOOL-003. Deferred: v2 budget UI
+  (server default applies), v2 `stream-reattach` upgrade (active-poll +
+  rehydrate retained), TUI/Telegram consumers.
+
 ## [2026-10-31] — Independent Assistant Client Package (stages 1–2)
 
 ### Added

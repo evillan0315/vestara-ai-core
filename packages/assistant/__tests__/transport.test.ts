@@ -158,6 +158,28 @@ describe('assistant transport', () => {
     await expect(t.getLatestAssistantText('tok', 'c')).resolves.toBe('latest');
   });
 
+  it('answers permission and question gates idempotently', async () => {
+    const calls: { url: string; body: string }[] = [];
+    const fetchFn = stubFetch(async (url, init) => {
+      calls.push({ url, body: String(init?.body) });
+      return ok({ ok: true });
+    });
+    const t = createAssistantTransport({ fetchFn });
+    await expect(t.respondToPermission('tok', 'c', 'per-1', 'allow-session')).resolves.toBe(true);
+    await expect(t.answerQuestion('tok', 'c', 'q-1', [['a', 'b']])).resolves.toBe(true);
+    expect(calls[0]?.url).toBe('/api/conversations/c/permissions/per-1');
+    expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({ decision: 'allow-session' });
+    expect(JSON.parse(calls[1]?.body ?? '{}')).toEqual({ answers: [['a', 'b']] });
+
+    const failing = createAssistantTransport({
+      fetchFn: stubFetch(async () => {
+        throw new TypeError('offline');
+      }),
+    });
+    await expect(failing.respondToPermission('tok', 'c', 'per-1', 'deny')).resolves.toBe(false);
+    await expect(failing.answerQuestion('tok', 'c', 'q-1', [['a']])).resolves.toBe(false);
+  });
+
   it('falls back to the messages call and surfaces HTTP errors', async () => {
     const fetchFn = stubFetch(async (url) => {
       if (url.endsWith('/messages')) return ok({ response: { content: 'fallback' }, latency: 12 });

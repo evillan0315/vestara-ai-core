@@ -383,6 +383,58 @@ export async function getLatestAssistantText(
   return found?.content?.trim() ?? null;
 }
 
+/**
+ * POST /api/conversations/:id/permissions/:permissionId — answer an ASK
+ * gate. UI vocabulary (`allow-once | allow-session | deny`) maps to OpenCode
+ * wire (`once | always | reject`) server-side; the broker records the
+ * decision in the unified audit trail.
+ */
+export type AssistantPermissionDecision = 'allow-once' | 'allow-session' | 'deny';
+
+export async function respondToPermission(
+  fetchFn: FetchFn,
+  base: string,
+  token: string,
+  conversationId: string,
+  permissionId: string,
+  decision: AssistantPermissionDecision,
+): Promise<boolean> {
+  try {
+    const res = await fetchFn(`${base}/api/conversations/${encodeURIComponent(conversationId)}/permissions/${encodeURIComponent(permissionId)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ decision }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * POST /api/conversations/:id/questions/:requestId — answer a runtime
+ * question with bounded option selections. Unknown/stale ids resolve false.
+ */
+export async function answerQuestion(
+  fetchFn: FetchFn,
+  base: string,
+  token: string,
+  conversationId: string,
+  requestId: string,
+  answers: string[][],
+): Promise<boolean> {
+  try {
+    const res = await fetchFn(`${base}/api/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(requestId)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ answers }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Assistant reply over the simple messages call (fallback when SSE fails). */
 export interface AssistantReply {
   text: string;
@@ -425,6 +477,18 @@ export interface AssistantTransport {
     executionConfig?: ExecutionConfig,
   ) => Promise<StreamResult>;
   cancelAssistantTurn: (token: string, conversationId: string) => Promise<boolean>;
+  respondToPermission: (
+    token: string,
+    conversationId: string,
+    permissionId: string,
+    decision: AssistantPermissionDecision,
+  ) => Promise<boolean>;
+  answerQuestion: (
+    token: string,
+    conversationId: string,
+    requestId: string,
+    answers: string[][],
+  ) => Promise<boolean>;
   isAssistantTurnActive: (token: string, conversationId: string) => Promise<boolean>;
   getLatestAssistantText: (token: string, conversationId: string) => Promise<string | null>;
   sendAssistantMessage: (token: string, conversationId: string, message: string) => Promise<AssistantReply>;
@@ -449,6 +513,10 @@ export function createAssistantTransport(options?: { baseUrl?: string; fetchFn?:
     streamAssistantMessage: (token, conversationId, message, handlers, executionConfig) =>
       streamAssistantMessage(fetchFn, base, token, conversationId, message, handlers, executionConfig),
     cancelAssistantTurn: (token, conversationId) => cancelAssistantTurn(fetchFn, base, token, conversationId),
+    respondToPermission: (token, conversationId, permissionId, decision) =>
+      respondToPermission(fetchFn, base, token, conversationId, permissionId, decision),
+    answerQuestion: (token, conversationId, requestId, answers) =>
+      answerQuestion(fetchFn, base, token, conversationId, requestId, answers),
     isAssistantTurnActive: (token, conversationId) => isAssistantTurnActive(fetchFn, base, token, conversationId),
     getLatestAssistantText: (token, conversationId) => getLatestAssistantText(fetchFn, base, token, conversationId),
     sendAssistantMessage: (token, conversationId, message) =>
