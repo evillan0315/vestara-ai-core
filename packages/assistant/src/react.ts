@@ -9,8 +9,8 @@
  */
 
 import { useMemo, useReducer, useState } from 'react';
-import { AssistantTurn, type TurnTerminal } from './store';
-import type { ConversationMessage } from './transport';
+import { AssistantTurn, type TurnTerminal } from './store.js';
+import type { ConversationMessage } from './transport.js';
 
 export interface AssistantTurnBinding {
   readonly turn: AssistantTurn;

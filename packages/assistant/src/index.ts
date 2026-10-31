@@ -15,21 +15,21 @@ export {
   ASSISTANT_SUGGESTIONS,
   type AssistantFixtureMessage,
   type AssistantSuggestion,
-} from './fixtures';
-export { type AssistantTurnBinding, useAssistantTurn } from './react';
+} from './fixtures.js';
+export { type AssistantTurnBinding, useAssistantTurn } from './react.js';
 export {
   type AssistantStreamEvent,
   type AssistantStreamEventType,
   type AssistantStreamFrame,
   parseStreamFrames,
-} from './sse';
+} from './sse.js';
 export {
   type AssistantToolOperation,
   AssistantTurn,
   type StructuredProjection,
   type ToolOperationState,
   type TurnTerminal,
-} from './store';
+} from './store.js';
 export {
   answerQuestion,
   AssistantApiError,
@@ -59,4 +59,4 @@ export {
   type ToolObservation,
   validateAssistantToken,
   verifyMfaCode,
-} from './transport';
+} from './transport.js';

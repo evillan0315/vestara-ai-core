@@ -26,7 +26,7 @@ import {
   type TerminalExecutionDetail,
   type ToolExecutionDetail,
 } from '@vestara/shared';
-import type { ConversationMessage } from './transport';
+import type { ConversationMessage } from './transport.js';
 
 export type ToolOperationState = 'running' | 'completed' | 'failed';
 

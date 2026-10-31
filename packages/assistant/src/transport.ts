@@ -17,7 +17,7 @@
  * own base URL (v1 same-origin proxy `''`, v2 `VITE_API_URL`).
  */
 
-import { parseStreamFrames } from './sse';
+import { parseStreamFrames } from './sse.js';
 
 export class AssistantApiError extends Error {
   status: number;

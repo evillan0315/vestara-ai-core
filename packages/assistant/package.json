@@ -3,6 +3,7 @@
   "description": "Independent assistant client: conversation transport, SSE parsing, offline fixtures. Shared by workspace v1, workspace-ui v2, and future non-React consumers.",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
