@@ -1,14 +1,17 @@
 /**
  * UI-FOUNDATION-006: WorkspacePanelLayout — shared page geometry contract.
  *
- * Single substrate for every workspace page: centered max-width, page
- * gutters, and hero → content rhythm — all sourced from Vestara tokens, so
+ * Single substrate for every workspace page: centered max-width and
+ * hero → content rhythm — all sourced from Vestara tokens, so
  * user spacing/layout settings (lib/theme.tsx) propagate everywhere.
+ * Page gutters live in ShellLayout's PageContainer only; this panel adds
+ * no outer padding (no double-gutter).
  *
  * Authority boundaries (do not blur):
- * - Tokens own every visual value (--vestara-page-max-width,
- *   --vestara-spacing-page, --vestara-spacing-section). This component adds
- *   no literal spacing, widths, or colors.
+  * - Tokens own every visual value (--vestara-page-max-width,
+  *   --vestara-spacing-section). Outer page padding is owned by
+  *   ShellLayout's PageContainer. This component adds
+  *   no literal spacing, widths, or colors.
  * - ROUTES own routing; ShellLayout owns shell chrome (sidebar/header/
  *   breadcrumbs). This component owns page-panel geometry only.
  * - Pages own content. Current consumers: Overview, Execution, Terminal,
@@ -34,7 +37,6 @@ export function WorkspacePanelLayout({ hero, fluid = false, fill = false, childr
         'mx-auto w-full',
         fluid ? 'max-w-none' : 'max-w-[var(--vestara-page-max-width)]',
         fill ? 'flex h-full min-h-0 flex-col overflow-hidden' : '',
-        'px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]',
       ].join(' ')}
     >
       <div className={['flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]', fill ? 'min-h-0 flex-1 overflow-hidden' : ''].join(' ')}>

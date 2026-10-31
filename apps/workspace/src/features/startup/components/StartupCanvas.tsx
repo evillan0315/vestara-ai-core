@@ -17,7 +17,7 @@ export function StartupCanvas({ children }: { children: ReactNode }) {
   return (
     <div className="st-canvas-artwork relative min-h-screen w-full overflow-hidden text-[var(--st-title)]">
       <StartupWallpaper />
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[var(--vestara-page-max-width)] flex-col px-[var(--vestara-spacing-page)] py-[var(--vestara-spacing-section)]">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[var(--vestara-page-max-width)] flex-col">
         {children}
       </div>
     </div>

@@ -131,7 +131,7 @@ export default function MarketplaceLayout() {
   );
 
   return (
-    <div className="mpg-page w-full min-w-0 space-y-3 p-[var(--vestara-spacing-page)]">
+    <div className="mpg-page w-full min-w-0 space-y-3">
       {/* ShellLayout owns the page canvas, gutters, and background. Marketplace
           contributes only its navigation and gallery content, like Overview. */}
       {/* Canonical heading sits above the tab navigation (reference hierarchy);

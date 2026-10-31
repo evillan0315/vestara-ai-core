@@ -10,6 +10,24 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Single-Gutter Page Layout
+
+### Fixed
+
+- **Secondary layouts no longer double the page gutter** — ShellLayout's
+  `PageContainer` (`p-[var(--vestara-spacing-page)]`) is now the sole gutter
+  owner. Removed the duplicate outer `spacing-page` wrap from
+  `WorkspacePanelLayout`, `FilesScreen`, `M11CActivityRoomPage` (+ header),
+  `.workflow-page`, `.settings-page`, `MarketplaceLayout`, and `Routing`;
+  removed the `OperationalWorkspaceLayout` work-region `gap-section`,
+  `StartupCanvas` outer padding, and `.workflow-task-empty` padding.
+  Interior `gap-section` rhythm between hero/tabs/work regions is unchanged.
+
+### Verification
+
+- `pnpm vds:validate` passed, `pnpm lint:check` clean (1790 files),
+  `bash build-order.sh` success (122 projects, `tsc -b` clean).
+
 ## [2026-10-28] — Live Voice Streaming (P0 + WS slice)
 
 ### Added

@@ -534,7 +534,7 @@ export default function M11CActivityRoomPage() {
   // Root gap-* matches Files/Settings page containers: canonical section
   // spacing between hero, launchers, and the working area.
   return (
-    <div className="ar-page min-w-0 w-full max-w-full gap-[var(--vestara-spacing-section)] px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]">
+    <div className="ar-page min-w-0 w-full max-w-full gap-[var(--vestara-spacing-section)]">
       {/* ─── Canonical workspace Hero (VES-DESIGN-008B) ─────────
           Replaces the hand-rolled ar-plinth. Hierarchy:
           STATUS (connection) vs METADATA (records/cursor) vs ACTION

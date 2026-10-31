@@ -92,12 +92,11 @@ export default function OperationalWorkspaceLayout({
       {banner && <div className="operational-workspace-layout__banner shrink-0">{banner}</div>}
 
       {/* Work region — stacks on compact viewports and composes rail/main/context on desktop.
-          Panel separation comes from the canonical section spacing token, so
-          Compact/Comfortable/Spacious density flows through automatically.
-          With resizablePanes the global ThreePaneLayout owns the work-region
-          geometry (drag handles, collapse, stacking); the hook classes are
-          passed through so page CSS keeps applying. */}
-      <div className="operational-workspace-layout__work flex min-h-0 min-w-0 flex-1 flex-col gap-[var(--vestara-spacing-section)] lg:flex-row">
+          No outer gap: panes dock edge-to-edge; slot content owns its own
+          interior rhythm. With resizablePanes the global ThreePaneLayout owns
+          the work-region geometry (drag handles, collapse, stacking); the hook
+          classes are passed through so page CSS keeps applying. */}
+      <div className="operational-workspace-layout__work flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
         {resizablePanes ? (
           <ThreePaneLayout
             left={rail}

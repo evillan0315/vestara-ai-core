@@ -7134,4 +7134,22 @@ api 233/234 (the single failure is the pre-existing cwd-sensitive
   so the fallback appears unreachable. Pre-existing and unchanged by this work;
   left alone.
 
+## UI-SHELL-001 — Single-Gutter Page Layout ✅ 2026-10-31
+
+**Objective**: one gutter owner for every workspace page. `ShellLayout` →
+`PageContainer` (`p-[var(--vestara-spacing-page)]`) owns outer page padding;
+secondary layouts contribute geometry and interior rhythm only, never an
+additional outer wrap (previously shell `1rem` + panel `1rem` = `2rem`).
+
+**What changed** (11 files): dropped outer `spacing-page` padding from
+`WorkspacePanelLayout`, `FilesScreen`, `M11CActivityRoomPage` (+
+`ActivityRoomHeader`), `.workflow-page`, `.settings-page`,
+`MarketplaceLayout`, `Routing`; dropped the `OperationalWorkspaceLayout`
+work-region `gap-section`, `StartupCanvas` outer padding, and
+`.workflow-task-empty` padding. Interior `gap-section` rhythm (hero → tabs →
+work) preserved. `CHANGELOG` recorded under `[2026-10-31]`.
+
+**Verification**: `pnpm vds:validate` passed; `pnpm lint:check` clean
+(1790 files); `bash build-order.sh` success (122 projects, `tsc -b` clean).
+
 

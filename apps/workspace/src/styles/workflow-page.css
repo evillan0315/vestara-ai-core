@@ -14,7 +14,6 @@
      scroll container, so sticky children keep working. */
   overflow-x: clip;
   gap: var(--vestara-spacing-section);
-  padding: var(--vestara-spacing-page);
 }
 
 .workflow-page > * {
@@ -725,7 +724,7 @@
   gap: var(--vestara-spacing-section);
   border: 1px dashed var(--vestara-border-default);
   border-radius: var(--vestara-radius-lg, var(--vestara-radius));
-  padding: var(--vestara-spacing-page);
+  padding: 0;
   color: var(--vestara-text-muted);
   background: var(--vestara-surface-canvas);
   font-size: var(--vestara-font-size-sm);

@@ -120,7 +120,7 @@ export default function ActivityRoomHeader({
     (workflowCount > 0 ? ` · ${workflowCount} total` : '');
 
   return (
-    <header className="ar-header px-[var(--vestara-spacing-page)]" aria-label="Activity Room controls">
+    <header className="ar-header" aria-label="Activity Room controls">
       <div className="ar-header__identity">
         <div className="min-w-0">
           <p className="ar-kicker">Live operations</p>

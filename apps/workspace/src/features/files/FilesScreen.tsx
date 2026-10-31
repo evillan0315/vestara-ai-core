@@ -89,7 +89,7 @@ export function FilesScreen() {
   }
 
   return (
-    <div className="ar-page files-enterprise flex h-full min-h-0 min-w-0 flex-col gap-[var(--vestara-spacing-section)] overflow-hidden p-[var(--vestara-spacing-page)]">
+    <div className="ar-page files-enterprise flex h-full min-h-0 min-w-0 flex-col gap-[var(--vestara-spacing-section)] overflow-hidden">
       {(error || data.fromSnapshot) && !noticeDismissed && (
         <div>
           <InsightBanner

@@ -17,7 +17,6 @@
      scroll container, so sticky children keep working. */
   overflow-x: clip;
   gap: var(--vestara-spacing-section);
-  padding: var(--vestara-spacing-page);
 }
 
 .settings-page > * {

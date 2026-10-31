@@ -124,7 +124,7 @@ export default function RoutingPage() {
     return <div className="p-8 text-sm text-[var(--vestara-text-muted)]">Loading engineering routing…</div>;
 
   return (
-    <div className="space-y-6 p-[var(--vestara-spacing-page)] text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+    <div className="space-y-6 text-[var(--vestara-color-text-primary,var(--vestara-text))]">
       <RouteHero
         stats={[
           { label: 'revision', value: state.selection.revision },
