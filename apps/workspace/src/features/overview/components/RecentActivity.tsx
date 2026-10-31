@@ -99,7 +99,7 @@ export function RecentActivity({ items }: RecentActivityProps) {
           aria-expanded={expanded}
           className="mt-2 w-full text-center text-[11px] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
         >
-          {expanded ? 'Show less' : `+${items.length - 3} more in Activity Room — expand`}
+          {expanded ? 'Show less' : `Show more (+${items.length - 3} more)`}
         </button>
       )}
     </SectionCard>

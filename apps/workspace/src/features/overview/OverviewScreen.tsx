@@ -2,8 +2,8 @@
  * VES-OVERVIEW-001: Overview Screen Component
  *
  * Compact composition: hero banner, 4 quick actions, 2-column grid.
- * Default: left TodayFocus + ContinueWorking + RecentActivity (act order),
- * right MilestonesSummary + SystemStatus (status order). Columns are
+ * Default left: TodayFocus + ContinueWorking + RecentActivity + CollabPrep
+ * (act order), right MilestonesSummary + SystemStatus (status order). Columns are
  * user-rearrangeable (drag + keyboard) and persisted via useOverviewLayout.
  *
  * Uses the shared WorkspacePanelLayout and Settings-inspired hero/tab rhythm.

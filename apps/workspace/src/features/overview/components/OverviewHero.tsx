@@ -70,10 +70,10 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
             <div className="min-w-0">
               <p className="st-hero-chip-label">Workspace overview</p>
               <h1 className="text-[var(--vestara-font-size-2xl)] font-semibold text-[var(--vestara-text-primary)]">
-                Overview
+                {greeting}, Director
               </h1>
-              <p className="st-mt-element text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-muted)]">
-                {greeting}, Director. Continue where you left off.
+              <p className="st-mt-element truncate text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-muted)]">
+                {workspace.name} · Continue where you left off.
               </p>
             </div>
           </div>

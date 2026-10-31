@@ -43,7 +43,13 @@ export function TodayFocus({ items }: TodayFocusProps) {
 
   if (items.length === 0) {
     return (
-      <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={5}>
+      <SectionCard
+        title="Today's Focus"
+        actionLabel="✎ Edit"
+        actionHref="/tasks"
+        accent="var(--vestara-accent-primary)"
+        index={5}
+      >
         <p className="py-4 text-center text-[12px] text-[var(--vestara-text-muted)]">
           No priority items today. You&apos;re all caught up!
         </p>
@@ -55,7 +61,13 @@ export function TodayFocus({ items }: TodayFocusProps) {
   const pct = resolved.length ? Math.round((done / resolved.length) * 100) : 0;
 
   return (
-    <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={1}>
+    <SectionCard
+      title="Today's Focus"
+      actionLabel="✎ Edit"
+      actionHref="/tasks"
+      accent="var(--vestara-accent-primary)"
+      index={1}
+    >
       <div className="mb-3">
         <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
           <span>{done} of {resolved.length} done</span>

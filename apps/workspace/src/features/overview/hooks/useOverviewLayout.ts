@@ -17,9 +17,9 @@ export type OverviewPanelId =
   | 'systemStatus'
   | 'workspaceHealth';
 
-const STORAGE_KEY = 'vestara:overview-layout:v3';
+const STORAGE_KEY = 'vestara:overview-layout:v4';
 
-const DEFAULT_LEFT: readonly OverviewPanelId[] = ['collabPrep', 'continueWorking', 'todayFocus', 'recentActivity'];
+const DEFAULT_LEFT: readonly OverviewPanelId[] = ['todayFocus', 'continueWorking', 'recentActivity', 'collabPrep'];
 const DEFAULT_RIGHT: readonly OverviewPanelId[] = ['workspaceHealth', 'milestones', 'systemStatus'];
 
 const ALL: readonly OverviewPanelId[] = [
