@@ -10,6 +10,32 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Overview P0 Hierarchy (hero, focus, activity)
+
+### Fixed
+
+- **Hero H1 promotes the greeting** (`apps/workspace/src/features/overview/components/OverviewHero.tsx`)
+  — visible `h1` is now `{greeting}, Director` with sub
+  `{workspace.name} · Continue where you left off.` instead of the generic
+  `Overview` duplicate. Eyebrow `Workspace overview` unchanged.
+- **Focus-first default layout** (`apps/workspace/src/features/overview/hooks/useOverviewLayout.ts`)
+  — `DEFAULT_LEFT` is now
+  `['todayFocus', 'continueWorking', 'recentActivity', 'collabPrep']`
+  (was `collabPrep` first); storage key bumped `v3 → v4` so persisted
+  layouts pick up the Act order.
+- **Dead `✎ Edit` now navigates** (`apps/workspace/src/features/overview/components/TodayFocus.tsx`)
+  — both empty and loaded states pass `actionHref="/tasks"`, so
+  `SectionCard` renders a real link instead of a dead span.
+- **Split expand vs navigate** (`apps/workspace/src/features/overview/components/RecentActivity.tsx`)
+  — inline toggle is now `Show more (+N more)` / `Show less`; header
+  `View All › → /activity` remains the sole navigate path.
+
+### Verification
+
+- `pnpm vds:validate` passed (VDS 1.1 · Workspace/TUI/CLI aligned).
+- Token-governed only (`var(--vestara-*)`); Biome skips `apps/workspace`
+  by config, no new hardcode introduced.
+
 ## [2026-10-31] — Assistant Reload Reattach: Live Streaming Resume
 
 ### Added

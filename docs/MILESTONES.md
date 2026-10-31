@@ -7191,4 +7191,25 @@ unrelated); `pnpm --filter @vestara/workspace-ui build` success.
 multi-tab leader election; live-model reload dogfood against a running dev
 API (owner restarts `:3001` to pick up rebuilt `dist`).
 
+## OV-P0-001 — Overview Hierarchy P0 (hero, focus, activity) ✅ 2026-10-31
+
+**Objective**: one scannable hierarchy on `/overview` — greeting-led hero,
+action-first panels, and no conflated expand/navigate controls.
+
+**What changed** (5 files, commit `4d7c132`):
+
+- `OverviewHero.tsx` — visible `h1` is `{greeting}, Director`; sub is
+  `{workspace.name} · Continue where you left off.` (was generic `Overview`).
+- `useOverviewLayout.ts` — `DEFAULT_LEFT` reordered to
+  `todayFocus, continueWorking, recentActivity, collabPrep`; storage key
+  `v3 → v4`.
+- `TodayFocus.tsx` — `✎ Edit` gains `actionHref="/tasks"` (both states).
+- `RecentActivity.tsx` — inline toggle is `Show more (+N more)` /
+  `Show less`; `View All → /activity` owns navigation.
+- `OverviewScreen.tsx` — header comment updated to the new default order.
+
+**Verification**: `pnpm vds:validate` passed; token-governed only
+(`var(--vestara-*)`), no new hardcode. `CHANGELOG` recorded under
+`[2026-10-31] — Overview P0 Hierarchy`.
+
 
