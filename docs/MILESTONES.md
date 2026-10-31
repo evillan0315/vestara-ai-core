@@ -7212,4 +7212,43 @@ action-first panels, and no conflated expand/navigate controls.
 (`var(--vestara-*)`), no new hardcode. `CHANGELOG` recorded under
 `[2026-10-31] — Overview P0 Hierarchy`.
 
+## GA-ASSIST-TOOL-001 — Global Assistant Tool Correctness & Policy Hardening ✅ 2026-10-31
+
+**Objective**: close the six findings from the Global Assistant tool review —
+parallel same-tool calls misattributed, transient timeline lost on
+reselect/reload, network/external tools shipped as auto-allow against the
+GA-CAP-001 blueprint, one-click unlimited budgets, unaudited auto-decisions,
+and an unwired confinement check.
+
+**What changed** (commit `8ddd753`, 11 files):
+
+- `apps/workspace/src/hooks/useAssistantConversation.ts` — per-start tool
+  cards (no same-name merge, live + reattach), FIFO completion without
+  identity, `historicToolOperationsFromMessages()` rehydration from persisted
+  `toolObservations` on select/load with `operationId` map repopulation.
+- `apps/api/src/assistant-capability-policy.ts` — default policy
+  `webfetch`/`websearch`/`external_directory` to `ask` (matches GA-CAP-001
+  §1); `checkRepositoryConfinement` hardened (`realpathSync`, fail-closed,
+  non-path passthrough) with the OpenCode-path envelope-gap decision noted.
+- `apps/api/src/assistant-opencode-adapter.ts` — confinement backstop
+  (ALLOW→DENY on repo escape) + broker recording for auto resolutions;
+  persona trio split to `assistant-agent-persona.ts` (pure move, re-exported).
+- `apps/api/src/assistant-interaction-broker.ts` — unified bounded audit
+  (`requested/decided/expired/cancelled/auto-allow/auto-deny`,
+  `getAuditTrail()`); `routes/conversations.ts` vocabulary mapping comment.
+- `ExecutionControlsPopover.tsx` — unlimited confirm gate + active-unlimited
+  banner; `ExecutionTray.tsx` + `ConversationPanel.tsx` — live `n/max ops`
+  and near-limit flag.
+- `AssistantToolCard.tsx` — exact allowlist categories (+ namespaced/legacy
+  aliases); `M11CStreamItem.tsx` stale callID comment corrected.
+
+**Verification**: `bash build-order.sh` ✅ (122 projects) ·
+`pnpm dependencies:check` ✅ · `biome check` (api files) ✅ ·
+`pnpm vds:validate` ✅ · targeted vitest 42 + 7 + 65 ✅.
+`CHANGELOG` recorded under `[2026-10-31] — Assistant Tool Correctness & Policy Hardening`.
+
+**Not claimed**: unified content-hash envelope for OpenCode-native writes
+(tracked future work); cross-restart broker audit persistence (in-memory,
+bounded); multi-tab budget coordination.
+
 

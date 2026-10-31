@@ -10,6 +10,66 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-31] — Assistant Tool Correctness & Policy Hardening
+
+### Fixed
+
+- **Parallel same-tool calls no longer collapse** (`apps/workspace/src/hooks/useAssistantConversation.ts`)
+  — detail-less `tool` chunks now create one card per start (same-name
+  `running` merge removed in live + reattach paths); `tool_result` without
+  identity completes the earliest running same-name op (FIFO).
+- **Timeline rehydrates from durable truth** (same file) — new exported
+  `historicToolOperationsFromMessages()` derives cards from persisted
+  `toolObservations` (deterministic `hist-<operationId|toolCallId>` ids) and
+  repopulates the `operationId` map on select/load, so reselect/reload shows
+  what tools did instead of an empty timeline.
+- **Exact tool categories** (`apps/workspace/src/components/assistant/AssistantToolCard.tsx`)
+  — substring matching replaced with an exact allowlist (+ namespaced/legacy
+  exact aliases). `thread` is not a task, `breadboard` is not a read;
+  `filesystem.read` still resolves. Shared by `ToolObservationRenderer` and
+  `M11CStreamItem` edit detection.
+- **Stale "no callID" taxonomy comment** (`apps/workspace/src/pages/activity/M11CStreamItem.tsx`)
+  updated to Phase-1 `tool.callID` pairing.
+
+### Changed
+
+- **Default policy now matches GA-CAP-001** (`apps/api/src/assistant-capability-policy.ts`)
+  — `webfetch`/`websearch`/`external_directory` are `ask` (was `allow`);
+  repo-scoped read/search/mutation/shell stay automatic.
+- **Unlimited budget requires explicit confirm** (`ExecutionControlsPopover.tsx`)
+  — sliding to `0` arms a "Confirm unlimited" gate with a runaway-turn
+  warning; active-unlimited shows a persistent banner. `ExecutionTray`
+  shows live `n/max ops` plus a "near limit" flag (`ConversationPanel`
+  passes `execConfig.config.maxToolCalls`).
+- **Unified permission audit** (`apps/api/src/assistant-interaction-broker.ts`)
+  — bounded (200) `requested/decided/expired/cancelled/auto-allow/auto-deny`
+  trail with `getAuditTrail()`; the adapter records auto resolutions;
+  `routes/conversations.ts` documents the UI ↔ OpenCode-wire ↔ policy
+  vocabulary mapping.
+- **Persona resolution split** (`apps/api/src/assistant-agent-persona.ts`,
+  new) — pure move from the adapter with re-exports; `agent-persona-resolver.ts`
+  untouched.
+
+### Security
+
+- **Confinement hardened and wired** (`assistant-capability-policy.ts`,
+  `assistant-opencode-adapter.ts`) — `checkRepositoryConfinement` now resolves
+  symlinks via `realpathSync` (nearest-existing-ancestor walk for new files),
+  fails closed on unresolvable paths, and ignores non-path resources. The
+  adapter downgrades ALLOW→DENY when an absolute-path resource escapes the
+  repo (previously the check was dead code — defined, never called). Envelope
+  gap recorded in-code: the harness `FilesystemRuntime.evaluate` hash envelope
+  does not cover OpenCode-native file ops.
+
+### Verification
+
+- `bash build-order.sh` ✅ (122 projects, `tsc -b` clean) · `pnpm dependencies:check` ✅
+  · `biome check` (api files) ✅ · `pnpm vds:validate` ✅.
+- Targeted vitest: `assistant-opencode-tool-budget` + `routing-convergence-001c`
+  + `assistant-edit-projection` + `assistant-identity-transport` (42) ✅;
+  `useGAExecutionConfig` (7) ✅; assistant component suites (65) ✅.
+- `MILESTONES` recorded as GA-ASSIST-TOOL-001.
+
 ## [2026-10-31] — Overview P0 Hierarchy (hero, focus, activity)
 
 ### Fixed
