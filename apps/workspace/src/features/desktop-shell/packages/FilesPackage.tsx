@@ -15,11 +15,11 @@
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §6
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { flattenEntries } from '../../files/file-tree-utils';
 import type { FileEntry } from '../../files/files.types';
 import { useFiles } from '../../files/hooks/useFiles';
-import '../desktop-shell.tokens.css';
+import { PackageEmpty, PackageGhostButton, PackageSearchInput, PackageSubHeader } from './PackageChrome';
 
 function formatSize(bytes: number | undefined): string {
   if (bytes === undefined || !Number.isFinite(bytes) || bytes <= 0) return '—';
@@ -65,31 +65,45 @@ function TreeNode({
   if (query.trim() && !matchesQuery(entry, query)) return null;
 
   return (
-    <div>
-      <div className="flex items-center gap-[var(--vestara-spacing-1)]">
+    <div role="treeitem" aria-expanded={isDir ? isOpen : undefined} aria-selected={selected}>
+      <div className="ds-tree-indent flex items-center gap-[var(--vestara-spacing-1)]" style={{ '--ds-depth': depth } as CSSProperties}>
         {isDir ? (
           <button
             type="button"
             onClick={() => onToggle(entry.path)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight' && !isOpen) {
+                event.preventDefault();
+                onToggle(entry.path);
+              } else if (event.key === 'ArrowLeft' && isOpen) {
+                event.preventDefault();
+                onToggle(entry.path);
+              }
+            }}
             aria-expanded={isOpen}
             aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${entry.path}`}
-            className="grid h-5 w-5 shrink-0 place-items-center rounded text-[var(--ds-text-muted)] hover:text-[var(--ds-text)]"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded text-[var(--ds-text-muted)] hover:text-[var(--ds-text)] focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
           >
             <span aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
           </button>
         ) : (
-          <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center text-[var(--ds-text-muted)]">
+          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center text-[var(--ds-text-muted)]">
             ·
           </span>
         )}
         <button
           type="button"
           onClick={() => onSelect(entry)}
+          onKeyDown={(event) => {
+            if (isDir && event.key === 'ArrowRight' && !isOpen) {
+              event.preventDefault();
+              onToggle(entry.path);
+            }
+          }}
           aria-current={selected}
           className={`min-w-0 flex-1 truncate rounded-[var(--vestara-radius-md)] px-[var(--vestara-spacing-1)] py-px text-left text-[length:var(--vestara-font-size-xs)] ${
             selected ? 'bg-[var(--ds-accent-bg)] text-[var(--ds-accent)]' : 'text-[var(--ds-text-secondary)] hover:bg-[var(--ds-surface-bg)]'
           }`}
-          style={{ marginLeft: `${depth * 12}px` }}
           title={entry.path}
         >
           {isDir ? `${entry.name}/` : entry.name}
@@ -120,6 +134,7 @@ export function FilesPackage() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [copiedPath, setCopiedPath] = useState(false);
 
   const summary = useMemo(() => {
     if (!data) return { files: 0, dirs: 0, storage: 0 };
@@ -145,42 +160,56 @@ export function FilesPackage() {
     });
   };
 
+  // Expand the top-level directories on first data so the tree never paints empty.
+  useEffect(() => {
+    if (!data) return;
+    setExpanded((prev) => {
+      if (prev.size > 0) return prev;
+      const next = new Set<string>();
+      for (const entry of data.entries) {
+        if (entry.kind === 'dir') next.add(entry.path);
+      }
+      return next;
+    });
+  }, [data]);
+
+  const copySelectedPath = async () => {
+    if (!selected?.path) return;
+    try {
+      await navigator.clipboard.writeText(selected.path);
+      setCopiedPath(true);
+      window.setTimeout(() => setCopiedPath(false), 1500);
+    } catch {
+      setCopiedPath(false);
+    }
+  };
+
   return (
-    <div className="grid h-full min-h-[320px] grid-cols-1 lg:grid-cols-[1fr_220px]">
-      <div className="flex min-h-0 flex-col border-b border-[var(--ds-border)] lg:border-r lg:border-b-0">
-        <div className="flex h-9 shrink-0 items-center justify-between gap-[var(--vestara-spacing-2)] border-b border-[var(--ds-border)] px-[var(--vestara-spacing-3)]">
-          <span className="truncate text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
-            FILES · {(data?.workspaceName ?? 'workspace').toUpperCase()}
-          </span>
-          <span className="flex shrink-0 items-center gap-[var(--vestara-spacing-1)]">
-            <span className="rounded-full border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)]">
-              {data && !data.fromSnapshot ? 'LIVE' : 'SNAPSHOT'}
-            </span>
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)] hover:border-[var(--ds-border-strong)] hover:text-[var(--ds-text)]"
-            >
-              Reload
-            </button>
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)] border-b border-[var(--ds-border)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)]">
-          <label htmlFor="ds-files-search" className="sr-only">
-            Filter files
-          </label>
-          <input
-            id="ds-files-search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filter files…"
-            autoComplete="off"
-            spellCheck={false}
-            className="min-w-0 flex-1 rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-1 text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text)] outline-none placeholder:text-[var(--ds-text-muted)]"
-          />
-          <span className="shrink-0 text-[length:var(--vestara-font-size-xs)] tabular-nums text-[var(--ds-text-muted)]">
+    <div className="flex h-full min-h-[320px] flex-col">
+      <PackageSubHeader
+        eyebrow={`FILES · ${(data?.workspaceName ?? 'workspace').toUpperCase()}`}
+        isLive={Boolean(data && !data.fromSnapshot)}
+        meta={
+          <span className="hidden shrink-0 text-[length:var(--vestara-font-size-xs)] tabular-nums text-[var(--ds-text-muted)] sm:inline">
             {summary.files} files · {summary.dirs} dirs
           </span>
+        }
+        action={
+          <PackageGhostButton label="Reload workspace files" onClick={() => void refetch()}>
+            Reload
+          </PackageGhostButton>
+        }
+      />
+    <div className="ds-split-2col ds-split-2col-rail-right grid min-h-0 flex-1 grid-cols-1">
+      <div className="flex min-h-0 flex-col">
+        <div className="flex shrink-0 items-center gap-[var(--vestara-spacing-2)] border-b border-[var(--ds-border)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)]">
+          <PackageSearchInput
+            id="ds-files-search"
+            value={query}
+            onChange={setQuery}
+            label="Filter files"
+            placeholder="Filter files…"
+          />
         </div>
         <div className="min-h-0 flex-1 space-y-px overflow-auto p-[var(--vestara-spacing-2)]" aria-busy={isLoading} role="tree" aria-label="Workspace files">
           {!data ? (
@@ -211,10 +240,17 @@ export function FilesPackage() {
           </div>
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-col gap-[var(--vestara-spacing-2)] overflow-auto p-[var(--vestara-spacing-3)]">
+      <div className="ds-rail-right flex min-h-0 flex-col gap-[var(--vestara-spacing-2)] overflow-auto p-[var(--vestara-spacing-3)]">
         <div className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] p-[var(--vestara-spacing-2)]">
-          <div className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
-            SELECTION
+          <div className="flex items-center justify-between gap-[var(--vestara-spacing-1)]">
+            <div className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
+              SELECTION
+            </div>
+            {selected ? (
+              <PackageGhostButton label="Copy selected path" onClick={() => void copySelectedPath()}>
+                {copiedPath ? 'Copied' : 'Copy path'}
+              </PackageGhostButton>
+            ) : null}
           </div>
           <div className="mt-[var(--vestara-spacing-1)] truncate text-[length:var(--vestara-font-size-xs)] font-medium text-[var(--ds-text)]" title={selected?.path ?? 'Nothing selected'}>
             {selected ? selected.path : 'Nothing selected'}
@@ -252,6 +288,7 @@ export function FilesPackage() {
           </ul>
         </div>
       </div>
+    </div>
     </div>
   );
 }

@@ -62,6 +62,104 @@
   --ds-surface-panel: var(--vestara-surface-panel);
 }
 
+/* ── VES-UI-001 packages polish: window container + responsive splits ── */
+/* Container queries let two-pane packages (activity / files / settings)
+ * collapse on narrow *windows* rather than the viewport — `lg:` breakpoints
+ * never fire inside a 560px window on a 1440px desktop. */
+.ds-window {
+  container-type: inline-size;
+  container-name: ds-window;
+}
+
+/* Two-pane split: single column under 620px window width, rail + main above. */
+.ds-split-2col {
+  grid-template-columns: 1fr;
+}
+@container ds-window (min-width: 620px) {
+  .ds-split-2col-rail-left {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .ds-split-2col-rail-right {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+  .ds-split-2col-rail-narrow {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+}
+
+/* Card grids: 1 column in narrow windows, 2 above 460px, 3 when maximized. */
+.ds-cards {
+  grid-template-columns: 1fr;
+}
+@container ds-window (min-width: 460px) {
+  .ds-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container ds-window (min-width: 900px) {
+  .ds-cards-3col-wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Category rail: horizontal scroll strip in narrow windows, vertical rail above 620px. */
+.ds-rail-stack {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.ds-rail-stack > * {
+  flex-shrink: 0;
+}
+@container ds-window (min-width: 620px) {
+  .ds-rail-stack {
+    flex-direction: column;
+    overflow-x: visible;
+    overflow-y: auto;
+  }
+  .ds-rail-stack > * {
+    width: 100%;
+  }
+}
+
+/* Rail side borders follow the window container, not the viewport. */
+.ds-rail-left {
+  border-bottom: 1px solid var(--ds-border);
+}
+.ds-rail-right {
+  border-bottom: 1px solid var(--ds-border);
+}
+@container ds-window (min-width: 620px) {
+  .ds-rail-left {
+    border-bottom: 0;
+    border-right: 1px solid var(--ds-border);
+  }
+  .ds-rail-right {
+    border-bottom: 0;
+    border-left: 1px solid var(--ds-border);
+  }
+}
+/* File-tree depth indent — `--ds-depth` is dynamic geometry (like telemetry
+ * bar heights), never a visual literal. Set via `style={{ '--ds-depth': n }}`. */
+.ds-tree-indent {
+  padding-left: calc(var(--vestara-spacing-3) * var(--ds-depth, 0));
+}
+
+/* Package skeleton pulse — token-derived, motion-gated. */
+@keyframes ds-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.ds-skeleton {
+  animation: ds-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
 /* ── VES-UI-001 T3: window chrome motion ── */
 /* Transitions on `.ds-window` are already gated behind `motion-safe:` /
  * `usePrefersReducedMotion` in `VestaraWindow.tsx`; this scoped rule is
@@ -73,6 +171,9 @@
   .ds-window *::after {
     animation: none !important;
     transition: none !important;
+  }
+  .ds-skeleton {
+    animation: none !important;
   }
 }
 

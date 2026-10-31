@@ -21,6 +21,8 @@
  *   + the scoped `.ds-window` rule in `desktop-shell.tokens.css`).
  * - Placement is deterministic: `cascadeWindowPlacement` derives fixed
  *   cascade coordinates from the window index — never `Math.random`.
+ *   `packageDefaultSize` / `cascadePlacementForType` resolve the per-type
+ *   spawn size from the package registry so two-pane windows open usable.
  *
  * Visual roles bind to the scoped `--ds-*` layer
  * (`desktop-shell.tokens.css`), never hex literals.
@@ -31,7 +33,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { WinData } from './types';
+import { desktopShellPackagesFixture } from './desktop-shell.fixtures';
+import type { WinData, WinType } from './types';
 import './desktop-shell.tokens.css';
 
 /** Minimum window geometry (mirrors the prototype floor). */
@@ -39,6 +42,17 @@ export const WINDOW_MIN_SIZE = { w: 320, h: 220 } as const;
 
 /** Default spawn geometry for deterministically placed windows. */
 export const WINDOW_DEFAULT_SIZE = { w: 560, h: 380 } as const;
+
+/**
+ * Per-type default window size, resolved from the package registry
+ * (`desktopShellPackagesFixture`) so two-pane surfaces (activity 720×480,
+ * terminal 640×360, files/settings 640×400) spawn usable instead of cramped
+ * at the 560×380 generic default.
+ */
+export function packageDefaultSize(type: WinType): { readonly w: number; readonly h: number } {
+  const found = desktopShellPackagesFixture.find((pkg) => pkg.id === type);
+  return found ? found.defaultSize : WINDOW_DEFAULT_SIZE;
+}
 
 /** Cascade stride (px) between deterministically placed windows. */
 export const WINDOW_CASCADE_STEP = 40;
@@ -72,6 +86,15 @@ export function cascadeWindowPlacement(
     w: size.w,
     h: size.h,
   };
+}
+
+/**
+ * Type-aware cascade placement — same deterministic cascade as
+ * `cascadeWindowPlacement` but sized from the package registry, so callers
+ * that know the `WinType` never need to look up `packageDefaultSize`.
+ */
+export function cascadePlacementForType(type: WinType, index: number): WindowPlacement {
+  return cascadeWindowPlacement(index, packageDefaultSize(type));
 }
 
 /**
@@ -120,6 +143,12 @@ export interface VestaraWindowProps {
   readonly onUpdate: (id: string, patch: Partial<WinData>) => void;
   /** Optional maximize delegate; falls back to `onUpdate` with maximized/prev patch. */
   readonly onToggleMaximize?: (id: string) => void;
+  /**
+   * Package-relevant status line rendered in the 28px status bar
+   * (e.g. `LIVE · 3 sessions`, `SNAPSHOT · cached`). Defaults to the window
+   * subtitle. Replaces the former debug geometry readout.
+   */
+  readonly statusText?: string;
   readonly children: React.ReactNode;
 }
 
@@ -135,14 +164,14 @@ interface ResizeHandleDef {
 }
 
 const RESIZE_HANDLES: readonly ResizeHandleDef[] = [
-  { dir: 'n', label: 'north', className: 'top-0 left-0 h-1 w-full cursor-ns-resize' },
-  { dir: 's', label: 'south', className: 'bottom-0 left-0 h-1 w-full cursor-ns-resize' },
-  { dir: 'e', label: 'east', className: 'top-0 right-0 h-full w-1 cursor-ew-resize' },
-  { dir: 'w', label: 'west', className: 'top-0 left-0 h-full w-1 cursor-ew-resize' },
-  { dir: 'ne', label: 'northeast', className: 'top-0 right-0 h-3 w-3 cursor-nesw-resize' },
-  { dir: 'sw', label: 'southwest', className: 'bottom-0 left-0 h-3 w-3 cursor-nesw-resize' },
-  { dir: 'nw', label: 'northwest', className: 'top-0 left-0 h-3 w-3 cursor-nwse-resize' },
-  { dir: 'se', label: 'southeast', className: 'right-0 bottom-0 h-3 w-3 cursor-nwse-resize' },
+  { dir: 'n', label: 'north', className: 'top-0 left-0 h-2 w-full cursor-ns-resize' },
+  { dir: 's', label: 'south', className: 'bottom-0 left-0 h-2 w-full cursor-ns-resize' },
+  { dir: 'e', label: 'east', className: 'top-0 right-0 h-full w-2 cursor-ew-resize' },
+  { dir: 'w', label: 'west', className: 'top-0 left-0 h-full w-2 cursor-ew-resize' },
+  { dir: 'ne', label: 'northeast', className: 'top-0 right-0 h-4 w-4 cursor-nesw-resize' },
+  { dir: 'sw', label: 'southwest', className: 'bottom-0 left-0 h-4 w-4 cursor-nesw-resize' },
+  { dir: 'nw', label: 'northwest', className: 'top-0 left-0 h-4 w-4 cursor-nwse-resize' },
+  { dir: 'se', label: 'southeast', className: 'right-0 bottom-0 h-4 w-4 cursor-nwse-resize' },
 ];
 
 interface DragState {
@@ -173,6 +202,7 @@ export function VestaraWindow({
   onMinimize,
   onUpdate,
   onToggleMaximize,
+  statusText,
   children,
 }: VestaraWindowProps) {
   const reducedMotion = usePrefersReducedMotion();
@@ -323,7 +353,7 @@ export function VestaraWindow({
           ? { zIndex: data.z }
           : { left: data.x, top: data.y, width: data.w, height: data.h, zIndex: data.z }
       }
-      className={`ds-window absolute flex touch-none flex-col overflow-hidden rounded-[var(--vestara-radius-lg)] border select-none ${
+      className={`ds-window absolute flex flex-col overflow-hidden rounded-[var(--vestara-radius-lg)] border ${
         data.maximized ? 'inset-0' : ''
       } ${
         isFocused ? 'border-[var(--ds-focus-ring)]' : 'border-[var(--ds-border)]'
@@ -342,7 +372,7 @@ export function VestaraWindow({
           if ((event.target as HTMLElement).closest('button')) return;
           toggleMaximize();
         }}
-        className={`flex h-[var(--ds-chrome-height)] shrink-0 touch-none items-center gap-[var(--vestara-spacing-2)] border-b border-[var(--ds-border)] bg-[var(--ds-surface-panel)] px-[var(--vestara-spacing-2)] ${
+        className={`flex h-[var(--ds-chrome-height)] shrink-0 touch-none items-center gap-[var(--vestara-spacing-2)] border-b border-[var(--ds-border)] bg-[var(--ds-surface-panel)] px-[var(--vestara-spacing-2)] select-none ${
           data.maximized ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
         }`}
       >
@@ -352,22 +382,28 @@ export function VestaraWindow({
             aria-label={`Close ${data.title}`}
             title="Close"
             onClick={() => onClose(data.id)}
-            className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-error)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
-          />
+            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius-md)] hover:bg-[var(--ds-surface-bg)] focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
+          >
+            <span aria-hidden="true" className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-error)]" />
+          </button>
           <button
             type="button"
             aria-label={`Minimize ${data.title}`}
             title="Minimize"
             onClick={() => onMinimize(data.id)}
-            className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-warning)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
-          />
+            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius-md)] hover:bg-[var(--ds-surface-bg)] focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
+          >
+            <span aria-hidden="true" className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-warning)]" />
+          </button>
           <button
             type="button"
             aria-label={data.maximized ? `Restore ${data.title}` : `Maximize ${data.title}`}
             title={data.maximized ? 'Restore' : 'Maximize'}
             onClick={toggleMaximize}
-            className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-success)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
-          />
+            className="grid h-6 w-6 place-items-center rounded-[var(--vestara-radius-md)] hover:bg-[var(--ds-surface-bg)] focus-visible:outline-2 focus-visible:outline-[var(--ds-accent)]"
+          >
+            <span aria-hidden="true" className="h-3 w-3 rounded-full border border-[var(--ds-border)] bg-[var(--ds-success)]" />
+          </button>
         </div>
         <div className="ml-[var(--vestara-spacing-1)] flex min-w-0 items-center gap-[var(--vestara-spacing-2)]">
           <span className="truncate text-[length:var(--vestara-font-size-xs)] font-medium text-[var(--ds-text)]">
@@ -386,7 +422,7 @@ export function VestaraWindow({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-[var(--ds-surface-bg)] text-[var(--ds-text)]">
+      <div className="min-h-0 flex-1 overflow-auto bg-[var(--ds-surface-bg)] text-[var(--ds-text)] select-text">
         {children}
       </div>
 
@@ -394,12 +430,8 @@ export function VestaraWindow({
         data-testid={`vestara-window-status-${data.id}`}
         className="flex h-[var(--ds-statusbar-height)] shrink-0 items-center gap-[var(--vestara-spacing-2)] border-t border-[var(--ds-border)] bg-[var(--ds-surface-panel)] px-[var(--vestara-spacing-2)] font-mono text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-muted)]"
       >
-        <span>
-          {data.w}×{data.h}
-        </span>
-        <span aria-hidden="true" className="h-3 w-px bg-[var(--ds-border)]" />
-        <span>z:{data.z}</span>
-        <span className="ml-auto">Vestara Shell</span>
+        <span className="min-w-0 truncate">{statusText ?? data.subtitle ?? data.type}</span>
+        <span className="ml-auto shrink-0">Vestara Shell</span>
       </div>
 
       {data.maximized

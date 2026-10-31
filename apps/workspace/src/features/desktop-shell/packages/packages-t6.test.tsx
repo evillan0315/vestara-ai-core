@@ -11,7 +11,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PackageContent } from './index.js';
 import {
@@ -92,9 +92,11 @@ describe('t6 settings package', () => {
 
   it('binds server config to live theme controls', async () => {
     render(<PackageContent type="settings" />);
-    expect(screen.getByText('SERVER CONFIG')).toBeTruthy();
+    // Appearance lands first; the rail filters panels per category.
     expect(screen.getByText('APPEARANCE · LIVE THEME')).toBeTruthy();
     expect(screen.getByText('Shell & TopBar')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Shell & TopBar' }));
+    expect(screen.getByText('SERVER CONFIG')).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByText(/vestara-platform/)).toBeTruthy();
     });

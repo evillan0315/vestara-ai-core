@@ -16,11 +16,11 @@
 
 import { useOverview } from '../../overview/hooks/useOverview';
 import { overviewFixture } from '../../overview/overview.fixtures';
+import { PackageGhostButton, PackageSkeleton } from './PackageChrome';
 import { overviewPackageFixture } from './packages.fixtures';
-import '../desktop-shell.tokens.css';
 
 export function OverviewPackage() {
-  const { data, isLoading, error } = useOverview();
+  const { data, isLoading, error, refetch } = useOverview();
   const workspace = data?.workspace ?? overviewFixture.workspace;
   const agents = data?.agents ?? overviewFixture.agents;
   const onlineCount = agents.filter((agent) => agent.status === 'online' || agent.status === 'busy').length;
@@ -50,15 +50,23 @@ export function OverviewPackage() {
               Snapshot
             </span>
           ) : null}
+          <span className="ml-auto">
+            <PackageGhostButton label="Reload workspace overview" onClick={() => void refetch()}>
+              Reload
+            </PackageGhostButton>
+          </span>
         </div>
-        <div className="mt-[var(--vestara-spacing-1)] font-serif text-[length:var(--vestara-font-size-2xl)] leading-none tracking-tight text-[var(--ds-text)]">
+        <div className="mt-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-2xl)] leading-none font-medium tracking-tight text-[var(--ds-text)] [font-family:var(--ds-font-serif)]">
           {overviewPackageFixture.heading}
         </div>
         <div className="mt-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)]">
           {workspace.name} · {agents.length} agents · {workspace.description}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-[var(--vestara-spacing-2)] md:grid-cols-4" aria-busy={isLoading}>
+      {isLoading && onlineCount === 0 ? (
+        <PackageSkeleton count={4} label="Loading workspace overview" />
+      ) : (
+      <div className="ds-cards ds-cards-3col-wide grid gap-[var(--vestara-spacing-2)]" aria-busy={isLoading}>
         {stats.map((stat) => (
           <div
             key={stat.id}
@@ -73,6 +81,7 @@ export function OverviewPackage() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,8 @@ import { MarketplacePackage } from './MarketplacePackage';
 import { OverviewPackage } from './OverviewPackage';
 import { SettingsPackage } from './SettingsPackage';
 import { TerminalPackage } from './TerminalPackage';
+// Single scoped-token import for all package pages — individual package
+// files must not re-import `desktop-shell.tokens.css`.
 import '../desktop-shell.tokens.css';
 
 export interface PackageContentProps {

@@ -15,22 +15,60 @@
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §6
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ACCENT_PALETTES, useTheme } from '../../../lib/theme';
+import { PackageGhostButton, PackageLiveBadge, PackageSearchInput } from './PackageChrome';
 import { settingsPackageFixture } from './packages.fixtures';
 import { useSettingsPackage } from './useSettingsPackage';
-import '../desktop-shell.tokens.css';
+
+/** Panels visible per category — the rail filters instead of always showing all. */
+function visiblePanels(category: string): { readonly server: boolean; readonly appearance: boolean; readonly system: boolean } {
+  switch (category) {
+    case 'appearance':
+      return { server: false, appearance: true, system: false };
+    case 'shell':
+    case 'sidebar':
+    case 'workspace':
+    case 'network':
+    case 'runtime':
+      return { server: true, appearance: false, system: false };
+    case 'about':
+      return { server: true, appearance: false, system: true };
+    default:
+      return { server: true, appearance: true, system: true };
+  }
+}
 
 export function SettingsPackage() {
   const { snapshot, isLoading, isLive, error, refetch } = useSettingsPackage();
   const { mode, setMode, settings, updateSetting } = useTheme();
-  const [category, setCategory] = useState('shell');
+  const [category, setCategory] = useState('appearance');
+  const [railQuery, setRailQuery] = useState('');
   const accents = Object.keys(ACCENT_PALETTES);
+  const panels = visiblePanels(category);
+
+  const normalizedRailQuery = railQuery.trim().toLowerCase();
+  const visibleCategories = useMemo(
+    () =>
+      normalizedRailQuery
+        ? settingsPackageFixture.categories.filter((entry) => entry.label.toLowerCase().includes(normalizedRailQuery))
+        : settingsPackageFixture.categories,
+    [normalizedRailQuery],
+  );
 
   return (
-    <div className="grid h-full min-h-[320px] grid-cols-1 lg:grid-cols-[180px_1fr]">
-      <div className="flex flex-row gap-[var(--vestara-spacing-1)] overflow-x-auto border-b border-[var(--ds-border)] p-[var(--vestara-spacing-2)] lg:flex-col lg:overflow-visible lg:border-r lg:border-b-0">
-        {settingsPackageFixture.categories.map((entry) => {
+    <div className="ds-split-2col ds-split-2col-rail-narrow grid h-full min-h-[320px] grid-cols-1">
+      <div className="ds-rail-left ds-rail-stack flex gap-[var(--vestara-spacing-1)] p-[var(--vestara-spacing-2)]">
+        <div className="shrink-0 px-[var(--vestara-spacing-1)] pb-[var(--vestara-spacing-1)]">
+          <PackageSearchInput
+            id="ds-settings-rail-filter"
+            value={railQuery}
+            onChange={setRailQuery}
+            label="Filter settings categories"
+            placeholder="Filter…"
+          />
+        </div>
+        {visibleCategories.map((entry) => {
           const selected = entry.id === category;
           return (
             <button
@@ -48,24 +86,24 @@ export function SettingsPackage() {
             </button>
           );
         })}
+        {visibleCategories.length === 0 ? (
+          <div className="px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-muted)]">
+            No matching categories
+          </div>
+        ) : null}
       </div>
       <div className="min-h-0 space-y-[var(--vestara-spacing-3)] overflow-auto p-[var(--vestara-spacing-3)]" aria-busy={isLoading}>
+        {panels.server ? (
         <div className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] p-[var(--vestara-spacing-3)]">
           <div className="flex items-center justify-between gap-[var(--vestara-spacing-2)]">
             <span className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
               SERVER CONFIG
             </span>
             <span className="flex items-center gap-[var(--vestara-spacing-1)]">
-              <span className="rounded-full border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)]">
-                {isLive ? 'LIVE' : 'SNAPSHOT'}
-              </span>
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)] hover:border-[var(--ds-border-strong)] hover:text-[var(--ds-text)]"
-              >
+              <PackageLiveBadge isLive={isLive} />
+              <PackageGhostButton label="Reload server configuration" onClick={() => void refetch()}>
                 Reload
-              </button>
+              </PackageGhostButton>
             </span>
           </div>
           <div className="mt-[var(--vestara-spacing-2)] text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--ds-text)]">
@@ -80,6 +118,8 @@ export function SettingsPackage() {
             </div>
           ) : null}
         </div>
+        ) : null}
+        {panels.appearance ? (
         <div className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] p-[var(--vestara-spacing-3)]">
           <div className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
             APPEARANCE · LIVE THEME
@@ -92,7 +132,7 @@ export function SettingsPackage() {
                   type="button"
                   onClick={() => setMode(entry)}
                   aria-pressed={mode === entry}
-                  className={`rounded-full border px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] ${
+                  className={`min-h-[28px] rounded-full border px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] ${
                     mode === entry
                       ? 'border-[var(--ds-accent)] bg-[var(--ds-accent-bg)] text-[var(--ds-accent)]'
                       : 'border-[var(--ds-border)] bg-[var(--ds-surface-bg)] text-[var(--ds-text-muted)]'
@@ -102,20 +142,35 @@ export function SettingsPackage() {
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)]">
-              Accent
-              <select
-                value={settings.colorTheme}
-                onChange={(event) => updateSetting('colorTheme', event.target.value as typeof settings.colorTheme)}
-                className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-1)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text)]"
-              >
-                {accents.map((accent) => (
-                  <option key={accent} value={accent}>
-                    {accent}
-                  </option>
-                ))}
-              </select>
-            </label>
+          </div>
+          <div className="mt-[var(--vestara-spacing-2)] flex flex-wrap gap-[var(--vestara-spacing-1)]" role="group" aria-label="Accent color">
+            {accents.map((accent) => {
+              const selected = settings.colorTheme === accent;
+              const palette = ACCENT_PALETTES[accent as keyof typeof ACCENT_PALETTES];
+              return (
+                <button
+                  key={accent}
+                  type="button"
+                  onClick={() => updateSetting('colorTheme', accent as typeof settings.colorTheme)}
+                  aria-pressed={selected}
+                  title={palette?.label ?? accent}
+                  className={`flex min-h-[28px] items-center gap-[var(--vestara-spacing-1)] rounded-full border px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] ${
+                    selected
+                      ? 'border-[var(--ds-accent)] bg-[var(--ds-accent-bg)] text-[var(--ds-accent)]'
+                      : 'border-[var(--ds-border)] bg-[var(--ds-surface-bg)] text-[var(--ds-text-muted)] hover:text-[var(--ds-text)]'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 rounded-full border border-[var(--ds-border)]"
+                    /* Token data, not a literal: preview dot resolves the
+                     * canonical accent hex from ACCENT_PALETTES (ui-tokens). */
+                    style={{ backgroundColor: palette?.hex ?? 'transparent' }}
+                  />
+                  {palette?.label ?? accent}
+                </button>
+              );
+            })}
           </div>
           <div className="mt-[var(--vestara-spacing-2)] flex flex-wrap gap-[var(--vestara-spacing-1)]">
             {settingsPackageFixture.topbarChips.map((chip) => (
@@ -128,6 +183,8 @@ export function SettingsPackage() {
             ))}
           </div>
         </div>
+        ) : null}
+        {panels.system ? (
         <div className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] p-[var(--vestara-spacing-3)]">
           <div className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-text-muted)]">
             SYSTEM MENU
@@ -140,6 +197,7 @@ export function SettingsPackage() {
             ))}
           </ul>
         </div>
+        ) : null}
       </div>
     </div>
   );

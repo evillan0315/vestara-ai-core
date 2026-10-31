@@ -16,8 +16,8 @@
  *   @see docs/plans/VES-UI-001-workspace-ui-v2-desktop-shell-plan.md §6
  */
 
+import { PackageGhostButton, PackageSubHeader } from './PackageChrome';
 import { useDiagnosticPackage } from './useDiagnosticPackage';
-import '../desktop-shell.tokens.css';
 
 function toneClass(status: string): string {
   const normalized = status.toLowerCase();
@@ -26,34 +26,44 @@ function toneClass(status: string): string {
   return 'text-[var(--ds-success)]';
 }
 
+function toneBadge(status: string): string {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('fail') || normalized.includes('error') || normalized.includes('critical'))
+    return 'border-[var(--ds-error)] bg-[var(--ds-error-bg)] text-[var(--ds-error)]';
+  if (normalized.includes('warn') || normalized.includes('degrad'))
+    return 'border-[var(--ds-warning)] bg-[var(--ds-warning-bg)] text-[var(--ds-warning)]';
+  return 'border-[var(--ds-success)] bg-[var(--ds-success-bg)] text-[var(--ds-success)]';
+}
+
+/** Threshold tone for a 0–100 gauge value. */
+function gaugeTone(value: number): string {
+  if (value >= 90) return 'text-[var(--ds-error)]';
+  if (value >= 70) return 'text-[var(--ds-warning)]';
+  return 'text-[var(--ds-text)]';
+}
+
 export function DiagnosticPackage() {
   const { summary, bars, isLoading, isLive, error, refetch } = useDiagnosticPackage();
+  const memoryPct = summary.memoryTotalGB > 0 ? Math.round((summary.memoryUsedGB / summary.memoryTotalGB) * 100) : 0;
   const stats = [
-    { id: 'cpu', label: 'CPU', value: `${summary.cpuUsage}%` },
-    { id: 'memory', label: 'MEMORY', value: `${summary.memoryUsedGB}/${summary.memoryTotalGB} GB` },
-    { id: 'readiness', label: 'READINESS', value: `${summary.readiness}%` },
+    { id: 'cpu', label: 'CPU', value: `${summary.cpuUsage}%`, tone: gaugeTone(summary.cpuUsage), progress: summary.cpuUsage },
+    { id: 'memory', label: 'MEMORY', value: `${summary.memoryUsedGB}/${summary.memoryTotalGB} GB`, tone: gaugeTone(memoryPct), progress: memoryPct },
+    { id: 'readiness', label: 'READINESS', value: `${summary.readiness}%`, tone: gaugeTone(100 - summary.readiness), progress: summary.readiness },
   ];
 
   return (
-    <div className="space-y-[var(--vestara-spacing-3)] p-[var(--vestara-spacing-4)]">
-      <div className="flex items-center justify-between gap-[var(--vestara-spacing-2)]">
-        <span className="text-[length:var(--vestara-font-size-xs)] tracking-[0.12em] text-[var(--ds-accent)]">
-          LIVE TELEMETRY · Diagnostic Center
-        </span>
-        <span className="flex items-center gap-[var(--vestara-spacing-1)]">
-          <span className="rounded-full border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)]">
-            {isLive ? 'LIVE' : 'SNAPSHOT'}
-          </span>
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-bg)] px-[var(--vestara-spacing-2)] py-px text-[length:var(--vestara-font-size-xs)] text-[var(--ds-text-secondary)] hover:border-[var(--ds-border-strong)] hover:text-[var(--ds-text)]"
-          >
-            Reload
-          </button>
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-[var(--vestara-spacing-2)]" aria-busy={isLoading}>
+    <div className="flex h-full min-h-[320px] flex-col">
+      <PackageSubHeader
+        eyebrow="LIVE TELEMETRY · Diagnostic Center"
+        isLive={isLive}
+        action={
+          <PackageGhostButton label="Reload diagnostic telemetry" onClick={() => void refetch()} disabled={isLoading}>
+            {isLoading ? 'Loading…' : 'Reload'}
+          </PackageGhostButton>
+        }
+      />
+      <div className="min-h-0 flex-1 space-y-[var(--vestara-spacing-3)] overflow-auto p-[var(--vestara-spacing-4)]">
+      <div className="ds-cards grid gap-[var(--vestara-spacing-2)]" aria-busy={isLoading}>
         {stats.map((stat) => (
           <div
             key={stat.id}
@@ -62,8 +72,22 @@ export function DiagnosticPackage() {
             <div className="text-[length:var(--vestara-font-size-xs)] tracking-[0.15em] text-[var(--ds-text-muted)]">
               {stat.label}
             </div>
-            <div className="text-[length:var(--vestara-font-size-sm)] font-medium tabular-nums text-[var(--ds-text)]">
+            <div className={`text-[length:var(--vestara-font-size-sm)] font-medium tabular-nums ${stat.tone}`}>
               {stat.value}
+            </div>
+            <div
+              role="progressbar"
+              aria-label={`${stat.label} ${stat.value}`}
+              aria-valuenow={Math.max(0, Math.min(100, Math.round(stat.progress)))}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-[var(--vestara-spacing-1)] h-1 overflow-hidden rounded-full bg-[var(--ds-surface-bg)]"
+            >
+              <div
+                className="h-full rounded-full bg-[var(--ds-accent)]"
+                /* Dynamic geometry (percent), not a visual literal. */
+                style={{ width: `${Math.max(0, Math.min(100, stat.progress))}%` }}
+              />
             </div>
           </div>
         ))}
@@ -85,10 +109,12 @@ export function DiagnosticPackage() {
         {summary.checks.map((check) => (
           <li
             key={check.id}
-            className="flex items-center justify-between rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)]"
+            className="flex items-center justify-between gap-[var(--vestara-spacing-2)] rounded-[var(--vestara-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-panel)] px-[var(--vestara-spacing-3)] py-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)]"
           >
             <span className="text-[var(--ds-text-secondary)]">{check.name}</span>
-            <span className={toneClass(check.status)}>{check.status}</span>
+            <span className={`rounded-full border px-[var(--vestara-spacing-2)] py-px ${toneBadge(check.status)}`}>
+              <span className={toneClass(check.status)}>{check.status}</span>
+            </span>
           </li>
         ))}
       </ul>
@@ -97,6 +123,7 @@ export function DiagnosticPackage() {
           Telemetry snapshot incomplete · {error}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

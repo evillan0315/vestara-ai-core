@@ -20,8 +20,10 @@ import {
   WINDOW_CASCADE_SLOTS,
   WINDOW_CASCADE_STEP,
   VestaraWindow,
+  cascadePlacementForType,
   cascadeWindowPlacement,
   clampWindowPosition,
+  packageDefaultSize,
 } from './VestaraWindow.js';
 import type { WinData } from './types.js';
 
@@ -81,10 +83,37 @@ describe('VestaraWindow chrome', () => {
     const status = screen.getByTestId('vestara-window-status-win-terminal');
     expect(status).toHaveClass('h-[var(--ds-statusbar-height)]');
     expect(screen.getByRole('dialog', { name: 'Terminal' })).toBeInTheDocument();
-    expect(screen.getByText('Shell session')).toBeInTheDocument();
-    expect(status).toHaveTextContent('640×360');
-    expect(status).toHaveTextContent('z:2');
+    expect(screen.getByTestId('vestara-window-header-win-terminal')).toHaveTextContent('Shell session');
+    // Status bar carries package-relevant status, never debug geometry.
+    expect(status).toHaveTextContent('Shell session');
+    expect(status).toHaveTextContent('Vestara Shell');
+    expect(status).not.toHaveTextContent('640×360');
+    expect(status).not.toHaveTextContent('z:2');
     expect(container.querySelector('.ds-window')).toBeInTheDocument();
+  });
+
+  it('renders a custom status line when statusText is provided', () => {
+    const { onFocus, onClose, onMinimize, onUpdate } = renderWindow();
+    void onFocus;
+    void onClose;
+    void onMinimize;
+    void onUpdate;
+    cleanup();
+    const view = render(
+      <VestaraWindow
+        data={{ ...BASE_WIN }}
+        isFocused
+        onFocus={() => {}}
+        onClose={() => {}}
+        onMinimize={() => {}}
+        onUpdate={() => {}}
+        statusText="LIVE · 3 sessions"
+      >
+        <div>body</div>
+      </VestaraWindow>,
+    );
+    expect(screen.getByTestId('vestara-window-status-win-terminal')).toHaveTextContent('LIVE · 3 sessions');
+    view.unmount();
   });
 
   it('returns null when minimized', () => {
@@ -291,8 +320,20 @@ describe('VestaraWindow deterministic placement', () => {
     });
   });
 
-  it('never consults Math.random during placement or interaction', () => {
-    const spy = vi.spyOn(Math, 'random');
+  it('resolves per-type default sizes from the package registry', () => {
+    expect(packageDefaultSize('activity')).toEqual({ w: 720, h: 480 });
+    expect(packageDefaultSize('terminal')).toEqual({ w: 640, h: 360 });
+    expect(packageDefaultSize('files')).toEqual({ w: 640, h: 400 });
+    expect(cascadePlacementForType('activity', 0)).toEqual({ x: 120, y: 60, w: 720, h: 480 });
+    expect(cascadePlacementForType('overview', 1)).toEqual({
+      x: 120 + WINDOW_CASCADE_STEP,
+      y: 60 + WINDOW_CASCADE_STEP,
+      w: 560,
+      h: 380,
+    });
+  });
+
+  it('never consults Math.random during placement or interaction', () => {    const spy = vi.spyOn(Math, 'random');
     cascadeWindowPlacement(3);
     clampWindowPosition(10, 10);
     const { onUpdate } = renderWindow();
